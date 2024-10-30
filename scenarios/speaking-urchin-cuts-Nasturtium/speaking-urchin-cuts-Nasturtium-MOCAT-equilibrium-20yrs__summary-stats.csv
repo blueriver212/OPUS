@@ -1,0 +1,12 @@
+type,max_value,time_of_max,location_of_max,avg_launch_rate,max_cagr,time_of_max_cagr,location_of_max_cagr,harmonic_mean_cagr
+D,1226.97,4,497.5,NA,Inf,1,217.5,-0.4
+N,999,1,847.5,NA,0.41,1,1232.5,-0.2
+S,2529,1,532.5,NA,-0,1,252.5,-0.01
+Su,943.61,17,252.5,NA,40.13,1,252.5,-17.26
+cost,1965005,0,707.5,NA,0,0,217.5,0
+gross.ror,0.44,4,497.5,NA,0.77,1,217.5,0.77
+lSlotted,471,1,532.5,16.96,0,1,532.5,0
+lUnslotted,503.11,7,287.5,13.8,Inf,1,252.5,Inf
+llCost,750000,0,707.5,541446.34,0,0,532.5,0
+risk.free.npv,1043080.73,3,497.5,NA,-0.62,1,497.5,-1.62
+skCost,134350.67,0,217.5,NA,0,0,217.5,0
