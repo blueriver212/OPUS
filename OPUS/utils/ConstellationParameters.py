@@ -48,8 +48,6 @@ class ConstellationParameters:
         self.lam = lam
         return self.lam
 
-        
-
     def constellation_buildup(self, location_index, final_size, linear_rate, Si):
         """
             Sets the launch rate for a gien constellation at a given location
@@ -66,4 +64,11 @@ class ConstellationParameters:
         remaining_size = max(final_size - current_size, 0)
 
         return min(remaining_size, linear_rate)
+    
+    def fringe_sat_pop_feedback_controller(self):
+        pass
+
+
+    def open_acces_solver():
+        pass
 

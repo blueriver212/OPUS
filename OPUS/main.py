@@ -37,17 +37,29 @@ def iam_solver(stem, model_type, launch_pattern_type, parameter_file, n_workers,
     # Initial Period Launch Rate
     lam = constellation_params.define_initial_launch_rate(MOCAT)
 
-    lam = constellation_params.fringe_sat_pop_feedback_controleer()
-    
+    lam = constellation_params.fringe_sat_pop_feedback_controller()
+
 
     # Fringe population automomous controller. 
-    # TODO profiles need to e created and tested. Code block describes intent for future development. 
-    
-    # Find sat-pop feedback controller
-    if launch_pattern_type == 'sat_feedback':
-        # Apply approximate replacement rate feedback rule for unslotted objects
-        lam[:, 1] = (1 / 5) * Sui * launch_mask
+    # TODO profiles need to e created and tested. Code block describes intent for future development.
+    Sui=None
+    launch_mask = np.ones((MOCAT.scenario_properties.n_shells, 1))
+    if launch_pattern_type == "equilibrium":
+        solver_guess = 0.05 * Sui * launch_mask
+        lam[:, 1] = solver_guess  # Unslotted objects -- 5% feedback rule
 
+        tspan = np.linspace(0, 10, MOCAT.scenario_properties.steps)
+
+        # This will return each of the species defined and their starting population. 
+        OUT = MOCAT4S(tspan, x0, lam, VAR)
+
+        # Uncomment to check economic values (if these functions are implemented)
+        # ror = fringeRateOfReturn("linear", econ_params, OUT, location_indices, launch_mask)
+        # collision_probability = [calculateCollisionProbability_MOCAT4S(OUT, VAR, i) for i in range(VAR['N_shell'])]
+
+        # Solve for equilibrium launch rates
+        lam[:, 1] = openAccessSolver(solver_guess, launch_mask, "MOCAT", VAR, x0, "linear", econ_params, lam[:, 0], n_workers)
+       
 if __name__ == "__main__":
     # Behavior types
     launch_pattern_type_equilibrium="equilibrium"
