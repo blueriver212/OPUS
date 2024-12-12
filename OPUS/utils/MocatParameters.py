@@ -1,5 +1,6 @@
 from pyssem.model import Model # mocat-ssem
 import json 
+import numpy as np
 
 def configure_mocat(MOCAT_config: json):
     """
@@ -35,7 +36,9 @@ def configure_mocat(MOCAT_config: json):
     species = MOCAT_config["species"]
 
     MOCAT.configure_species(species)
-    MOCAT.scenario_properties.initial_pop_and_launch(baseline=True) # complete just the initial population as baseline = True
+    MOCAT.calculate_collisions()
+    MOCAT.initial_population() 
+    MOCAT.build_model()
 
     print("You have these species in the model: ", MOCAT.scenario_properties.species_names)
     return MOCAT
