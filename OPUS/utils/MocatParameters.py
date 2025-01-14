@@ -2,7 +2,7 @@ from pyssem.model import Model # mocat-ssem
 import json 
 import numpy as np
 
-def configure_mocat(MOCAT_config: json):
+def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
     """
         Configure's MOCAT-pySSEM model with a provided input json. 
         To find a correct configuration, please refer to the MOCAT documentation. https://github.com/ARCLab-MIT/pyssem/
@@ -30,13 +30,14 @@ def configure_mocat(MOCAT_config: json):
         v_imp = scenario_props.get("v_imp", None),
         fragment_spreading=scenario_props.get("fragment_spreading", True),
         parallel_processing=scenario_props.get("parallel_processing", False),
-        baseline=scenario_props.get("baseline", False)
+        baseline=scenario_props.get("baseline", False),
+        indicator_variables=scenario_props.get("indicator_variables", False),
     )
 
     species = MOCAT_config["species"]
 
     MOCAT.configure_species(species)
-    MOCAT.calculate_collisions()
+    MOCAT.opus_active_loss_setup(fringe_satellite)
     MOCAT.initial_population() 
     MOCAT.build_model()
 

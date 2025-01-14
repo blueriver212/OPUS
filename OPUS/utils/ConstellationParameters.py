@@ -10,13 +10,12 @@ class ConstellationParameters:
 
         # Initialise the parameters
         self.n_constellations = int(df['n_constellations'][0])
-        self.location_index = df['location_indices'].tolist()
         self.final_size = df['target_sizes'].tolist()
         self.linear_rate = df['max_launch_rates'].tolist()
         self.mocat_species = df['mocat_species'].to_string()
         self.altitude = df['altitude'].tolist()
 
-    def define_initial_launch_rate(self, MOCAT, sats_idx):
+    def define_initial_launch_rate(self, MOCAT, sats_idx, x0):
         """
             Defines the initial launch rate for a given constellation.
             This takes the x0 of the model and the mocat_species defined for the constellation by the user. 
@@ -26,7 +25,6 @@ class ConstellationParameters:
                 sats_idx (int): The index of the species
         """
 
-        x0 = MOCAT.scenario_properties.x0.T.values.flatten() # x0 starts off in a df format. 
         # The old version assumed that there was always one species of satellite in the model. 
         # Now the species name must be used to find the initial population of slotted objects. This will need to change
         
@@ -82,12 +80,3 @@ class ConstellationParameters:
         remaining_size = max(final_size - current_size, 0)
 
         return min(remaining_size, linear_rate)
-        
-
-    def fringe_sat_pop_feedback_controller():
-        pass
-
-
-    def open_acces_solver():
-        pass
-
