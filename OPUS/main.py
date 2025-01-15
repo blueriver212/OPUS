@@ -76,17 +76,13 @@ class IAMSolver:
 
         if launch_pattern_type == "equilibrium":
             fringe = x0[fringe_start_slice:fringe_end_slice]
-            solver_guess = 0.05 * np.array(fringe) #* launch_mask
-            
+            solver_guess = 0.05 * np.array(fringe)  # * launch_mask
+
             for idx in range(len(fringe)):
-                lam[fringe_idx * n_shells + idx] = [solver_guess[idx]]
+                lam[fringe_idx * MOCAT.scenario_properties.n_shells + idx] = solver_guess[idx]
 
-            count = 0
-            for i in lam:
-                if i is not None:
-                    count += sum(i)  # Sum the elements inside the list
-
-            print(count)
+            lam_ = [0 if v is None else v for v in lam]
+            print(np.sum(lam_))
 
             # Solve for equilibrium launch rates
             open_access = OpenAccessSolver(MOCAT, solver_guess, launch_mask, x0, "linear", 
@@ -99,7 +95,6 @@ class IAMSolver:
                 lam[i] = [launch_rate[i - fringe_idx * MOCAT.scenario_properties.n_shells]]
             
             print(launch_rate)
-
 
         # Now we have the main iteration loop.
         model_horizon = MOCAT.scenario_properties.simulation_duration
