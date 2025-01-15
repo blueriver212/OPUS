@@ -44,19 +44,19 @@ class OpenAccessSolver:
         # Calculate excess returns
         lam = self.lam
 
-        total = 0
-        for i in lam:
-            if i is not None:
-                total += sum(i)
+        # total = 0
+        # for i in lam:
+        #     if i is not None:
+        #         total += sum(i)
         
-        print("Total launches: ", total)
+        # print("Total launches: ", total)
 
-        total = 0
-        for i in lam:
-            if i is not None:
-                total += sum(i)
+        # total = 0
+        # for i in lam:
+        #     if i is not None:
+        #         total += sum(i)
         
-        print("Total launches after: ", total)
+        # print("Total launches after: ", total)
 
         # fringe_launches = self.fringe_launches # This will be the first guess by the model 
         state_next_path = self.MOCAT.propagate(self.tspan, self.x0, lam)
@@ -65,19 +65,19 @@ class OpenAccessSolver:
         state_next = state_next_path[-1, :]
         self.current_environment = state_next
 
-        difference = state_next - self.x0
+        # difference = state_next - self.x0
 
         # Split the difference into 4 species: S, Su, N, D
         # Extract values from lam, replacing None with 0
-        lam_values = [item[0] if item is not None and item[0] is not None else 0 for item in lam]
+        # lam_values = [item[0] if item is not None and item[0] is not None else 0 for item in lam]
 
-        # Split the difference and lam into 4 species: S, Su, N, D
-        species = ["S", "Su", "N", "D"]
-        difference_species_data = [difference[i * 10:(i + 1) * 10] for i in range(4)]
-        lam_species_data = [lam_values[i * 10:(i + 1) * 10] for i in range(4)]
+        # # Split the difference and lam into 4 species: S, Su, N, D
+        # species = self.MOCAT.scenario_properties.species_names
+        # difference_species_data = [difference[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] for i in range(len(species))]
+        # lam_species_data = [lam_values[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] for i in range(len(species))]
 
         # # Create a 2x2 subplot for the 4 species
-        # fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        # fig, axes = plt.subplots(2, 2, figsize=(12, self.MOCAT.scenario_properties.n_shells))
 
         # for i, ax in enumerate(axes.flat):
         #     # Plot the difference as bars
@@ -97,24 +97,15 @@ class OpenAccessSolver:
         # Calculate the probability of collision based on the new positions
         collision_probability = self.calculate_probability_of_collision(state_next)
 
-        # Testing
-        collision_probability = collision_probability * 107012
-
         rate_of_return = self.fringe_rate_of_return(state_next)
 
         # Calculate the excess rate of return
-        excess_returns = 100 * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
+        excess_returns = self.MOCAT.scenario_properties.n_shells * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
 
-        # create bar chart of excess returns and savefig
-
-        # plt.figure(figsize=(10, 6))
-        # plt.bar(range(len(excess_returns)), excess_returns, tick_label=[f"Value {i+1}" for i in range(len(excess_returns))])
-        # plt.xlabel("Index")
-        # plt.ylabel("Value")
-        # plt.title("Bar Plot of Excess Returns")
-        # plt.xticks(rotation=45)
-        # plt.tight_layout()
-        # plt.savefig("excess_returns.png")
+        # Bar Charts
+        create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
+        create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
+        create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
 
         return excess_returns
 
@@ -130,7 +121,7 @@ class OpenAccessSolver:
         # 1 - exp(evaluated_values_flat) # Probability of collision?
 
         # # Create a bar plot for `evaluated_value`
-        # plt.figure(figsize=(10, 6))
+        # plt.figure(figsize= self.MOCAT.scenario_properties.n_shells, 6))
         # plt.bar(range(len(evaluated_value_flat)), evaluated_value_flat, tick_label=[f"Value {i+1}" for i in range(len(evaluated_value_flat))])
         # plt.xlabel("Index")
         # plt.ylabel("Value")
@@ -196,7 +187,7 @@ class OpenAccessSolver:
 
         # Define solver options
         solver_options = {
-            'method': 'trf',  #  Trust Region Reflective algorithm
+            'method': 'lm',  #  Trust Region Reflective algorithm = trf
             'verbose': 2 if self.n_workers == 1 else 0  # Show output if not parallelized
         }
 
@@ -204,7 +195,7 @@ class OpenAccessSolver:
         result = least_squares(
             fun=lambda launches: self.excess_return_calculator(launches),
             x0=launch_rate_init,
-            bounds=(lower_bound, np.inf),  # No upper bound
+            # bounds=(lower_bound, np.inf),  # No upper bound
             **solver_options
         )
 
@@ -241,13 +232,28 @@ class OpenAccessSolver:
         rate_of_return = self.fringe_rate_of_return(state_next)
 
         # Calculate the excess rate of return
-        excess_returns = 100 * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
+        excess_returns = self.MOCAT.scenario_properties.n_shells0 * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
 
         # Initial guess of fringe satellites
         fringe_initial_guess = np.zeros_like(self.x0)
         fringe_initial_guess = excess_returns * self.launch_mask
 
+        # Create Bar charts for collision, probability, rate_of_return and excess_returns
+        create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
+        create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
+        create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
+
         return fringe_initial_guess 
 
 
-
+def create_bar_chart(data, title, xlabel, ylabel, filename):
+    plt.figure(figsize=(8, 6))
+    plt.bar(range(len(data)), data, color='blue', alpha=0.7)
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.xticks(range(len(data)))
+    plt.tight_layout()
+    plt.savefig(f"figures/{filename}")
+    plt.close()
+    print(f"{title} bar chart saved as {filename}")
