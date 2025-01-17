@@ -25,25 +25,27 @@ class IAMSolver:
         print(MOCAT.scenario_properties.x0)
 
         # # # # This is just the x0 from MATLAB for testing purposes. Will be removed in final version
-        data = [
-            0, 4, 4, 64, 231, 28, 35, 41, 37, 2529, 208, 36, 14, 2, 14, 28, 113, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 283, 91, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 1, 2, 2, 1, 1, 1, 5, 7, 2, 6, 11, 12, 6, 4, 3, 3, 3, 5, 0, 5, 0, 3, 0, 2, 15, 2, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 2, 1, 25, 16, 27, 34,
-            46, 88, 120, 169, 97, 136, 232, 246, 290, 379, 537, 686, 909, 942, 999, 751, 562, 363, 396, 259, 229, 158, 164, 121, 78, 81, 185, 85, 60, 76, 78, 81, 102, 126, 95, 79,
-            1, 1, 6, 19, 28, 121, 159, 233, 530, 334, 187, 187, 151, 77, 111, 53, 139, 91, 74, 31, 61, 63, 173, 18, 26, 53, 12, 6, 23, 4, 1, 6, 8, 11, 190, 173, 198, 59, 12, 9
-        ]
+        # data = [
+        #     0, 4, 4, 64, 231, 28, 35, 41, 37, 2529, 208, 36, 14, 2, 14, 28, 113, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 283, 91, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        #     0, 1, 2, 2, 1, 1, 1, 5, 7, 2, 6, 11, 12, 6, 4, 3, 3, 3, 5, 0, 5, 0, 3, 0, 2, 15, 2, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 2, 1, 25, 16, 27, 34,
+        #     46, 88, 120, 169, 97, 136, 232, 246, 290, 379, 537, 686, 909, 942, 999, 751, 562, 363, 396, 259, 229, 158, 164, 121, 78, 81, 185, 85, 60, 76, 78, 81, 102, 126, 95, 79,
+        #     1, 1, 6, 19, 28, 121, 159, 233, 530, 334, 187, 187, 151, 77, 111, 53, 139, 91, 74, 31, 61, 63, 173, 18, 26, 53, 12, 6, 23, 4, 1, 6, 8, 11, 190, 173, 198, 59, 12, 9
+        # ]
 
-        S = data[0:40]
-        D = data[40:80]
-        N = data[80:120]
-        Su = data[120:160]
+        # S = data[0:40]
+        # D = data[40:80]
+        # N = data[80:120]
+        # Su = data[120:160]
 
-        MOCAT.scenario_properties.x0 = np.array([S, Su, N, D]).flatten()
-        x0 = MOCAT.scenario_properties.x0
+        # MOCAT.scenario_properties.x0 = np.array([S, Su, N, D]).flatten()
+        # x0 = MOCAT.scenario_properties.x0
 
         # If testing using MOCAT x0 use:
-        # x0 = MOCAT.scenario_properties.x0.T.values.flatten()
+        x0 = MOCAT.scenario_properties.x0.T.values.flatten()
 
-        sats_idx = MOCAT.scenario_properties.species_names.index(constellation_sats)
+        constellation_sats_idx = MOCAT.scenario_properties.species_names.index(constellation_sats)
+        constellation_start_slice = (constellation_sats_idx * MOCAT.scenario_properties.n_shells)
+        constellation_end_slice = constellation_start_slice + MOCAT.scenario_properties.n_shells
         fringe_idx = MOCAT.scenario_properties.species_names.index(fringe_sats)
         fringe_start_slice = (fringe_idx * MOCAT.scenario_properties.n_shells)
         fringe_end_slice = fringe_start_slice + MOCAT.scenario_properties.n_shells
@@ -65,21 +67,16 @@ class IAMSolver:
 
         # Initial Period Launch Rate
         constellation_params = ConstellationParameters('scenarios\parsets\constellation-parameters.csv')
-        lam = constellation_params.define_initial_launch_rate(MOCAT, sats_idx, x0)
+        lam = constellation_params.define_initial_launch_rate(MOCAT, constellation_start_slice, constellation_end_slice, x0)
         # lam = constellation_params.fringe_sat_pop_feedback_controller()
 
         # Fringe population automomous controller. 
         launch_mask = np.ones((MOCAT.scenario_properties.n_shells,))
 
-        species = MOCAT.scenario_properties.species_names
-        n_shells = MOCAT.scenario_properties.n_shells
-
         if launch_pattern_type == "equilibrium":
-            fringe = x0[fringe_start_slice:fringe_end_slice]
-            solver_guess = 0.05 * np.array(fringe)  # * launch_mask
-
-            for idx in range(len(fringe)):
-                lam[fringe_idx * MOCAT.scenario_properties.n_shells + idx] = solver_guess[idx]
+            # Solver guess is 5% of the current fringe satellites. Update The launch file.
+            solver_guess = 0.05 * np.array(x0[fringe_start_slice:fringe_end_slice]) * launch_mask
+            lam[fringe_start_slice:fringe_end_slice] = solver_guess
 
             lam_ = [0 if v is None else v for v in lam]
             print(np.sum(lam_))
@@ -91,8 +88,7 @@ class IAMSolver:
             # This is now your estimate for the number of fringe satellites that should be launched.
             launch_rate = open_access.solver()
 
-            for i in range(fringe_idx * MOCAT.scenario_properties.n_shells, (fringe_idx + 1) * MOCAT.scenario_properties.n_shells):
-                lam[i] = [launch_rate[i - fringe_idx * MOCAT.scenario_properties.n_shells]]
+            lam[fringe_start_slice:fringe_end_slice] = launch_rate
             
             print(launch_rate)
 
@@ -103,7 +99,7 @@ class IAMSolver:
         current_environment = x0 # Starts as initial population, and is in then updated. 
         dt = 5
 
-        species_data = {sp: np.zeros((MOCAT.scenario_properties.simulation_duration, MOCAT.scenario_properties.n_shells)) for sp in species}
+        species_data = {sp: np.zeros((MOCAT.scenario_properties.simulation_duration, MOCAT.scenario_properties.n_shells)) for sp in MOCAT.scenario_properties.species_names}
 
         for time_idx in tf:
 
@@ -119,12 +115,15 @@ class IAMSolver:
             propagated_environment = MOCAT.propagate(tspan, current_environment, lam)
             propagated_environment = propagated_environment[-1, :]  # take the final list 
             
-            # Update the constellation satellites for the next period - should only be 5%
-            for i in range(sats_idx * MOCAT.scenario_properties.n_shells, (sats_idx + 1) * MOCAT.scenario_properties.n_shells):
-                lam[i] = [propagated_environment[i] * (1 / dt)] 
-            
+            # Update the constellation satellites for the next period - should only be 5%.
+            for i in range(constellation_start_slice, constellation_end_slice):
+                if lam[i] is not None:
+                    lam[i] = lam[i] * 0.05
+
+            #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
+        
             # Record propagated environment data
-            for i, sp in enumerate(species):
+            for i, sp in enumerate(MOCAT.scenario_properties.species_names):
                 # 0 based index 
                 species_data[sp][time_idx - 1] = propagated_environment[i * MOCAT.scenario_properties.n_shells:(i + 1) * MOCAT.scenario_properties.n_shells]
 
@@ -143,17 +142,8 @@ class IAMSolver:
                 ror = open_access.fringe_rate_of_return(propagated_environment)
                 collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
 
-                # Extract the relevant slice from lam
-                lam_slice = lam[fringe_start_slice:fringe_end_slice]
-
-                # Flatten the lam_slice to get a list of values
-                lam_values = [item[0] for item in lam_slice]
-
-                # Convert to numpy array for element-wise operations
-                lam_values = np.array(lam_values)
-
                 # Calculate solver_guess
-                solver_guess = lam_values - lam_values * (ror - collision_probability) * launch_mask
+                solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
 
                 open_access = OpenAccessSolver(
                     MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
@@ -163,8 +153,7 @@ class IAMSolver:
                 launch_rate = open_access.solver()
 
                 # Update the initial conditions for the next period
-                for i in range(fringe_idx * MOCAT.scenario_properties.n_shells, (fringe_idx + 1) * MOCAT.scenario_properties.n_shells):
-                    lam[i] = [launch_rate[i - fringe_idx * MOCAT.scenario_properties.n_shells]]
+                lam[fringe_start_slice:fringe_end_slice] = launch_rate
 
                 elapsed_time = time.time() - start_time
                 print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')

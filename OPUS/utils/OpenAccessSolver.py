@@ -3,7 +3,10 @@ from scipy.optimize import least_squares
 import sympy as sp
 from concurrent.futures import ProcessPoolExecutor
 from pyssem.model import Model
+from scipy.optimize import least_squares
+from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 class OpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
@@ -42,24 +45,10 @@ class OpenAccessSolver:
         """
         
         # Calculate excess returns
-        lam = self.lam
-
-        # total = 0
-        # for i in lam:
-        #     if i is not None:
-        #         total += sum(i)
-        
-        # print("Total launches: ", total)
-
-        # total = 0
-        # for i in lam:
-        #     if i is not None:
-        #         total += sum(i)
-        
-        # print("Total launches after: ", total)
+        self.lam[self.fringe_start_slice:self.fringe_end_slice] = launches
 
         # fringe_launches = self.fringe_launches # This will be the first guess by the model 
-        state_next_path = self.MOCAT.propagate(self.tspan, self.x0, lam)
+        state_next_path = self.MOCAT.propagate(self.tspan, self.x0, self.lam)
 
         # gets the final output and update the current environment matrix
         state_next = state_next_path[-1, :]
@@ -162,9 +151,6 @@ class OpenAccessSolver:
 
         return rate_of_return
     
-    def solve(self):
-        return self.excess_return_calculator(self.state_matrix, self.lam)
-
         
     def solver(self):
         """
@@ -187,7 +173,7 @@ class OpenAccessSolver:
 
         # Define solver options
         solver_options = {
-            'method': 'lm',  #  Trust Region Reflective algorithm = trf
+            'method': 'trf',  #  Trust Region Reflective algorithm = trf
             'verbose': 2 if self.n_workers == 1 else 0  # Show output if not parallelized
         }
 
@@ -195,7 +181,7 @@ class OpenAccessSolver:
         result = least_squares(
             fun=lambda launches: self.excess_return_calculator(launches),
             x0=launch_rate_init,
-            # bounds=(lower_bound, np.inf),  # No upper bound
+            bounds=(lower_bound, np.inf),  # No upper bound
             **solver_options
         )
 
@@ -203,6 +189,41 @@ class OpenAccessSolver:
         launch_rate = result.x
 
         return launch_rate
+    
+    # def excess_return_parallel(self, launches):
+    #     """
+    #     Parallelized version of the excessReturnCalculator.
+    #     """
+    #     results = Parallel(n_jobs=4)(
+    #         delayed(self.excess_return_calculator)(launches)
+    #     )
+    #     return results  # Combine the results into a single array
+
+    # def solver(self):
+    #     """
+    #     Solve for open-access launch rates.
+    #     """
+    #     # Apply the launch mask
+    #     launch_rate_init = self.solver_guess * self.launch_mask
+    #     lower_bound = np.zeros_like(launch_rate_init)  # Lower bound is zero
+
+    #     # Define solver options
+    #     solver_options = {
+    #         'method': 'trf',  # Trust Region Reflective algorithm
+    #         'verbose': 2  # Display iteration info
+    #     }
+
+    #     # Solve using least_squares with parallelized objective function
+    #     result = least_squares(
+    #         fun=lambda launches: self.excess_return_parallel(launches),
+    #         x0=launch_rate_init,
+    #         bounds=(lower_bound, np.inf),  # No upper bound
+    #         **solver_options
+    #     )
+
+    #     # Extract the launch rate from the solver result
+    #     launch_rate = result.x
+    #     return launch_rate
     
     def find_initial_guess(self):
         """

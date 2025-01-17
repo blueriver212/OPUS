@@ -99,11 +99,11 @@ class EconParameters:
         lifetime_loss = (self.sat_lifetime - lifetime_after_deorbit) / self.sat_lifetime
 
         # Cost function compilation
-        total_lift_price = self.lift_price * 223 # this is mass and hard coded
+        total_lift_price = self.lift_price * 223 # this is mass and hard coded, needs to be fixed
         lifetime_loss_cost = lifetime_loss * self.intercept
         deorbit_maneuver_cost = total_deorbit_delta_v * self.delta_v_cost
         stationkeeping_cost = delta_v_budget * self.delta_v_cost
-        cost = (total_lift_price + stationkeeping_cost + lifetime_loss_cost * (1 - 0)).tolist() # should be mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
+        cost = (total_lift_price + stationkeeping_cost + lifetime_loss_cost + deorbit_maneuver_cost * (1 - 0)).tolist() # should be mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
         
         self.cost = cost
         self.total_lift_price = total_lift_price
