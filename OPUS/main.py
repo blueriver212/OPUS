@@ -13,18 +13,10 @@ class IAMSolver:
 
     def __init__(self):
         self.output = None
+        self.MOCAT = None
 
-    def iam_solver(self, scenario_name, MOCAT_config):
-        # Load mocat-pyssem model
-        # There needs to be a way of defining which are your constellation satellites, and which are your fringe satellites.
-        constellation_sats = "S"
-        fringe_sats = "Su"
-
-        MOCAT = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
-        print(MOCAT.scenario_properties.x0)
-
-        # If testing using MOCAT x0 use:
-        x0 = MOCAT.scenario_properties.x0.T.values.flatten()
+    @staticmethod
+    def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats):
 
         constellation_sats_idx = MOCAT.scenario_properties.species_names.index(constellation_sats)
         constellation_start_slice = (constellation_sats_idx * MOCAT.scenario_properties.n_shells)
@@ -32,47 +24,59 @@ class IAMSolver:
         fringe_idx = MOCAT.scenario_properties.species_names.index(fringe_sats)
         fringe_start_slice = (fringe_idx * MOCAT.scenario_properties.n_shells)
         fringe_end_slice = fringe_start_slice + MOCAT.scenario_properties.n_shells
+
+        return constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice
+
+    def iam_solver(self, scenario_name, MOCAT_config):
+        # Load mocat-pyssem model
+        # There needs to be a way of defining which are your constellation satellites, and which are your fringe satellites.
+        constellation_sats = "S"
+        fringe_sats = "Su"
+
+        # Only configure the MOCAT model once.
+        if self.MOCAT is None:
+            self.MOCAT = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
+            print(self.MOCAT.scenario_properties.x0)
+
+        # If testing using MOCAT x0 use:
+        x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
+
+        constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats)
     
-        # Build the cost function using the MOCAT model. 
+        # Build the cost function using the MOCAT model - then configure parameters from a configation file.
         econ_params = EconParameters()
-        econ_params.calculate_cost_fn_parameters(mocat=MOCAT)
+        econ_params.calculate_cost_fn_parameters(mocat=self.MOCAT)
         if scenario_name != "Baseline":
             econ_params.modify_params_for_simulation(scenario_name)
 
         # Initial Period Launch Rate
         constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
-        lam = constellation_params.define_initial_launch_rate(MOCAT, constellation_start_slice, constellation_end_slice, x0)
+        lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
         # lam = constellation_params.fringe_sat_pop_feedback_controller()
 
         # Fringe population automomous controller. 
-        launch_mask = np.ones((MOCAT.scenario_properties.n_shells,))
+        launch_mask = np.ones((self.MOCAT.scenario_properties.n_shells,))
 
         # Solver guess is 5% of the current fringe satellites. Update The launch file.
         solver_guess = 0.05 * np.array(x0[fringe_start_slice:fringe_end_slice]) * launch_mask
         lam[fringe_start_slice:fringe_end_slice] = solver_guess
 
-        lam_ = [0 if v is None else v for v in lam]
-        print(np.sum(lam_))
-
         # Solve for equilibrium launch rates
-        open_access = OpenAccessSolver(MOCAT, solver_guess, launch_mask, x0, "linear", 
+        open_access = OpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", 
                                     econ_params, lam, fringe_start_slice, fringe_end_slice)
 
         # This is now your estimate for the number of fringe satellites that should be launched.
         launch_rate = open_access.solver()
-
         lam[fringe_start_slice:fringe_end_slice] = launch_rate
         
-        print(launch_rate)
-
         # Now we have the main iteration loop.
-        model_horizon = MOCAT.scenario_properties.simulation_duration
+        model_horizon = self.MOCAT.scenario_properties.simulation_duration
         tf = np.arange(1, model_horizon + 1) 
 
         current_environment = x0 # Starts as initial population, and is in then updated. 
         dt = 5
 
-        species_data = {sp: np.zeros((MOCAT.scenario_properties.simulation_duration, MOCAT.scenario_properties.n_shells)) for sp in MOCAT.scenario_properties.species_names}
+        species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
 
         for time_idx in tf:
 
@@ -85,7 +89,7 @@ class IAMSolver:
             fringe_initial_guess = None
 
             # Propagate the model and take the final state of the environment
-            propagated_environment = MOCAT.propagate(tspan, current_environment, lam)
+            propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam)
             propagated_environment = propagated_environment[-1, :] 
             
             # Update the constellation satellites for the next period - should only be 5%.
@@ -96,16 +100,16 @@ class IAMSolver:
             #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
         
             # Record propagated environment data
-            for i, sp in enumerate(MOCAT.scenario_properties.species_names):
+            for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
-                species_data[sp][time_idx - 1] = propagated_environment[i * MOCAT.scenario_properties.n_shells:(i + 1) * MOCAT.scenario_properties.n_shells]
+                species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
             start_time = time.time()
             print(f"Now starting period {time_idx}...")
 
             open_access = OpenAccessSolver(
-                MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
+                self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
                 econ_params, lam, fringe_start_slice, fringe_end_slice)
             
             ror = open_access.fringe_rate_of_return(propagated_environment)
@@ -115,7 +119,7 @@ class IAMSolver:
             solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
 
             open_access = OpenAccessSolver(
-                MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
+                self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
                 econ_params, lam, fringe_start_slice, fringe_end_slice)
 
             # Solve for equilibrium launch rates
@@ -141,8 +145,7 @@ class IAMSolver:
 
         print("species_data has been exported to species_data.json")
 
-    
-       
+
 if __name__ == "__main__":
     ####################
     ### 2. SCENARIO DEFINITIONS
@@ -157,10 +160,9 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
+    iam_solver = IAMSolver()
     for scenario_name in scenario_files:
         # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver = IAMSolver()
-
         iam_solver.iam_solver(scenario_name, MOCAT_config)
 
 
