@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 class OpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
-                 econ_params, lam, n_workers, fringe_start_slice, fringe_end_slice):
+                 econ_params, lam, fringe_start_slice, fringe_end_slice):
         """
         Initialize the OpenAccessSolver.
 
@@ -31,7 +31,6 @@ class OpenAccessSolver:
         self.lam = lam
         self.fringe_start_slice = fringe_start_slice
         self.fringe_end_slice = fringe_end_slice
-        self.n_workers = n_workers
         self.tspan = np.linspace(0, 1, 2)
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
@@ -92,9 +91,9 @@ class OpenAccessSolver:
         excess_returns = self.MOCAT.scenario_properties.n_shells * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
 
         # Bar Charts
-        create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
-        create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
-        create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
+        # create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
+        # create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
+        # create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
 
         return excess_returns
 
@@ -174,7 +173,7 @@ class OpenAccessSolver:
         # Define solver options
         solver_options = {
             'method': 'trf',  #  Trust Region Reflective algorithm = trf
-            'verbose': 2 if self.n_workers == 1 else 0  # Show output if not parallelized
+            'verbose': 0  # Show output if not parallelized
         }
 
         # Solve the system of equations
@@ -189,42 +188,7 @@ class OpenAccessSolver:
         launch_rate = result.x
 
         return launch_rate
-    
-    # def excess_return_parallel(self, launches):
-    #     """
-    #     Parallelized version of the excessReturnCalculator.
-    #     """
-    #     results = Parallel(n_jobs=4)(
-    #         delayed(self.excess_return_calculator)(launches)
-    #     )
-    #     return results  # Combine the results into a single array
-
-    # def solver(self):
-    #     """
-    #     Solve for open-access launch rates.
-    #     """
-    #     # Apply the launch mask
-    #     launch_rate_init = self.solver_guess * self.launch_mask
-    #     lower_bound = np.zeros_like(launch_rate_init)  # Lower bound is zero
-
-    #     # Define solver options
-    #     solver_options = {
-    #         'method': 'trf',  # Trust Region Reflective algorithm
-    #         'verbose': 2  # Display iteration info
-    #     }
-
-    #     # Solve using least_squares with parallelized objective function
-    #     result = least_squares(
-    #         fun=lambda launches: self.excess_return_parallel(launches),
-    #         x0=launch_rate_init,
-    #         bounds=(lower_bound, np.inf),  # No upper bound
-    #         **solver_options
-    #     )
-
-    #     # Extract the launch rate from the solver result
-    #     launch_rate = result.x
-    #     return launch_rate
-    
+        
     def find_initial_guess(self):
         """
             This function will estimate the first round of the fringe satellites that should be launched.
@@ -260,9 +224,9 @@ class OpenAccessSolver:
         fringe_initial_guess = excess_returns * self.launch_mask
 
         # Create Bar charts for collision, probability, rate_of_return and excess_returns
-        create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
-        create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
-        create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
+        # create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
+        # create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
+        # create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
 
         return fringe_initial_guess 
 

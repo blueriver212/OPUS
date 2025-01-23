@@ -12,11 +12,11 @@
         "max_altitude": 1600,
         "min_altitude": 200,
         "n_shells": 10,
-        "simulation_duration": 30,
+        "simulation_duration": 20,
         "start_date": "01/02/2024",
         "steps": 10,
         "v_imp": 10, 
-        "baseline": false,
+        "baseline": true,
         "fragment_spreading": true, 
         "parallel_processing": true,
         "indicator_variables" : ["active_loss_per_species"]

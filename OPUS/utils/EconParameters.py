@@ -1,6 +1,8 @@
 import numpy as np
 from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
+import pandas as pd
+
 class EconParameters:
     """
     Class to build satellite cost using physcial and economic parameters
@@ -27,8 +29,7 @@ class EconParameters:
         self.coef = 1.0e2       # [$/satellite/year]
         self.tax = 0.0          # [%] tax rate on shell-specific pc
 
-        # Cost for a single satellite to use any shell [$]
-        
+        ## Cost for a single satellite to use any shell [$]
         # Cost of delta-v [$/km/s]
         self.delta_v_cost = 1000
 
@@ -112,3 +113,30 @@ class EconParameters:
         self.lifetime_loss_cost = lifetime_loss_cost
         self.v_drag = v_drag
         self.k_star = k_star 
+
+    def modify_params_for_simulation(self, configuration):
+        """
+            This will modify the paramers for VAR and econ_parameters based on an input csv file. 
+        """
+
+        # read the csv file - must be in the configuration folder
+        path = f"./OPUS/configuration/{configuration}.csv"
+
+        # read the csv file
+        parameters = pd.read_csv(path)
+        
+        for i, row in parameters.iterrows():
+            parameter_type = row['parameter_type']
+            parameter_name = row['parameter_name']
+            parameter_value = row['parameter_value']
+
+            # Modify the value based on parameter_type
+            if parameter_type == 'econ':
+                # If the field exists in the class, update its value
+                if hasattr(self, parameter_name):
+                    setattr(self, parameter_name, parameter_value)
+            else:
+                print(f'Warning: Unknown parameter_type: {parameter_type}')
+
+
+
