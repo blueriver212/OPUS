@@ -2,6 +2,8 @@ from utils.ConstellationParameters import ConstellationParameters
 from utils.EconParameters import EconParameters
 from utils.MocatParameters import configure_mocat   
 from utils.OpenAccessSolver import OpenAccessSolver
+from utils.PostProcessing import PostProcessing
+from utils.PlotHandler import PlotHandler
 import pickle
 import os
 import json
@@ -17,6 +19,17 @@ class IAMSolver:
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats):
+        """
+            The MOCAT model works on arrays that are the number of shells x number of species.
+            Often throughout the model, we see the original list being spliced. 
+            This function returns the start and end slice of the species in the array.
+
+            Inputs:
+                MOCAT: The MOCAT model
+                constellation_sats: The name of the constellation satellites
+                fringe_sats: The name of the fringe satellites
+        """
+
 
         constellation_sats_idx = MOCAT.scenario_properties.species_names.index(constellation_sats)
         constellation_start_slice = (constellation_sats_idx * MOCAT.scenario_properties.n_shells)
@@ -27,9 +40,11 @@ class IAMSolver:
 
         return constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice
 
-    def iam_solver(self, scenario_name, MOCAT_config):
-        # Load mocat-pyssem model
-        # There needs to be a way of defining which are your constellation satellites, and which are your fringe satellites.
+    def iam_solver(self, scenario_name, MOCAT_config, simulation_name):
+        """
+            The main function that runs the IAM solver.
+        """
+        # Define the species that are part of the constellation and fringe
         constellation_sats = "S"
         fringe_sats = "Su"
 
@@ -40,7 +55,6 @@ class IAMSolver:
 
         # If testing using MOCAT x0 use:
         x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
-
         constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats)
     
         # Build the cost function using the MOCAT model - then configure parameters from a configation file.
@@ -134,16 +148,10 @@ class IAMSolver:
             # Update the current environment
             current_environment = propagated_environment
         
-        # Save the output
-        self.output = species_data
+        PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data)
 
-        serializable_species_data = {sp: data.tolist() for sp, data in species_data.items()}
-
-        # Save the serialized data to a JSON file
-        with open(f'species_data_{scenario_name}.json', 'w') as json_file:
-            json.dump(serializable_species_data, json_file, indent=4)
-
-        print("species_data has been exported to species_data.json")
+    def get_mocat(self):
+        return self.MOCAT
 
 
 if __name__ == "__main__":
@@ -160,10 +168,17 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    iam_solver = IAMSolver()
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config)
+    simulation_name = "three_species"
+
+    # iam_solver = IAMSolver()
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+
+    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
+
+    PlotHandler(MOCAT, scenario_files, simulation_name)
 
 
 
