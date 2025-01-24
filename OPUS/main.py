@@ -63,7 +63,6 @@ class IAMSolver:
         # Initial Period Launch Rate
         constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
         lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
-        # lam = constellation_params.fringe_sat_pop_feedback_controller()
 
         # Fringe population automomous controller. 
         launch_mask = np.ones((self.MOCAT.scenario_properties.n_shells,))
@@ -167,15 +166,16 @@ if __name__ == "__main__":
 
     simulation_name = "three_species"
 
-    iam_solver = IAMSolver()
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    # iam_solver = IAMSolver()
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    # MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
+    MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
+    PlotHandler(MOCAT, scenario_files, simulation_name)
 
-    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
 
 
 

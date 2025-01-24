@@ -19,7 +19,7 @@ class PlotData:
                 self.species_names = MOCAT.scenario_properties.species_names
                 self.n_shells = MOCAT.scenario_properties.n_shells
                 self.n_species = MOCAT.scenario_properties.species_length
-                self.R0_km = MOCAT.scenario_properties.R0_km
+                self.HMid = MOCAT.scenario_properties.HMid
 
 
 
@@ -93,7 +93,6 @@ class PlotHandler:
                 """
                 Run all plot functions, irrespective of the plots list.
                 """
-                print("Generating all plots...")
                 for attr_name in dir(self):
                         if callable(getattr(self, attr_name)) and attr_name not in ("__init__", "all_plots"):
                                 if not attr_name.startswith("_"):
@@ -114,9 +113,9 @@ class PlotHandler:
                         plt.colorbar(label='Value')
                         plt.title(f'Heatmap for Species {sp}')
                         plt.xlabel('Year')
-                        plt.ylabel('Orbital Shell')
+                        plt.ylabel('Shell Mid Altitude (km)')
                         plt.xticks(ticks=range(data.shape[0]), labels=range(1, data.shape[0] + 1))
-                        plt.yticks(ticks=range(data.shape[1]), labels=range(1, data.shape[1] + 1))
+                        plt.yticks(ticks=range(data.shape[1]), labels=plot_data.HMid)
 
                         # Save the plot to the designated folder
                         file_path = os.path.join(plot_data.path, f"count_over_time_{sp}.png")
@@ -144,11 +143,11 @@ class PlotHandler:
                         im = ax.imshow(data.T, aspect='auto', cmap='viridis', origin='lower')
                         ax.set_title(f'Species {sp}')
                         ax.set_xlabel('Year')
-                        ax.set_ylabel('Orbital Shell')
+                        ax.set_ylabel('Shell Mid Altitude (km)')
                         ax.set_xticks(range(data.shape[0]))
                         ax.set_xticklabels(range(1, data.shape[0] + 1))
                         ax.set_yticks(range(data.shape[1]))
-                        ax.set_yticklabels(range(1, data.shape[1] + 1))
+                        ax.set_yticklabels(plot_data.HMid)
                         fig.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04)
 
                 # Turn off unused subplots
