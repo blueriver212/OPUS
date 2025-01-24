@@ -3,11 +3,14 @@ from scipy.optimize import least_squares
 import sympy as sp
 from concurrent.futures import ProcessPoolExecutor
 from pyssem.model import Model
+from scipy.optimize import least_squares
+from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 class OpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
-                 econ_params, lam, n_workers, fringe_start_slice, fringe_end_slice):
+                 econ_params, lam, fringe_start_slice, fringe_end_slice):
         """
         Initialize the OpenAccessSolver.
 
@@ -28,7 +31,6 @@ class OpenAccessSolver:
         self.lam = lam
         self.fringe_start_slice = fringe_start_slice
         self.fringe_end_slice = fringe_end_slice
-        self.n_workers = n_workers
         self.tspan = np.linspace(0, 1, 2)
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
@@ -42,24 +44,10 @@ class OpenAccessSolver:
         """
         
         # Calculate excess returns
-        lam = self.lam
-
-        # total = 0
-        # for i in lam:
-        #     if i is not None:
-        #         total += sum(i)
-        
-        # print("Total launches: ", total)
-
-        # total = 0
-        # for i in lam:
-        #     if i is not None:
-        #         total += sum(i)
-        
-        # print("Total launches after: ", total)
+        self.lam[self.fringe_start_slice:self.fringe_end_slice] = launches
 
         # fringe_launches = self.fringe_launches # This will be the first guess by the model 
-        state_next_path = self.MOCAT.propagate(self.tspan, self.x0, lam)
+        state_next_path = self.MOCAT.propagate(self.tspan, self.x0, self.lam)
 
         # gets the final output and update the current environment matrix
         state_next = state_next_path[-1, :]
@@ -103,9 +91,9 @@ class OpenAccessSolver:
         excess_returns = self.MOCAT.scenario_properties.n_shells * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
 
         # Bar Charts
-        create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
-        create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
-        create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
+        # create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
+        # create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
+        # create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
 
         return excess_returns
 
@@ -162,9 +150,6 @@ class OpenAccessSolver:
 
         return rate_of_return
     
-    def solve(self):
-        return self.excess_return_calculator(self.state_matrix, self.lam)
-
         
     def solver(self):
         """
@@ -187,65 +172,25 @@ class OpenAccessSolver:
 
         # Define solver options
         solver_options = {
-            'method': 'lm',  #  Trust Region Reflective algorithm = trf
-            'verbose': 2 if self.n_workers == 1 else 0  # Show output if not parallelized
+            'method': 'trf',  #  Trust Region Reflective algorithm = trf
+            'verbose': 0  # Show output if not parallelized
         }
 
         # Solve the system of equations
         result = least_squares(
             fun=lambda launches: self.excess_return_calculator(launches),
             x0=launch_rate_init,
-            # bounds=(lower_bound, np.inf),  # No upper bound
+            bounds=(lower_bound, np.inf),  # No upper bound
             **solver_options
         )
 
         # Extract the launch rate from the solver result
         launch_rate = result.x
 
+        print("i")
+
         return launch_rate
     
-    def find_initial_guess(self):
-        """
-            This function will estimate the first round of the fringe satellites that should be launched.
-
-            For the optimization, it will require a first guess. This will be do 3 main things:
-            1. Propagate the current population
-            2. Calculate the rate of return
-            3. Calculate the collision probability
-            4. Provide an initial guess of fringe satellites
-
-            Returns:
-                numpy.ndarray: Initial guess of fringe satellites. 1 x n_shells.
-        """
-
-        # Propagate the model
-        state_next_path = self.MOCAT.propagate(self.tspan, self.current_environment, self.lam)
-
-        # Get the final output and update the current environment matrix
-        state_next = state_next_path[-1, :]
-        self.current_environment = state_next
-
-        # Calculate the probability of collision based on the new positions
-        collision_probability = self.calculate_probability_of_collision(state_next)
-
-        # Calculate the rate of return
-        rate_of_return = self.fringe_rate_of_return(state_next)
-
-        # Calculate the excess rate of return
-        excess_returns = self.MOCAT.scenario_properties.n_shells0 * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
-
-        # Initial guess of fringe satellites
-        fringe_initial_guess = np.zeros_like(self.x0)
-        fringe_initial_guess = excess_returns * self.launch_mask
-
-        # Create Bar charts for collision, probability, rate_of_return and excess_returns
-        create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
-        create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
-        create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
-
-        return fringe_initial_guess 
-
-
 def create_bar_chart(data, title, xlabel, ylabel, filename):
     plt.figure(figsize=(8, 6))
     plt.bar(range(len(data)), data, color='blue', alpha=0.7)

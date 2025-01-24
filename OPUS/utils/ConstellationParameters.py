@@ -15,7 +15,7 @@ class ConstellationParameters:
         self.mocat_species = df['mocat_species'].to_string()
         self.altitude = df['altitude'].tolist()
 
-    def define_initial_launch_rate(self, MOCAT, sats_idx, x0):
+    def define_initial_launch_rate(self, MOCAT, constellation_start_slice, constellation_end_slice, x0):
         """
             Defines the initial launch rate for a given constellation.
             This takes the x0 of the model and the mocat_species defined for the constellation by the user. 
@@ -30,19 +30,10 @@ class ConstellationParameters:
         
         print("Cost function parameters calculated")
 
-        n_shells = MOCAT.scenario_properties.n_shells
-        Si = x0[0:n_shells] # Initial population of slotted objects
+        Si = x0[constellation_start_slice:constellation_end_slice] # Initial population of slotted objects
 
         # Initialize lam with None values
         lam = [None] * len(x0)
-
-        # Define the start and end indices for the species using sats_idx
-        if sats_idx == 0:
-            species_start_index = 0
-            species_end_index = n_shells
-        else:
-            species_start_index = (sats_idx - 1) * n_shells
-            species_end_index = sats_idx * n_shells
 
         # Modify launch rate based on constellation parameters
         for i in range(self.n_constellations):
@@ -54,13 +45,12 @@ class ConstellationParameters:
             location_index = np.argmin(np.abs(MOCAT.scenario_properties.R0_km - altitude))
             
             # Assign launch rate only to the specified species
-            if species_start_index <= location_index < species_end_index:
-                lam[location_index] = [self.constellation_buildup(location_index, final_size, linear_rate, Si)]
+            if constellation_start_slice <= location_index < constellation_end_slice:
+                lam[location_index] = self.constellation_buildup(location_index, final_size, linear_rate, Si)
         
         # Assign initial launch rate for the specified species
-        for idx in range(species_start_index, species_end_index):
-            lam[idx] = [(1 / 5 * Si[idx])] # should be MOCAT.scenario_properties.dt
-
+        lam[constellation_start_slice:constellation_end_slice] = (1 / 5) * Si  # Should be MOCAT.scenario_properties.dt
+     
         self.lam = lam
         return self.lam
 
@@ -80,3 +70,30 @@ class ConstellationParameters:
         remaining_size = max(final_size - current_size, 0)
 
         return min(remaining_size, linear_rate)
+    
+    def constellation_launch_rate_for_next_period(self, MOCAT, lam, species_start_index, species_end_index, Si):
+        """
+            Sets the launch rate for a given constellation at a given location for the next period
+
+            Args:
+                location_index (int): The location index of the constellation
+                final_size (int): The final size of the constellation
+                linear_rate (float): The linear rate of the constellation
+                Si (numpy.ndarray): Initial population of slotted objects
+        """
+
+        for i in range(self.n_constellations):
+            final_size = self.final_size[i]
+            linear_rate = self.linear_rate[i]
+            altitude = self.altitude[i]
+
+            # Calculate the location index based on the altitude using MOCAT.scenario_properties.R02
+            location_index = np.argmin(np.abs(MOCAT.scenario_properties.R0_km - altitude))
+            
+            # Assign launch rate only to the specified species
+            if species_start_index <= location_index < species_end_index:
+                lam[location_index] = [self.constellation_buildup(location_index, final_size, linear_rate, Si)]
+        
+        # Assign initial launch rate for the specified species
+        for idx in range(species_start_index, species_end_index):
+            lam[idx] = [(1 / 5 * Si[idx])] # should be MOCAT.scenario_properties.dt
