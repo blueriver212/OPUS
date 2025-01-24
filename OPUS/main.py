@@ -4,12 +4,9 @@ from utils.MocatParameters import configure_mocat
 from utils.OpenAccessSolver import OpenAccessSolver
 from utils.PostProcessing import PostProcessing
 from utils.PlotHandler import PlotHandler
-import pickle
-import os
 import json
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 
 class IAMSolver:
 
@@ -170,17 +167,10 @@ if __name__ == "__main__":
 
     simulation_name = "three_species"
 
-    simulation_name = "three_species"
-
-    # iam_solver = IAMSolver()
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
-
-    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
-
-    PlotHandler(MOCAT, scenario_files, simulation_name)
+    iam_solver = IAMSolver()
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
