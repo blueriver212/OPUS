@@ -2,6 +2,7 @@ import numpy as np
 from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
 import pandas as pd
+import json
 
 class EconParameters:
     """
@@ -12,30 +13,40 @@ class EconParameters:
     It is initialized with default values for the parameters. 
     Then the calculate_cost_fn_parameters function is called to calculate the cost function parameters.
     """
-    def __init__(self):
+    def __init__(self, econ_params_json):
+        # self.lift_price = 5000
+        params = econ_params_json.get("OPUS", econ_params_json)
+
         # Lifetime of a satellite [years]
-        # Default value is 5 years for MOCAT4S
-        self.sat_lifetime = 5
+        # Default value is 5 years for MOCAT
+        self.sat_lifetime = params.get("sat_lifetime", 5)
 
         # Regulated disposal rule time [years], default is 5
-        self.disposal_time = 5
+        self.disposal_time = params.get("disposal_time", 5)
 
-        # Discount rate [pp/year]
-        self.discount_rate = 0.05
+        # # Discount rate [pp/year]
+        self.discount_rate = params.get("discount_rate", 0.05)
 
-        # Parameters specific to linear revenue model [$/year]
-        # A satellite facing no competition earns $750,000 per year in revenues
-        self.intercept = 7.5e5  # [$/year]
-        self.coef = 1.0e2       # [$/satellite/year]
-        self.tax = 0.0          # [%] tax rate on shell-specific pc
+        # # A satellite facing no competition earns $750,000 per year in revenues
+        # [$/year]
+        self.intercept = params.get("intercept", 7.5e5)
 
-        ## Cost for a single satellite to use any shell [$]
-        # Cost of delta-v [$/km/s]
-        self.delta_v_cost = 1000
+        # [$/satellite/year]
+        self.coef = params.get("coef", 1.0e2)
 
-        # Price of lift [$/kg]
-        # Default is $5000/kg based on price index calculations
-        self.lift_price = 5000
+        # [%] tax rate on shell-specific pc
+        self.tax = params.get("tax", 0.0)
+
+        # Cost for a single satellite to use any shell [$]
+        # # Cost of delta-v [$/km/s]
+        self.delta_v_cost = params.get("delta_v_cost", 1000)
+
+        # # Price of lift [$/kg]
+        # # Default is $5000/kg based on price index calculations
+        self.lift_price = params.get("lift_price", 5000)
+        
+        # regulatory non-compliance
+        self.prob_of_non_compliance = params.get("prob_of_non_compliance", 0)
 
     def calculate_cost_fn_parameters(self, mocat: Model):
         shell_marginal_decay_rates = np.zeros(mocat.scenario_properties.n_shells)
@@ -104,9 +115,8 @@ class EconParameters:
         lifetime_loss_cost = lifetime_loss * self.intercept
         deorbit_maneuver_cost = total_deorbit_delta_v * self.delta_v_cost
         stationkeeping_cost = delta_v_budget * self.delta_v_cost
-        cost = (total_lift_price + stationkeeping_cost + lifetime_loss_cost + deorbit_maneuver_cost * (1 - 0)).tolist() # should be mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
-        
-        self.cost = cost
+
+        self.cost = (total_lift_price + stationkeeping_cost + lifetime_loss_cost + deorbit_maneuver_cost * (1 - 0)).tolist() # should be mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
         self.total_lift_price = total_lift_price
         self.deorbit_manuever_cost = deorbit_maneuver_cost
         self.stationkeeping_cost = stationkeeping_cost

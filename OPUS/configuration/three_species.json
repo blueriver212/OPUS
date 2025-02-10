@@ -17,11 +17,22 @@
         "steps": 10,
         "v_imp": 10, 
         "baseline": true,
-        "fragment_spreading": true, 
-        "parallel_processing": true,
+        "fragment_spreading": false, 
+        "parallel_processing": false,
         "indicator_variables" : ["active_loss_per_species"]
     },
     "simulation_name": "Indigo",
+    "OPUS" :{
+        "sat_lifetime" : 5,
+        "disposal_time" : 5,
+        "discount_rate" : 5,
+        "intercept" : 7.5e5,
+        "coef" : 1.0e2,
+        "tax": 0,
+        "delta_v_cost": 1000,
+        "lift_price": 5000,
+        "prob_of_non_compliance": 0
+    },
     "species": [
         {
             "sym_name": "S",

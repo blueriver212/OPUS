@@ -21,8 +21,6 @@ class PlotData:
                 self.n_species = MOCAT.scenario_properties.species_length
                 self.HMid = MOCAT.scenario_properties.HMid
 
-
-
         def load_data(self, path):
                 """
                         Load the data from the scenario folder
@@ -45,8 +43,7 @@ class PlotData:
                 with open(os.path.join(path, json_file[0]), "r") as f:
                         data = json.load(f)
                         return data 
-
-        
+ 
 class PlotHandler:  
         def __init__(self, MOCAT, scenario_files, simulation_name, plot_types=["all_plots"]):
                 

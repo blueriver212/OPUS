@@ -13,6 +13,7 @@ class IAMSolver:
     def __init__(self):
         self.output = None
         self.MOCAT = None
+        self.econ_params_json = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats):
@@ -26,8 +27,6 @@ class IAMSolver:
                 constellation_sats: The name of the constellation satellites
                 fringe_sats: The name of the fringe satellites
         """
-
-
         constellation_sats_idx = MOCAT.scenario_properties.species_names.index(constellation_sats)
         constellation_start_slice = (constellation_sats_idx * MOCAT.scenario_properties.n_shells)
         constellation_end_slice = constellation_start_slice + MOCAT.scenario_properties.n_shells
@@ -47,7 +46,7 @@ class IAMSolver:
 
         # Only configure the MOCAT model once.
         if self.MOCAT is None:
-            self.MOCAT = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
+            self.MOCAT, self.econ_params_json = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
             print(self.MOCAT.scenario_properties.x0)
 
         # If testing using MOCAT x0 use:
@@ -55,7 +54,7 @@ class IAMSolver:
         constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats)
     
         # Build the cost function using the MOCAT model - then configure parameters from a configation file.
-        econ_params = EconParameters()
+        econ_params = EconParameters(self.econ_params_json)
         econ_params.calculate_cost_fn_parameters(mocat=self.MOCAT)
         if scenario_name != "Baseline":
             econ_params.modify_params_for_simulation(scenario_name)
@@ -158,24 +157,23 @@ if __name__ == "__main__":
     # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
-                    "Baseline",
-                    "tax_1"
-                    ]
+                    "Baseline"
+                ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
     simulation_name = "three_species"
 
-    # iam_solver = IAMSolver()
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    iam_solver = IAMSolver()
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
-    PlotHandler(MOCAT, scenario_files, simulation_name)
+    # MOCAT = configure_mocat(MOCAT_config, fringe_satellite="S")
+    # PlotHandler(MOCAT, scenario_files, simulation_name)
 
-    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
 
 
 

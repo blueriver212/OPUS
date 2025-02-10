@@ -14,6 +14,10 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
             Model: An configured instance of the MOCAT model.
     """
     scenario_props = MOCAT_config["scenario_properties"]
+    try:
+        economic_parameters_json = MOCAT_config['OPUS']
+    except:
+        raise ValueError("Please ensure that the economic parameters of OPUS are configured correctly.")
 
     # Create an instance of the pySSEM_model with the simulation parameters
     MOCAT = Model(
@@ -42,4 +46,4 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
     MOCAT.build_model()
 
     print("You have these species in the model: ", MOCAT.scenario_properties.species_names)
-    return MOCAT
+    return MOCAT, economic_parameters_json
