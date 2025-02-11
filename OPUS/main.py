@@ -125,8 +125,9 @@ class IAMSolver:
                 self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
                 econ_params, lam, fringe_start_slice, fringe_end_slice)
             
-            ror = open_access.fringe_rate_of_return(propagated_environment)
             collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
+            ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
+
 
             # Calculate solver_guess
             solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
@@ -169,7 +170,6 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "tax_1",
                     "bond"
                 ]
     

@@ -53,88 +53,36 @@ class OpenAccessSolver:
         state_next = state_next_path[-1, :]
         self.current_environment = state_next
 
-        # difference = state_next - self.x0
-
-        # Split the difference into 4 species: S, Su, N, D
-        # Extract values from lam, replacing None with 0
-        # lam_values = [item[0] if item is not None and item[0] is not None else 0 for item in lam]
-
-        # # Split the difference and lam into 4 species: S, Su, N, D
-        # species = self.MOCAT.scenario_properties.species_names
-        # difference_species_data = [difference[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] for i in range(len(species))]
-        # lam_species_data = [lam_values[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] for i in range(len(species))]
-
-        # # Create a 2x2 subplot for the 4 species
-        # fig, axes = plt.subplots(2, 2, figsize=(12, self.MOCAT.scenario_properties.n_shells))
-
-        # for i, ax in enumerate(axes.flat):
-        #     # Plot the difference as bars
-        #     ax.bar(range(1, 11), difference_species_data[i], label="Difference", alpha=0.7)
-        #     # Plot lam as a line
-        #     ax.plot(range(1, 11), lam_species_data[i], color='red', label="Lam Values", linestyle='--', marker='o')
-        #     ax.set_title(f"Difference and Lam Plot for {species[i]}")
-        #     ax.set_xlabel("Index")
-        #     ax.set_ylabel("Value")
-        #     ax.set_xticks(range(1, 11, 5))
-        #     ax.grid(axis='y', linestyle='--', alpha=0.7)
-        #     ax.legend()
-
-        # plt.tight_layout()
-        # plt.savefig("propagation_difference.png")
-
         # Calculate the probability of collision based on the new positions
         collision_probability = self.calculate_probability_of_collision(state_next)
 
-        rate_of_return = self.fringe_rate_of_return(state_next)
+        rate_of_return = self.fringe_rate_of_return(state_next, collision_probability)
 
         # Calculate the excess rate of return
-        # excess_returns = self.MOCAT.scenario_properties.n_shells * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
-        excess_returns = 100 * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
-
-        # Bar Charts
-        # create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
-        # create_bar_chart(rate_of_return, "Rate of Return", "Index", "Value", "rate_of_return.png")
-        # create_bar_chart(excess_returns, "Excess Returns", "Index", "Value", "excess_returns.png")
+        excess_returns = (rate_of_return - collision_probability*(1 + self.econ_params.tax)) #*100
 
         return excess_returns
 
     def calculate_probability_of_collision(self, state_matrix):
-        
-        # THIS WILL BE IN THE MOCAT MODEL - NOT HERE
-        # Currently the model is calcualting the probability of collision for each shell. I think this can be done for all shells at once. 
-        # x0 is the current state of the system.
+        """
+            In the MOCAT Configuration, the indicated for active loss probability is already created. Now in the code, you just need to pass the state 
+            matrix.
 
+            Return: 
+                - Active Loss per shell. This can be used to infer collision probability.  
+        """
         evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss(*state_matrix)
         evaluated_value_flat = [float(value[0]) for value in evaluated_value]
-
-        # 1 - exp(evaluated_values_flat) # Probability of collision?
-
-        # # Create a bar plot for `evaluated_value`
-        # plt.figure(figsize= self.MOCAT.scenario_properties.n_shells, 6))
-        # plt.bar(range(len(evaluated_value_flat)), evaluated_value_flat, tick_label=[f"Value {i+1}" for i in range(len(evaluated_value_flat))])
-        # plt.xlabel("Index")
-        # plt.ylabel("Value")
-        # plt.title("Bar Plot of Evaluated Values")
-        # plt.xticks(rotation=45)
-        # plt.tight_layout()
-        # plt.savefig("collision_probability.png")
-        # plt.show()
-
         return np.array(evaluated_value_flat)
     
-    def fringe_rate_of_return(self, state_matrix):
+    def fringe_rate_of_return(self, state_matrix, collision_risk):
 
-        if self.revenue_model == "linear":
-            # Linear revenue model: intercept - coef * total_number_of_fringe_satellites
-            
+        if self.revenue_model == "linear":           
             fringe_total = state_matrix[self.fringe_start_slice:self.fringe_end_slice]
 
-            # print("Sum of sats: ", sum(fringe_total))
             revenue = self.econ_params.intercept - self.econ_params.coef * np.sum(fringe_total)
             revenue = revenue * self.launch_mask
-            # print("Revenue: ",  sum(revenue))
-            # print("Cost: ", cost)
-            
+
             discount_rate = self.econ_params.discount_rate
 
             depreciation_rate = 1 / self.econ_params.sat_lifetime
@@ -145,13 +93,14 @@ class OpenAccessSolver:
             if self.econ_params.bond is None:
                 rate_of_return = rev_cost - discount_rate - depreciation_rate  
             else:
-                rate_of_return = rev_cost - discount_rate - depreciation_rate - (self.econ_params.comp_rate * (self.econ_params.bstar / self.econ_params.cost))
-
+                bond_per_shell = collision_risk * self.econ_params.bond
+                bond = ((1-self.econ_params.comp_rate) * (bond_per_shell / self.econ_params.cost))
+                rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
             # print("Rate of return",  rate_of_return)
         else:
             # Other revenue models can be implemented here
-            rate_of_return = 0  # Placeholder value
+            rate_of_return = 0 
 
         return rate_of_return
     
