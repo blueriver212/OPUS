@@ -25,13 +25,14 @@
     "OPUS" :{
         "sat_lifetime" : 5,
         "disposal_time" : 5,
-        "discount_rate" : 5,
+        "discount_rate" : 0.05,
         "intercept" : 7.5e5,
         "coef" : 1.0e2,
         "tax": 0,
         "delta_v_cost": 1000,
         "lift_price": 5000,
-        "prob_of_non_compliance": 0
+        "prob_of_non_compliance": 0,
+        "bond": 200000
     },
     "species": [
         {
@@ -56,7 +57,7 @@
         {
             "sym_name": "Su",
             "Cd": 2.2,
-            "mass": 100,
+            "mass": 223,
             "radius": 2,
             "A": "Calculated based on radius",
             "active": true,

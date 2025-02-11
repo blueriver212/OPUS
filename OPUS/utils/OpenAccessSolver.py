@@ -88,7 +88,8 @@ class OpenAccessSolver:
         rate_of_return = self.fringe_rate_of_return(state_next)
 
         # Calculate the excess rate of return
-        excess_returns = self.MOCAT.scenario_properties.n_shells * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
+        # excess_returns = self.MOCAT.scenario_properties.n_shells * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
+        excess_returns = 100 * (rate_of_return - collision_probability*(1 + self.econ_params.tax))
 
         # Bar Charts
         # create_bar_chart(collision_probability, "Collision Probability", "Index", "Value", "collision_probability.png")
@@ -132,16 +133,20 @@ class OpenAccessSolver:
             revenue = self.econ_params.intercept - self.econ_params.coef * np.sum(fringe_total)
             revenue = revenue * self.launch_mask
             # print("Revenue: ",  sum(revenue))
-            cost = self.econ_params.cost
             # print("Cost: ", cost)
             
             discount_rate = self.econ_params.discount_rate
 
             depreciation_rate = 1 / self.econ_params.sat_lifetime
 
-            #revenue = np.array([435620] * self.MOCAT.scenario_properties.n_shells)
-            rev_cost = revenue / cost
-            rate_of_return = rev_cost - discount_rate - depreciation_rate  # Equilibrium expression for rate of return.
+            # Equilibrium expression for rate of return.
+            rev_cost = revenue / self.econ_params.cost
+
+            if self.econ_params.bond is None:
+                rate_of_return = rev_cost - discount_rate - depreciation_rate  
+            else:
+                rate_of_return = rev_cost - discount_rate - depreciation_rate - (self.econ_params.comp_rate * (self.econ_params.bstar / self.econ_params.cost))
+
 
             # print("Rate of return",  rate_of_return)
         else:

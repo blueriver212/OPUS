@@ -54,10 +54,11 @@ class IAMSolver:
         constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats)
     
         # Build the cost function using the MOCAT model - then configure parameters from a configation file.
-        econ_params = EconParameters(self.econ_params_json)
-        econ_params.calculate_cost_fn_parameters(mocat=self.MOCAT)
+        econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
         if scenario_name != "Baseline":
             econ_params.modify_params_for_simulation(scenario_name)
+
+        econ_params.calculate_cost_fn_parameters()
 
         # Initial Period Launch Rate
         constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
@@ -86,6 +87,9 @@ class IAMSolver:
         dt = 5
 
         species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
+
+        # Store the ror, collision probability and the launch rate 
+        simulation_results = {}
 
         for time_idx in tf:
 
@@ -142,8 +146,15 @@ class IAMSolver:
 
             # Update the current environment
             current_environment = propagated_environment
+
+            # Save the results that will be used for plotting later
+            simulation_results[time_idx] = {
+                "ror": ror,
+                "collision_probability": collision_probability,
+                "launch_rate" : launch_rate
+            }
         
-        PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data)
+        PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results)
 
     def get_mocat(self):
         return self.MOCAT
@@ -157,7 +168,9 @@ if __name__ == "__main__":
     # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
-                    "Baseline"
+                    "Baseline",
+                    "tax_1",
+                    "bond"
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
@@ -174,8 +187,6 @@ if __name__ == "__main__":
     # PlotHandler(MOCAT, scenario_files, simulation_name)
 
     PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-
-
 
 
     # # # # This is just the x0 from MATLAB for testing purposes. Will be removed in final version
