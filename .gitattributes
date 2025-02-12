@@ -1,3 +1,5 @@
+OPUS/pyssem/utils/launch/data/x0_launch_repeatlaunch_2018to2022_megaconstellationLau
+nches_Constellations.csv filter=lfs diff=lfs merge=lfs -text
 *.gitignore filter=lfs diff=lfs merge=lfs -text
 *.json filter=lfs diff=lfs merge=lfs -text
 /LICENSE filter=lfs diff=lfs merge=lfs -text
