@@ -1,3 +1,2 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:18009af4936e4da23bd4add28818a1bd6fa749768eae186140b917045e394ebe
-size 57
+parameter_type,parameter_name,parameter_value
+econ,tax,4
