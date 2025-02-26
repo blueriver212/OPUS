@@ -1,3 +1,15 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:0c5ffd3bcc313fdd1eabc76d0c303ca06078e3d4c059af5411825dec80fc326c
-size 309
+parameter_type,parameter_name,parameter_value
+econ,satLifetime,
+econ,disposalTime,
+econ,discountRate,
+econ,intercept,
+econ,coef,
+econ,tax,
+econ,delta_v_cost,
+econ,lift_price,
+MOCAT,P,
+MOCAT,Dt,
+constellation,n_constellations,
+constellation,location_index,
+constellation,final_size,
+constellation,linear_rate,
