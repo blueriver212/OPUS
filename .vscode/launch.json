@@ -1,3 +1,16 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:21c8209c7cd8ff76d67c2c88186920873e4987f4ee85eb8f86ca4b79c4a5c8eb
-size 506
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}
