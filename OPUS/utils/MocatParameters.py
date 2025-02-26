@@ -46,4 +46,18 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
     MOCAT.build_model()
 
     print("You have these species in the model: ", MOCAT.scenario_properties.species_names)
-    return MOCAT, economic_parameters_json
+
+    # Find the PMD linked species and return the index. 
+    pmd_linked_species_to_fringe = [
+        species
+        for species_group in MOCAT.scenario_properties.species.values()
+        for species in species_group
+        if any(linked_species.sym_name == fringe_satellite for linked_species in species.pmd_linked_species)
+    ]
+
+    if len(pmd_linked_species_to_fringe) != 1:
+        raise ValueError("Please ensure that there is only one species linked to the fringe satellite.")
+    else:
+        pmd_linked_species = pmd_linked_species_to_fringe[0].sym_name
+ 
+    return MOCAT, economic_parameters_json, pmd_linked_species
