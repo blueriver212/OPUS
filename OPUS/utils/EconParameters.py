@@ -2,7 +2,7 @@ import numpy as np
 from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
 import pandas as pd
-import json
+import matplotlib.pyplot as plt
 
 class EconParameters:
     """
@@ -55,10 +55,13 @@ class EconParameters:
         # Bond amount
         self.bond = params.get("bond", None)
 
+        # Post Mission Disposal Rate
+        self.pmd_rate = 0.9
+
     def calculate_cost_fn_parameters(self):
         shell_marginal_decay_rates = np.zeros(self.mocat.scenario_properties.n_shells)
         shell_marginal_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
-        shell_cumulative_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
+        self.shell_cumulative_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
 
         # Here using the ballastic coefficient of the species, we are trying to find the highest compliant altitude/shell
         for k in range(self.mocat.scenario_properties.n_shells):
@@ -98,58 +101,127 @@ class EconParameters:
 
         original_orbit_delta_v = np.maximum(0, original_orbit_delta_v)
         target_orbit_delta_v = np.maximum(0, target_orbit_delta_v)
-        total_deorbit_delta_v = original_orbit_delta_v + target_orbit_delta_v
+        self.total_deorbit_delta_v = original_orbit_delta_v + target_orbit_delta_v
 
         # delta-v budget for mission
         delta_v_budget = 1.5 * self.sat_lifetime * v_drag + 100 # adding a safety margin
 
         # Indicator for altitudes that are normally compliant
-        naturally_compliant_vector = np.zeros(self.mocat.scenario_properties.n_shells)
-        naturally_compliant_vector[:k_star + 1] = 1
+        self.naturally_compliant_vector = np.zeros(self.mocat.scenario_properties.n_shells)
+        self.naturally_compliant_vector[:k_star + 1] = 1
 
         # Calculate delta-v leftover after deorbit
-        delta_v_after_deorbit = np.maximum(0, delta_v_budget - total_deorbit_delta_v * (1 - naturally_compliant_vector))
+        self.delta_v_after_deorbit = np.maximum(0, delta_v_budget - self.total_deorbit_delta_v * (1 - self.naturally_compliant_vector))
 
         # Calculate remaining lifetime after deorbit
-        lifetime_after_deorbit = np.where(naturally_compliant_vector == 1, self.sat_lifetime, 
-                                        (delta_v_after_deorbit / delta_v_budget) * self.sat_lifetime)
+        self.lifetime_after_deorbit = np.where(self.naturally_compliant_vector == 1, self.sat_lifetime, 
+                                        (self.delta_v_after_deorbit / delta_v_budget) * self.sat_lifetime)
 
         # Calculate lifetime loss due to deorbit
-        lifetime_loss = (self.sat_lifetime - lifetime_after_deorbit) / self.sat_lifetime
+        lifetime_loss = (self.sat_lifetime - self.lifetime_after_deorbit) / self.sat_lifetime
 
         # Cost function compilation
-        total_lift_price = self.lift_price * 223 # this is mass and hard coded, needs to be fixed
-        lifetime_loss_cost = lifetime_loss * self.intercept
-        deorbit_maneuver_cost = total_deorbit_delta_v * self.delta_v_cost
-        stationkeeping_cost = delta_v_budget * self.delta_v_cost
+        self.total_lift_price = np.full_like(self.naturally_compliant_vector, self.lift_price * 223) # this is mass and hard coded, needs to be fixed
+        self.lifetime_loss_cost = lifetime_loss * self.intercept
+        self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
+        self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
 
-        self.cost = (total_lift_price + stationkeeping_cost + lifetime_loss_cost + deorbit_maneuver_cost * (1 - 0)).tolist() # should be self.mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
-        self.total_lift_price = total_lift_price
-        self.deorbit_manuever_cost = deorbit_maneuver_cost
-        self.stationkeeping_cost = stationkeeping_cost
-        self.lifetime_loss_cost = lifetime_loss_cost
+        self.cost = (self.total_lift_price + self.stationkeeping_cost + self.lifetime_loss_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist() # should be self.mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
         self.v_drag = v_drag
         self.k_star = k_star 
 
-        #BOND CALCULATIONS
+        #BOND CALCULATIONS - compliance rate is defined in MOCAT json
+        self.comp_rate = np.ones_like(self.cost) * self.mocat.scenario_properties.species['active'][1].deltat
+
         if self.bond is None:
             return 
         
         self.discount_factor = 1/(1+self.discount_rate)
         self.bstar = (
             self.intercept
-            * ((1 - self.discount_factor ** (lifetime_loss_cost / self.intercept)) / (1 - self.discount_factor))
+            * ((1 - self.discount_factor ** (self.lifetime_loss_cost / self.intercept)) / (1 - self.discount_factor))
             * self.discount_factor ** self.sat_lifetime
         )
 
         # Calculate compliance rate. 
-        self.comp_rate = np.ones_like(self.bstar)  # Initialize with 1s
         mask = self.bstar != 0  # Identify where bstar is nonzero
         self.comp_rate[mask] = np.minimum(0.65 + 0.35 * self.bond / self.bstar[mask], 1)
 
+    def plot_all_metrics_subplots(self, file_name='all_metrics_subplots.png'):
+        """
+        Plot various shell metrics on a single figure with multiple subplots.
+        Each metric is shown in its own subplot.
+        
+        Parameters
+        ----------
+        file_name : str, optional
+            The name of the saved figure file, by default 'all_metrics_subplots.png'.
+        """
 
+        # Define the metrics and labels you want to plot together
+        # Feel free to reorder or remove items you don't want in the composite figure.
+        metrics_and_labels = [
+            (self.lifetime_loss_cost, "Lifetime Loss Cost"),
+            (self.stationkeeping_cost, "Stationkeeping Cost"),
+            (self.deorbit_manuever_cost, "Deorbit Maneuver Cost"),
+            (self.cost, "Total Cost"),
+            (self.v_drag, "Δv Required to Counter Drag"),
+            (self.lifetime_after_deorbit, "Lifetime After Deorbit"),
+            (self.delta_v_after_deorbit, "Δv Leftover After Deorbit"),
+            (self.total_deorbit_delta_v, "Total Δv for Deorbit")
+        ]
 
-    def modify_params_for_simulation(self, configuration):
+        # If self.bond is not None, we also plot bstar and comp_rate
+        if self.bond is not None:
+            metrics_and_labels.append((self.bstar, "Bond Amount"))
+            metrics_and_labels.append((self.comp_rate, "Compliance Rate"))
+
+        # Determine how many subplots are needed
+        num_metrics = len(metrics_and_labels)
+
+        # Example layout: we can choose nrows x ncols.
+        # For 8–10 metrics, a 5 x 2 (or 2 x 5) grid often works well.
+        # You can adjust as needed.
+        ncols = 2
+        nrows = int(np.ceil(num_metrics / ncols))
+
+        # Create the figure and subplots
+        fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 4 * nrows))
+        axes = np.atleast_1d(axes).ravel()  # Flatten in case there's only one row
+
+        # Shell mid-altitudes for the x-axis
+        shell_mid_altitudes = self.mocat.scenario_properties.HMid
+
+        # Plot each metric in its own subplot
+        for ax, (metric, label) in zip(axes, metrics_and_labels):
+            # Safety check: ensure the metric has the correct length
+            if len(metric) != self.mocat.scenario_properties.n_shells:
+                raise ValueError(
+                    f"Length of metric_array for '{label}' ({len(metric)}) "
+                    f"must match the number of shells ({self.mocat.scenario_properties.n_shells})."
+                )
+            
+            # Plot the metric
+            ax.plot(shell_mid_altitudes, metric, marker='o', linestyle='-')
+            ax.set_xlabel("Shell Mid Altitude (km)")
+            ax.set_ylabel(label)
+            ax.set_title(f"{label} vs. Shell Altitude")
+            ax.grid(True)
+            # Optionally, you can force x-ticks at each mid-altitude (be cautious if the array is large)
+            # ax.set_xticks(shell_mid_altitudes)
+            # Show only every 2nd altitude on the x-axis
+            ax.set_xticks(shell_mid_altitudes[::2])
+            ax.set_xticklabels(shell_mid_altitudes[::2], rotation=45)
+
+        # If there are extra subplots (when nrows*ncols > num_metrics), turn them off
+        for i in range(num_metrics, nrows * ncols):
+            axes[i].axis('off')
+
+        plt.tight_layout()
+        plt.savefig(file_name)
+        plt.close(fig)
+
+    def modify_params_for_simulation(self, configuration, baseline=False):
         """
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
         """
@@ -172,6 +244,10 @@ class EconParameters:
                     setattr(self, parameter_name, parameter_value)
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
+
+        if baseline:
+            self.bond = None
+            self.tax = 0
 
 
 

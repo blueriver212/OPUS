@@ -7,10 +7,11 @@ from scipy.optimize import least_squares
 from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from .PostMissionDisposal import evaluate_pmd
 
 class OpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
-                 econ_params, lam, fringe_start_slice, fringe_end_slice):
+                 econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice):
         """
         Initialize the OpenAccessSolver.
 
@@ -32,9 +33,15 @@ class OpenAccessSolver:
         self.fringe_start_slice = fringe_start_slice
         self.fringe_end_slice = fringe_end_slice
         self.tspan = np.linspace(0, 1, 2)
+        self.derelict_start_slice = derelict_start_slice
+        self.derelict_end_slice = derelict_end_slice
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
+
+        # This is temporary storage of each of the variables, so they can then be stored for visualisation later. 
+        self._last_collision_probability = None
+        self._last_rate_of_return = None 
 
     def excess_return_calculator(self, launches):
         """
@@ -42,24 +49,33 @@ class OpenAccessSolver:
 
             Launches: Open-access launch rates. This is just the fringe satellites. 1 x n_shells. 
         """
-        
         # Calculate excess returns
         self.lam[self.fringe_start_slice:self.fringe_end_slice] = launches
 
-        # fringe_launches = self.fringe_launches # This will be the first guess by the model 
+        # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
         state_next_path = self.MOCAT.propagate(self.tspan, self.x0, self.lam)
-
-        # gets the final output and update the current environment matrix
         state_next = state_next_path[-1, :]
+
+        # Evaluate pmd
+        state_next = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
+                                  self.fringe_start_slice, self.fringe_end_slice, self.derelict_start_slice, self.derelict_end_slice, 
+                                  self.econ_params)
+
+        # Gets the final output and update the current environment matrix
         self.current_environment = state_next
 
         # Calculate the probability of collision based on the new positions
         collision_probability = self.calculate_probability_of_collision(state_next)
 
+        # Rate of Return
         rate_of_return = self.fringe_rate_of_return(state_next, collision_probability)
 
         # Calculate the excess rate of return
-        excess_returns = (rate_of_return - collision_probability*(1 + self.econ_params.tax)) #*100
+        excess_returns = (rate_of_return - collision_probability*(1 + self.econ_params.tax)) * 100
+
+        # Save the collision_probability for all species
+        self._last_collision_probability = collision_probability
+        self._last_excess_returns = excess_returns
 
         return excess_returns
 
@@ -96,15 +112,12 @@ class OpenAccessSolver:
                 bond_per_shell = collision_risk * self.econ_params.bond
                 bond = ((1-self.econ_params.comp_rate) * (bond_per_shell / self.econ_params.cost))
                 rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
-
-            # print("Rate of return",  rate_of_return)
         else:
             # Other revenue models can be implemented here
             rate_of_return = 0 
 
         return rate_of_return
     
-        
     def solver(self):
         """
         Solve the open-access launch rates.
@@ -126,7 +139,7 @@ class OpenAccessSolver:
 
         # Define solver options
         solver_options = {
-            'method': 'trf',  #  Trust Region Reflective algorithm = trf
+            'method': 'trf',  # Trust Region Reflective algorithm = trf
             'verbose': 0  # Show output if not parallelized
         }
 
@@ -141,10 +154,15 @@ class OpenAccessSolver:
         # Extract the launch rate from the solver result
         launch_rate = result.x
 
-        print("i")
+        # if below 1, then change to 0 
+        launch_rate[launch_rate < 1] = 0
 
-        return launch_rate
+        # Calculate the UMPY value
+        umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()
+
+        return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns
     
+   
 def create_bar_chart(data, title, xlabel, ylabel, filename):
     plt.figure(figsize=(8, 6))
     plt.bar(range(len(data)), data, color='blue', alpha=0.7)

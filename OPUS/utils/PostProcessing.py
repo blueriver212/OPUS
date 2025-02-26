@@ -3,11 +3,12 @@ import json
 import numpy as np
 
 class PostProcessing:
-    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results):
+    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params):
         self.MOCAT = MOCAT
         self.scenario_name = scenario_name # this is the breadkdown of the scenario
         self.simulation_name = simulation_name # this is the overall name of the simulation
         self.species_data = species_data
+        self.econ_params = econ_params
 
         # Other results will have this form
         # simulation_results[time_idx] = {
@@ -19,6 +20,7 @@ class PostProcessing:
 
         self.create_folder_structure()
         self.post_process_data()
+        self.post_process_economic_data(self.econ_params)
 
     def create_folder_structure(self):
         """
@@ -48,7 +50,10 @@ class PostProcessing:
             int(time_idx): {
                 "ror": data["ror"].tolist() if isinstance(data["ror"], (list, np.ndarray)) else data["ror"],
                 "collision_probability": data["collision_probability"].tolist() if isinstance(data["collision_probability"], (list, np.ndarray)) else data["collision_probability"],
-                "launch_rate": data["launch_rate"].tolist() if isinstance(data["launch_rate"], (list, np.ndarray)) else data["launch_rate"]
+                "launch_rate": data["launch_rate"].tolist() if isinstance(data["launch_rate"], (list, np.ndarray)) else data["launch_rate"],
+                "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
+                "umpy": data["umpy"], 
+                "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
             }
             for time_idx, data in self.other_results.items()
         }
@@ -59,6 +64,47 @@ class PostProcessing:
             json.dump(serializable_other_results, json_file, indent=4)
 
         print(f"other_results has been exported to {other_results_output_path}")
+
+    def post_process_economic_data(self, econ_params):
+        """
+        Writes all key economic parameters from the econ_params object to a JSON file,
+        automatically extracting attributes from the class.
+        """
+        # Build the output path
+        other_results_output_path = (
+            f"./Results/{self.simulation_name}/{self.scenario_name}/"
+            f"econ_params_{self.scenario_name}.json"
+        )
+        os.makedirs(os.path.dirname(other_results_output_path), exist_ok=True)
+        
+        def convert_value(val):
+            """Convert NumPy arrays and scalars to native Python types."""
+            if isinstance(val, np.ndarray):
+                return val.tolist()
+            elif isinstance(val, (np.integer, np.int32, np.int64)):
+                return int(val)
+            elif isinstance(val, (np.floating, np.float32, np.float64)):
+                return float(val)
+            else:
+                return val
+
+        # Create a dictionary by iterating over econ_params attributes
+        data_to_save = {}
+        for key, value in econ_params.__dict__.items():
+            # Skip private attributes and callables
+            if key.startswith('_') or callable(value):
+                continue
+            # Optionally, skip attributes that are not part of the economic parameters
+            if key == "mocat":
+                continue
+
+            data_to_save[key] = convert_value(value)
+
+        # Write the dictionary to a JSON file
+        with open(other_results_output_path, "w") as outfile:
+            json.dump(data_to_save, outfile, indent=4)
+
+        print(f"Economic parameters written to {other_results_output_path}")
 
 
 
