@@ -115,6 +115,8 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
+
+        # sammie addition:
         adr_times = np.linspace(1, time_idx(len(time_idx)), 20)
 
 
@@ -145,6 +147,7 @@ class IAMSolver:
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
 
+                # sammie addition:
                 if ((time_idx in adr_times) and (sp == 'B')):
                     propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] = 0.8*propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
                     
