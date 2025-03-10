@@ -115,6 +115,11 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
+
+        # sammie addition:
+        adr_times = [5, 10, 15, 20]
+
+
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -141,6 +146,12 @@ class IAMSolver:
             # Record propagated environment data
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
+
+                # sammie addition:
+                if ((time_idx in adr_times) and (sp == 'B')):
+                    propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] = 0.8*propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                    
+
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
