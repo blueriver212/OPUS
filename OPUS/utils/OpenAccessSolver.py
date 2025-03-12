@@ -162,7 +162,16 @@ class OpenAccessSolver:
 
         return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns
     
-   
+    # sammie addition
+    def implement_adr(data,adr_details):
+        #hi
+        species = adr_details["target_species"]
+        target_shell = adr_details["target_shell"]
+        p_remove = adr_details["p_remove"]
+
+
+
+
 def create_bar_chart(data, title, xlabel, ylabel, filename):
     plt.figure(figsize=(8, 6))
     plt.bar(range(len(data)), data, color='blue', alpha=0.7)

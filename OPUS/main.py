@@ -117,9 +117,11 @@ class IAMSolver:
 
 
         # sammie addition:
-        adr_times = [5, 10, 15, 20]
-
-
+        # adr_times = [5, 10, 15, 20]
+        adr_times = MOCAT_config["adr"]["adr_times"]
+        target_shell = MOCAT_config["adr"]["target_shell"]
+        target_species = MOCAT_config["adr"]["target_species"]
+        p_remove = MOCAT_config["adr"]["p_remove"]
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -137,6 +139,7 @@ class IAMSolver:
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
             # Update the constellation satellites for the next period - should only be 5%.
+            
             for i in range(constellation_start_slice, constellation_end_slice):
                 if lam[i] is not None:
                     lam[i] = lam[i] * 0.05
@@ -148,10 +151,12 @@ class IAMSolver:
                 # 0 based index 
 
                 # sammie addition:
-                if ((time_idx in adr_times) and (sp == 'B')):
-                    propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] = 0.8*propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                if ((time_idx in adr_times) and (sp in target_species)):
+                    target_species_env = propagated_environment[i*self.MOCAT.scenario_properties.n_shells:(i+1)*self.MOCAT.scenario_properties.n_shells]
+                    for j in target_shell:
+                        target_species_env[j-1] = (1-p_remove)*target_species_env[j-1]
+                    propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] = target_species_env
                     
-
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
