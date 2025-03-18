@@ -188,9 +188,6 @@ class IAMSolver:
     def get_mocat(self):
         return self.MOCAT
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import os
-
 def run_scenario(scenario_name, MOCAT_config, simulation_name):
     """
     Create a new IAMSolver instance for each scenario, run the simulation,
@@ -199,6 +196,13 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name):
     solver = IAMSolver()
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
     return solver.get_mocat()
+
+from concurrent.futures import ThreadPoolExecutor
+
+def process_scenario(scenario_name, MOCAT_config, simulation_name):
+    iam_solver = IAMSolver()
+    iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    return iam_solver.get_mocat()
 
 if __name__ == "__main__":
     ####################
@@ -209,76 +213,38 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "bond",
-                    "tax_1",
-                    "tax_2",
+                    "bond_100k",
+                    "bond_200k",
+                    "bond_300k",
+                    "bond_500k",
+                    "bond_800k",
+                    "bond_100k_25yr",
+                    "bond_200k_25yr",
+                    "bond_300k_25yr",
+                    "bone_500k_25yr",
+                    "bond_800k_25yr",
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "sixty_five_compliance"
+    simulation_name = "5yr_vs_25yr"
 
     iam_solver = IAMSolver()
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    # # for scenario_name in scenario_files:
+    # #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    # #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
-    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    # # # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
-
-    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
+    # # # Assuming PlotHandler can handle multiple outputs from different iam_solver instances
     # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="S")
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)   
 
-    # # # This is just the x0 from MATLAB for testing purposes. Will be removed in final version
-    # data = [
-    #     0, 4, 4, 64, 231, 28, 35, 41, 37, 2529, 208, 36, 14, 2, 14, 28, 113, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 283, 91, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    #     0, 1, 2, 2, 1, 1, 1, 5, 7, 2, 6, 11, 12, 6, 4, 3, 3, 3, 5, 0, 5, 0, 3, 0, 2, 15, 2, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 2, 1, 25, 16, 27, 34,
-    #     46, 88, 120, 169, 97, 136, 232, 246, 290, 379, 537, 686, 909, 942, 999, 751, 562, 363, 396, 259, 229, 158, 164, 121, 78, 81, 185, 85, 60, 76, 78, 81, 102, 126, 95, 79,
-    #     1, 1, 6, 19, 28, 121, 159, 233, 530, 334, 187, 187, 151, 77, 111, 53, 139, 91, 74, 31, 61, 63, 173, 18, 26, 53, 12, 6, 23, 4, 1, 6, 8, 11, 190, 173, 198, 59, 12, 9
-    # ]
 
-    # S = data[0:40]
-    # D = data[40:80]
-    # N = data[80:120]
-    # Su = data[120:160]
-
-    # self.MOCAT.scenario_properties.x0 = np.array([S, Su, N, D]).flatten()
-    # x0 = self.MOCAT.scenario_properties.x0
-
-# if __name__ == "__main__":
-#     # 1. SCENARIO DEFINITIONS
-#     scenario_files = [
-#         "Baseline",
-#         "bond"
-#     ]
-    
-#     # Load configuration
-#     config_path = os.path.join("OPUS", "configuration", "three_species.json")
-#     MOCAT_config = json.load(open(config_path))
-    
-#     simulation_name = "sixty_five_compliance"
-    
-#     # Run each scenario in parallel using a process pool.
-#     # Each process creates its own IAMSolver instance.
-#     mocat_results = {}
-#     with ProcessPoolExecutor() as executor:
-#         # Submit all scenarios to the executor
-#         future_to_scenario = {
-#             executor.submit(run_scenario, scenario, MOCAT_config, simulation_name): scenario
-#             for scenario in scenario_files
-#         }
-#         # Collect the results as they complete
-#         for future in as_completed(future_to_scenario):
-#             scenario = future_to_scenario[future]
-#             try:
-#                 mocat_result = future.result()
-#                 mocat_results[scenario] = mocat_result
-#             except Exception as exc:
-#                 print(f"Scenario {scenario} generated an exception: {exc}")
-    
-#     # Arrange the results in the same order as scenario_files
-#     mocat_list = [mocat_results[scenario] for scenario in scenario_files if scenario in mocat_results]
-    
-#     # Create the plot handler with the list of MOCAT objects, the scenario names, and simulation name.
-#     PlotHandler(mocat_list, scenario_files, simulation_name)
+    # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="S")
+    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

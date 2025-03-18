@@ -126,12 +126,13 @@ class EconParameters:
         self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
         self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
 
-        self.cost = (self.total_lift_price + self.stationkeeping_cost + self.lifetime_loss_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist() # should be self.mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
+        # self.cost = (self.total_lift_price + self.stationkeeping_cost + self.lifetime_loss_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist() # should be self.mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
+        self.cost = (self.total_lift_price + self.stationkeeping_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
         self.v_drag = v_drag
         self.k_star = k_star 
 
         #BOND CALCULATIONS - compliance rate is defined in MOCAT json
-        self.comp_rate = np.ones_like(self.cost) * self.mocat.scenario_properties.species['active'][1].deltat
+        self.comp_rate = np.ones_like(self.cost) * self.mocat.scenario_properties.species['active'][1].Pm # 0.95
 
         if self.bond is None:
             return 
@@ -147,79 +148,7 @@ class EconParameters:
         mask = self.bstar != 0  # Identify where bstar is nonzero
         self.comp_rate[mask] = np.minimum(0.65 + 0.35 * self.bond / self.bstar[mask], 1)
 
-    def plot_all_metrics_subplots(self, file_name='all_metrics_subplots.png'):
-        """
-        Plot various shell metrics on a single figure with multiple subplots.
-        Each metric is shown in its own subplot.
-        
-        Parameters
-        ----------
-        file_name : str, optional
-            The name of the saved figure file, by default 'all_metrics_subplots.png'.
-        """
-
-        # Define the metrics and labels you want to plot together
-        # Feel free to reorder or remove items you don't want in the composite figure.
-        metrics_and_labels = [
-            (self.lifetime_loss_cost, "Lifetime Loss Cost"),
-            (self.stationkeeping_cost, "Stationkeeping Cost"),
-            (self.deorbit_manuever_cost, "Deorbit Maneuver Cost"),
-            (self.cost, "Total Cost"),
-            (self.v_drag, "Δv Required to Counter Drag"),
-            (self.lifetime_after_deorbit, "Lifetime After Deorbit"),
-            (self.delta_v_after_deorbit, "Δv Leftover After Deorbit"),
-            (self.total_deorbit_delta_v, "Total Δv for Deorbit")
-        ]
-
-        # If self.bond is not None, we also plot bstar and comp_rate
-        if self.bond is not None:
-            metrics_and_labels.append((self.bstar, "Bond Amount"))
-            metrics_and_labels.append((self.comp_rate, "Compliance Rate"))
-
-        # Determine how many subplots are needed
-        num_metrics = len(metrics_and_labels)
-
-        # Example layout: we can choose nrows x ncols.
-        # For 8–10 metrics, a 5 x 2 (or 2 x 5) grid often works well.
-        # You can adjust as needed.
-        ncols = 2
-        nrows = int(np.ceil(num_metrics / ncols))
-
-        # Create the figure and subplots
-        fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 4 * nrows))
-        axes = np.atleast_1d(axes).ravel()  # Flatten in case there's only one row
-
-        # Shell mid-altitudes for the x-axis
-        shell_mid_altitudes = self.mocat.scenario_properties.HMid
-
-        # Plot each metric in its own subplot
-        for ax, (metric, label) in zip(axes, metrics_and_labels):
-            # Safety check: ensure the metric has the correct length
-            if len(metric) != self.mocat.scenario_properties.n_shells:
-                raise ValueError(
-                    f"Length of metric_array for '{label}' ({len(metric)}) "
-                    f"must match the number of shells ({self.mocat.scenario_properties.n_shells})."
-                )
-            
-            # Plot the metric
-            ax.plot(shell_mid_altitudes, metric, marker='o', linestyle='-')
-            ax.set_xlabel("Shell Mid Altitude (km)")
-            ax.set_ylabel(label)
-            ax.set_title(f"{label} vs. Shell Altitude")
-            ax.grid(True)
-            # Optionally, you can force x-ticks at each mid-altitude (be cautious if the array is large)
-            # ax.set_xticks(shell_mid_altitudes)
-            # Show only every 2nd altitude on the x-axis
-            ax.set_xticks(shell_mid_altitudes[::2])
-            ax.set_xticklabels(shell_mid_altitudes[::2], rotation=45)
-
-        # If there are extra subplots (when nrows*ncols > num_metrics), turn them off
-        for i in range(num_metrics, nrows * ncols):
-            axes[i].axis('off')
-
-        plt.tight_layout()
-        plt.savefig(file_name)
-        plt.close(fig)
+        return
 
     def modify_params_for_simulation(self, configuration, baseline=False):
         """
