@@ -109,8 +109,8 @@ class OpenAccessSolver:
             if self.econ_params.bond is None:
                 rate_of_return = rev_cost - discount_rate - depreciation_rate  
             else:
-                bond_per_shell = self.econ_params.bond + (self.econ_params.bond * collision_risk)
-                # bond_per_shell = np.ones_like(collision_risk) * self.econ_params.bond
+                # bond_per_shell = self.econ_params.bond + (self.econ_params.bond * collision_risk)
+                bond_per_shell = np.ones_like(collision_risk) * self.econ_params.bond
                 bond = ((1-self.econ_params.comp_rate) * (bond_per_shell / self.econ_params.cost))
                 rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
         else:

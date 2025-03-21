@@ -73,10 +73,10 @@ class EconParameters:
             shell_marginal_decay_rates[k] = -rvel_current_D/self.mocat.scenario_properties.Dhl
             shell_marginal_residence_times[k] = 1/shell_marginal_decay_rates[k]
         
-        shell_cumulative_residence_times = np.cumsum(shell_marginal_residence_times)
+        self.shell_cumulative_residence_times = np.cumsum(shell_marginal_residence_times)
 
         # Find the index of shell_cumulative_residence_times, k_star, which is the largest index that  shell_cumulative_residence_times(k_star) <= self.disposalTime
-        indices = np.where(shell_cumulative_residence_times <= self.disposal_time)[0]
+        indices = np.where(self.shell_cumulative_residence_times <= self.disposal_time)[0]
         k_star = max(indices) if len(indices) > 0 else 0
 
         # Physics based cost function using delta-v and deorbit requirements
@@ -132,9 +132,10 @@ class EconParameters:
         self.k_star = k_star 
 
         #BOND CALCULATIONS - compliance rate is defined in MOCAT json
-        self.comp_rate = np.ones_like(self.cost) * self.mocat.scenario_properties.species['active'][1].Pm # 0.95
-
+        self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
+        
         if self.bond is None:
+            self.comp_rate = np.where(self.naturally_compliant_vector != 1, 0.65, self.comp_rate)
             return 
         
         self.discount_factor = 1/(1+self.discount_rate)
