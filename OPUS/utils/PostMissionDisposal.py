@@ -33,10 +33,10 @@ def evaluate_pmd(state_matrix, pmd_rate, deltat, fringe_start_slice, fringe_end_
     num_items_fringe = state_matrix[fringe_start_slice:fringe_end_slice]
 
     # Compute the number of derelicts for each shell.
-    compliant_derelicts = (1 / deltat) * num_items_fringe * econ_parms.pmd_rate
+    compliant_derelicts = (1 / deltat) * num_items_fringe * pmd_rate
 
     # Non Compliant Derelicts
-    non_compliant_derelicts = (1 / deltat) * num_items_fringe * (1-econ_parms.pmd_rate)
+    non_compliant_derelicts = (1 / deltat) * num_items_fringe * (1-pmd_rate)
     
     # Remove the appropriate number of fringe satellites based on active lifetime.
     state_matrix[fringe_start_slice:fringe_end_slice] -= (1 / deltat) * num_items_fringe

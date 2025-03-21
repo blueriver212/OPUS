@@ -469,125 +469,264 @@ class PlotHandler:
 
                 print(f"Comparison plot saved to {out_path}")
 
-        # def comparison_total_species_count(self):
-        #         """
-        #         Creates a comparison plot of total species count over time.
-        #         Each species is plotted in its own subplot, comparing across all scenarios.
-        #         """
+        # # def comparison_total_species_count(self):
+        # #         """
+        # #         Creates a comparison plot of total species count over time.
+        # #         Each species is plotted in its own subplot, comparing across all scenarios.
+        # #         """
 
-        #         # Create a "comparisons" folder under the main simulation folder
+        # #         # Create a "comparisons" folder under the main simulation folder
+        # #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+        # #         os.makedirs(comparison_folder, exist_ok=True)
+
+        # #         # Dictionary to store time series data for each species across scenarios
+        # #         species_totals = {}
+
+        # #         # Loop over each scenario to extract data
+        # #         for scenario in self.scenario_files:
+        # #                 scenario_folder = os.path.join(self.simulation_folder, scenario)
+                        
+        # #                 if not os.path.exists(scenario_folder):
+        # #                         print(f"Warning: Cannot find {scenario_folder}; skipping.")
+        # #                         continue
+
+        # #                 # Build PlotData to get the dictionary of species->data arrays
+        # #                 plot_data = PlotData(scenario, scenario_folder, self.MOCAT)
+        # #                 data_dict = plot_data.data  # {species: np.array(time, shells), ...}
+
+        # #                 for species, species_data in data_dict.items():
+        # #                         # Sum across shells to get a total count per time step
+        # #                         total_species_count = np.sum(species_data, axis=1)  # shape: (time,)
+
+        # #                         # Store data per species
+        # #                         if species not in species_totals:
+        # #                                 species_totals[species] = {}
+                                
+        # #                         species_totals[species][scenario] = total_species_count
+
+        # #         # Count how many species we have
+        # #         num_species = len(species_totals)
+
+        # #         # If multiple species, create subplots in a grid
+        # #         num_cols = 2
+        # #         num_rows = math.ceil(num_species / num_cols)
+
+        # #         fig, axes = plt.subplots(num_rows, num_cols,
+        # #                                 figsize=(12, 6 * num_rows),
+        # #                                 sharex=True)
+        # #         # Flatten axes for easy iteration
+        # #         axes = np.array(axes).flatten()
+
+        # #         for idx, (species, scenario_data) in enumerate(species_totals.items()):
+        # #                 ax = axes[idx]
+        # #                 for scenario, counts in scenario_data.items():
+        # #                         ax.plot(counts, label=scenario, marker='o')
+
+        # #                 ax.set_title(f"Total Count across all shells for Species: {species}")
+        # #                 ax.set_xlabel("Year")
+        # #                 ax.set_ylabel("Total Count")
+        # #                 ax.legend()
+        # #                 ax.grid(True)
+
+        # #         # Hide any leftover empty subplots (if #species not a multiple of num_cols)
+        # #         for extra_ax in axes[num_species:]:
+        # #                 extra_ax.set_visible(False)
+
+        # #         plt.tight_layout()
+
+        # #         # Save the figure
+        # #         out_path = os.path.join(comparison_folder, "comparison_species_count.png")
+        # #         plt.savefig(out_path, dpi=300)
+        # #         plt.close()
+        # #         print(f"Comparison plot saved to {out_path}")
+
+        # def comparison_UMPY(self, plot_data_lists, other_data_lists):
+        #         """
+        #         Create a comparison plot of total UMPY over time for multiple scenarios.
+        #         Each scenario is plotted on the same figure with a label derived from 
+        #         its scenario name.
+        #         """
         #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
         #         os.makedirs(comparison_folder, exist_ok=True)
 
-        #         # Dictionary to store time series data for each species across scenarios
-        #         species_totals = {}
+        #         # Create a single figure for all scenarios
+        #         plt.figure(figsize=(8, 5))
 
-        #         # Loop over each scenario to extract data
-        #         for scenario in self.scenario_files:
-        #                 scenario_folder = os.path.join(self.simulation_folder, scenario)
-                        
-        #                 if not os.path.exists(scenario_folder):
-        #                         print(f"Warning: Cannot find {scenario_folder}; skipping.")
-        #                         continue
+        #         # Loop through each plot_data and other_data pair
+        #         for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+        #                 # 1) Sort the timesteps
+        #                 timesteps = sorted(other_data.keys(), key=int)
+        #                 umpy_sums = []
 
-        #                 # Build PlotData to get the dictionary of species->data arrays
-        #                 plot_data = PlotData(scenario, scenario_folder, self.MOCAT)
-        #                 data_dict = plot_data.data  # {species: np.array(time, shells), ...}
+        #                 # 2) Sum the 'umpy' values for each timestep
+        #                 for ts in timesteps:
+        #                         umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
+        #                         total_umpy = np.sum(umpy_list)
+        #                         umpy_sums.append(total_umpy)
 
-        #                 for species, species_data in data_dict.items():
-        #                         # Sum across shells to get a total count per time step
-        #                         total_species_count = np.sum(species_data, axis=1)  # shape: (time,)
+        #                 # Here we assume `plot_data` has an attribute storing the scenario name.
+        #                 # Adjust this to match your actual code if the attribute differs.
+        #                 scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-        #                         # Store data per species
-        #                         if species not in species_totals:
-        #                                 species_totals[species] = {}
-                                
-        #                         species_totals[species][scenario] = total_species_count
+        #                 # 3) Plot each scenario on the same figure
+        #                 plt.plot(
+        #                 timesteps,
+        #                 umpy_sums,
+        #                 marker='o',
+        #                 label=scenario_label
+        #                 )
 
-        #         # Count how many species we have
-        #         num_species = len(species_totals)
-
-        #         # If multiple species, create subplots in a grid
-        #         num_cols = 2
-        #         num_rows = math.ceil(num_species / num_cols)
-
-        #         fig, axes = plt.subplots(num_rows, num_cols,
-        #                                 figsize=(12, 6 * num_rows),
-        #                                 sharex=True)
-        #         # Flatten axes for easy iteration
-        #         axes = np.array(axes).flatten()
-
-        #         for idx, (species, scenario_data) in enumerate(species_totals.items()):
-        #                 ax = axes[idx]
-        #                 for scenario, counts in scenario_data.items():
-        #                         ax.plot(counts, label=scenario, marker='o')
-
-        #                 ax.set_title(f"Total Count across all shells for Species: {species}")
-        #                 ax.set_xlabel("Year")
-        #                 ax.set_ylabel("Total Count")
-        #                 ax.legend()
-        #                 ax.grid(True)
-
-        #         # Hide any leftover empty subplots (if #species not a multiple of num_cols)
-        #         for extra_ax in axes[num_species:]:
-        #                 extra_ax.set_visible(False)
-
+        #         # 4) Labels, legend, and layout
+        #         plt.xlabel("Year (timestep)")
+        #         plt.ylabel("UMPY (kg/year)")
+        #         plt.title("UMPY Evolution Over Time (All Scenarios)")
+        #         plt.legend()
         #         plt.tight_layout()
 
-        #         # Save the figure
-        #         out_path = os.path.join(comparison_folder, "comparison_species_count.png")
-        #         plt.savefig(out_path, dpi=300)
+        #         # 5) Save the figure using the first plot_data's path 
+        #         out_path = os.path.join(comparison_folder, "umpy_over_time.png")
+        #         plt.savefig(out_path, dpi=300, bbox_inches="tight")
         #         plt.close()
-        #         print(f"Comparison plot saved to {out_path}")
+        #         print(f"Comparison UMPY plot saved to {out_path}")
 
-        def comparison_UMPY(self, plot_data_lists, other_data_lists):
+        def comparison_final_umpy_vs_total_count(self, plot_data_lists, other_data_lists):
                 """
-                Create a comparison plot of total UMPY over time for multiple scenarios.
-                Each scenario is plotted on the same figure with a label derived from 
-                its scenario name.
+                Create and save a scatter plot where each scenario is represented by a point.
+                The X axis is the final UMPY value (kg/year) and the Y axis is the final total count of objects.
+                
+                Parameters
+                ----------
+                plot_data_lists : list
+                        A list of PlotData objects containing species count data in the 'data' attribute.
+                other_data_lists : list
+                        A list of dictionaries (one per scenario) that include timesteps with an "umpy" key.
                 """
-                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(comparison_folder, exist_ok=True)
-
-                # Create a single figure for all scenarios
-                plt.figure(figsize=(8, 5))
-
-                # Loop through each plot_data and other_data pair
+                # Create folder for comparison plots
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                scatter_file_path = os.path.join(scatter_folder, "scatter_final_umpy_vs_total_count.png")
+                
+                final_umpy_values = []
+                final_total_counts = []
+                labels = []
+                
+                # Loop over each scenario's data
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # 1) Sort the timesteps
+                        # --- Calculate final UMPY value ---
                         timesteps = sorted(other_data.keys(), key=int)
-                        umpy_sums = []
-
-                        # 2) Sum the 'umpy' values for each timestep
-                        for ts in timesteps:
-                                umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
-                                total_umpy = np.sum(umpy_list)
-                                umpy_sums.append(total_umpy)
-
-                        # Here we assume `plot_data` has an attribute storing the scenario name.
-                        # Adjust this to match your actual code if the attribute differs.
-                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-
-                        # 3) Plot each scenario on the same figure
-                        plt.plot(
-                        timesteps,
-                        umpy_sums,
-                        marker='o',
-                        label=scenario_label
-                        )
-
-                # 4) Labels, legend, and layout
-                plt.xlabel("Year (timestep)")
-                plt.ylabel("UMPY (kg/year)")
-                plt.title("UMPY Evolution Over Time (All Scenarios)")
-                plt.legend()
+                        last_timestep = timesteps[-1]
+                        # Sum the "umpy" list at the final timestep
+                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
+                        
+                        # --- Calculate final total count of objects ---
+                        # Assumes plot_data.data is a dictionary: {species: 2D array with shape (time, shells), ...}
+                        total_count = 0
+                        for sp, data in plot_data.data.items():
+                                data_arr = np.array(data)  # ensure it's a NumPy array
+                                # Sum the counts for the final time step (assumed to be the first dimension)
+                                final_count_sp = np.sum(data_arr[-1, :])
+                                total_count += final_count_sp
+                        
+                        final_umpy_values.append(final_umpy)
+                        final_total_counts.append(total_count)
+                        scenario_label = getattr(plot_data, "scenario", f"Scenario {i+1}")
+                        labels.append(scenario_label)
+                
+                # --- Create scatter plot ---
+                plt.figure(figsize=(8, 6))
+                plt.scatter(final_umpy_values, final_total_counts, marker='o')
+                
+                # Annotate each point with its scenario label
+                for x, y, label in zip(final_umpy_values, final_total_counts, labels):
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
+                        
+                plt.xlabel("Final UMPY (kg/year)")
+                plt.ylabel("Final Total Count of Objects")
+                plt.title("Final UMPY vs Final Total Count by Scenario")
+                plt.grid(True)
                 plt.tight_layout()
-
-                # 5) Save the figure using the first plot_data's path 
-                out_path = os.path.join(comparison_folder, "umpy_over_time.png")
-                plt.savefig(out_path, dpi=300, bbox_inches="tight")
+                plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
                 plt.close()
-                print(f"Comparison UMPY plot saved to {out_path}")
+                print(f"Scatter plot saved to {scatter_file_path}")
+
+
+        def comparison_umpy_vs_count_and_collision(self, plot_data_lists, other_data_lists):
+                """
+                Create a side-by-side scatter plot with two subplots:
+                - Left subplot: Final UMPY (x-axis) vs. Final Total Count of Objects (y-axis)
+                - Right subplot: Final UMPY (x-axis) vs. Final Collision Probability (y-axis)
+                
+                For each scenario:
+                - Final UMPY is computed as the sum of the "umpy" array at the final timestep.
+                - Final Total Count is computed by summing, for each species in plot_data.data,
+                        the counts from the last row (final timestep) across all shells.
+                - Final Collision Probability is computed as the sum of the 
+                        "collision_probability_all_species" array at the final timestep.
+                """
+                # Create a folder for saving the plot.
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "final_umpy_vs_count_and_collision.png")
+                
+                # Prepare lists to store values and labels for each scenario.
+                final_umpy_vals = []
+                final_total_counts = []
+                final_collision_probs = []
+                labels = []
+                
+                # Loop over scenarios.
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # Get scenario label (or default if not available)
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        
+                        # Sort timesteps and get the final one.
+                        timesteps = sorted(other_data.keys(), key=int)
+                        last_timestep = timesteps[-1]
+                        
+                        # Compute final UMPY (x-axis value)
+                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
+                        
+                        # Compute final total count (sum over species from plot_data.data)
+                        total_count = 0
+                        for sp, data in plot_data.data.items():
+                        # Assume data is an array-like with shape (time, shells)
+                                arr = np.array(data)
+                                total_count += np.sum(arr[-1, :])
+                        
+                        # Compute final collision probability by summing the provided array.
+                        final_collision = np.sum(other_data[last_timestep]["collision_probability"])
+                        
+                        final_umpy_vals.append(final_umpy)
+                        final_total_counts.append(total_count)
+                        final_collision_probs.append(final_collision)
+                        labels.append(scenario_label)
+                
+                # Create a figure with two subplots side by side.
+                fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+                
+                # Left subplot: Final UMPY vs. Final Total Count
+                axes[0].scatter(final_umpy_vals, final_total_counts, s=100, zorder=3)
+                for x, y, label in zip(final_umpy_vals, final_total_counts, labels):
+                        axes[0].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
+                axes[0].set_xlabel("Final UMPY (kg/year)")
+                axes[0].set_ylabel("Final Total Count of Objects")
+                axes[0].set_title("Final UMPY vs. Total Count")
+                axes[0].grid(True, zorder=0)
+                
+                # Right subplot: Final UMPY vs. Final Collision Probability
+                axes[1].scatter(final_umpy_vals, final_collision_probs, s=100, zorder=3)
+                for x, y, label in zip(final_umpy_vals, final_collision_probs, labels):
+                        axes[1].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
+                axes[1].set_xlabel("Final UMPY (kg/year)")
+                axes[1].set_ylabel("Final Collision Probability")
+                axes[1].set_title("Final UMPY vs. Collision Probability")
+                axes[1].grid(True, zorder=0)
+                
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Final UMPY vs. Count and Collision Probability scatter plots saved to {file_path}")
+
 
 
         def UMPY(self, plot_data, other_data):
@@ -676,119 +815,119 @@ class PlotHandler:
                 plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
                 plt.close()
 
-        # def ror_cp_and_launch_rate(self, plot_data, other_data):
-        #         """
-        #         Generate and save a combined plot for time evolution of different parameters (RoR, Collision Probability, Launch Rate).
-        #         """
-        #         # Extract keys (timesteps) and sort
-        #         timesteps = sorted(other_data.keys(), key=int)
+        def ror_cp_and_launch_rate(self, plot_data, other_data):
+                """
+                Generate and save a combined plot for time evolution of different parameters (RoR, Collision Probability, Launch Rate).
+                """
+                # Extract keys (timesteps) and sort
+                timesteps = sorted(other_data.keys(), key=int)
 
-        #         # Get number of altitude shells (assuming all timesteps have the same length)
-        #         num_altitude_shells = len(other_data[timesteps[0]]["ror"])
+                # Get number of altitude shells (assuming all timesteps have the same length)
+                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
 
-        #         # Prepare the figure
-        #         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                # Prepare the figure
+                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-        #         # Color map for time evolution
-        #         colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
+                # Color map for time evolution
+                colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
 
-        #         # Static Plot
-        #         for idx, timestep in enumerate(timesteps):
-        #                 ror = other_data[timestep]["ror"]
-        #                 collision_prob = other_data[timestep]["collision_probability"]
-        #                 launch_rate = other_data[timestep]["launch_rate"]
+                # Static Plot
+                for idx, timestep in enumerate(timesteps):
+                        ror = other_data[timestep]["ror"]
+                        collision_prob = other_data[timestep]["collision_probability"]
+                        launch_rate = other_data[timestep]["launch_rate"]
 
-        #                 axes[0].plot(range(num_altitude_shells), ror, color=colors[idx], label=f"Year {timestep}")
-        #                 axes[1].plot(range(num_altitude_shells), collision_prob, color=colors[idx])
-        #                 axes[2].plot(range(num_altitude_shells), launch_rate, color=colors[idx])
+                        axes[0].plot(range(num_altitude_shells), ror, color=colors[idx], label=f"Year {timestep}")
+                        axes[1].plot(range(num_altitude_shells), collision_prob, color=colors[idx])
+                        axes[2].plot(range(num_altitude_shells), launch_rate, color=colors[idx])
 
-        #         axes[0].set_title("Rate of Return (RoR)")
-        #         axes[1].set_title("Collision Probability")
-        #         axes[2].set_title("Launch Rate")
+                axes[0].set_title("Rate of Return (RoR)")
+                axes[1].set_title("Collision Probability")
+                axes[2].set_title("Launch Rate")
 
-        #         # Set labels and ticks
-        #         for ax in axes:
-        #                 ax.set_xlabel("Shell - Mid Altitude (km)")
-        #                 ax.set_ylabel("Value")
-        #                 ax.set_xticklabels(self.HMid)
+                # Set labels and ticks
+                for ax in axes:
+                        ax.set_xlabel("Shell - Mid Altitude (km)")
+                        ax.set_ylabel("Value")
+                        ax.set_xticklabels(self.HMid)
 
-        #         # Add a legend
-        #         fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
+                # Add a legend
+                fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
 
-        #         # Tight layout
-        #         plt.tight_layout()
+                # Tight layout
+                plt.tight_layout()
 
-        #         # Save the combined plot
-        #         combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
-        #         plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
-        #         plt.close()
+                # Save the combined plot
+                combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
+                plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
+                plt.close()
 
-        # def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
-        #         """
-        #         Generate and save an animated plot for the time evolution of different parameters (RoR, Collision Probability, Launch Rate).
-        #         """
-        #         # Extract keys (timesteps) and sort
-        #         timesteps = sorted(other_data.keys(), key=int)
+        def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
+                """
+                Generate and save an animated plot for the time evolution of different parameters (RoR, Collision Probability, Launch Rate).
+                """
+                # Extract keys (timesteps) and sort
+                timesteps = sorted(other_data.keys(), key=int)
 
-        #         # Get number of altitude shells (assuming all timesteps have the same length)
-        #         num_altitude_shells = len(other_data[timesteps[0]]["ror"])
+                # Get number of altitude shells (assuming all timesteps have the same length)
+                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
 
-        #         # Determine global min/max for each metric across all timesteps
-        #         ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
-        #         collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
-        #         launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
+                # Determine global min/max for each metric across all timesteps
+                ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
+                collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
+                launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
 
-        #         ror_min, ror_max = min(ror_values), max(ror_values)
-        #         collision_min, collision_max = min(collision_values), max(collision_values)
-        #         launch_min, launch_max = min(launch_values), max(launch_values)
+                ror_min, ror_max = min(ror_values), max(ror_values)
+                collision_min, collision_max = min(collision_values), max(collision_values)
+                launch_min, launch_max = min(launch_values), max(launch_values)
 
-        #         # Create the figure and axes
-        #         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                # Create the figure and axes
+                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-        #         def update(frame):
-        #                 timestep = timesteps[frame]
-        #                 ror = other_data[timestep]["ror"]
-        #                 collision_prob = other_data[timestep]["collision_probability"]
-        #                 launch_rate = other_data[timestep]["launch_rate"]
+                def update(frame):
+                        timestep = timesteps[frame]
+                        ror = other_data[timestep]["ror"]
+                        collision_prob = other_data[timestep]["collision_probability"]
+                        launch_rate = other_data[timestep]["launch_rate"]
 
-        #                 for ax in axes:
-        #                         ax.clear()
+                        for ax in axes:
+                                ax.clear()
 
-        #                         # Plot each metric with fixed y-axis limits
-        #                         axes[0].plot(range(num_altitude_shells), ror, color='b')
-        #                         axes[0].set_ylim(ror_min, ror_max)
-        #                         axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
-        #                         axes[0].set_xlabel("Shell - Mid Altitude (km)")
-        #                         axes[0].set_ylabel("RoR")
-        #                         axes[0].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-        #                         axes[0].set_xticklabels(self.HMid)
+                                # Plot each metric with fixed y-axis limits
+                                axes[0].plot(range(num_altitude_shells), ror, color='b')
+                                axes[0].set_ylim(ror_min, ror_max)
+                                axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
+                                axes[0].set_xlabel("Shell - Mid Altitude (km)")
+                                axes[0].set_ylabel("RoR")
+                                axes[0].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+                                axes[0].set_xticklabels(self.HMid)
 
-        #                         axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
-        #                         axes[1].set_ylim(collision_min, collision_max)
-        #                         axes[1].set_title(f"Collision Probability - Year {timestep}")
-        #                         axes[1].set_xlabel("Shell - Mid Altitude (km)")
-        #                         axes[1].set_ylabel("Collision Probability")
-        #                         axes[1].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-        #                         axes[1].set_xticklabels(self.HMid)
+                                axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
+                                axes[1].set_ylim(collision_min, collision_max)
+                                axes[1].set_title(f"Collision Probability - Year {timestep}")
+                                axes[1].set_xlabel("Shell - Mid Altitude (km)")
+                                axes[1].set_ylabel("Collision Probability")
+                                axes[1].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+                                axes[1].set_xticklabels(self.HMid)
 
-        #                         axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
-        #                         axes[2].set_ylim(launch_min, launch_max)
-        #                         axes[2].set_title(f"Launch Rate - Year {timestep}")
-        #                         axes[2].set_xlabel("Shell - Mid Altitude (km)")
-        #                         axes[2].set_ylabel("Launch Rate")
-        #                         axes[2].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-        #                         axes[2].set_xticklabels(self.HMid)
+                                axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
+                                axes[2].set_ylim(launch_min, launch_max)
+                                axes[2].set_title(f"Launch Rate - Year {timestep}")
+                                axes[2].set_xlabel("Shell - Mid Altitude (km)")
+                                axes[2].set_ylabel("Launch Rate")
+                                axes[2].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+                                axes[2].set_xticklabels(self.HMid)
 
-        #                 plt.tight_layout()
+                        plt.tight_layout()
                 
-        #         # Create the animation
-        #         ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
+                # Create the animation
+                ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
 
-        #         # Save as GIF
-        #         combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
-        #         ani.save(combined_file_path, writer="pillow", fps=2)
+                # Save as GIF
+                combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
+                ani.save(combined_file_path, writer="pillow", fps=2)
 
-        #         plt.close()
+                plt.close()
 
         def ror_cp_and_launch_rate(self, plot_data, other_data):
                 """
@@ -924,8 +1063,8 @@ class PlotHandler:
                 print(f"Animated evolution plot saved to {combined_file_path}")
 
 
-        def collision_probability_stacked_by_species(self, plot_data, other_data):
-                pass
+        # def collision_probability_stacked_by_species(self, plot_data, other_data):
+        #         pass
 
-        def pmd_effectiveness(self, plot_data, other_data):
-                pass
+        # def pmd_effectiveness(self, plot_data, other_data):
+        #         pass
