@@ -213,19 +213,19 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "bond_0k_25yr",
-                    "bond_100k",
-                    # "bond_200k",
-                    # "bond_300k",
-                    "bond_500k",
-                    "bond_800k",
-                    "bond_100k_25yr",
-                    # "bond_200k_25yr",
-                    # "bond_300k_25yr",
-                    "bond_500k_25yr",
-                    "bond_800k_25yr",
-                    "tax_1",
-                    "tax_2"
+                    # "bond_0k_25yr",
+                    # "bond_100k",
+                    # # "bond_200k",
+                    # # "bond_300k",
+                    # "bond_500k",
+                    # "bond_800k",
+                    # "bond_100k_25yr",
+                    # # "bond_200k_25yr",
+                    # # "bond_300k_25yr",
+                    # "bond_500k_25yr",
+                    # "bond_800k_25yr",
+                    # "tax_1",
+                    # "tax_2"
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
