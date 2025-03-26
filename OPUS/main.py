@@ -8,6 +8,10 @@ from utils.PostMissionDisposal import evaluate_pmd
 import json
 import numpy as np
 import time
+# sammie addition
+import matplotlib.pyplot as plt
+import pandas as pd
+
 
 class IAMSolver:
 
@@ -118,10 +122,12 @@ class IAMSolver:
 
         # sammie addition:
         # adr_times = [5, 10, 15, 20]
+        implement_adr = MOCAT_config["adr"]["implement"]
         adr_times = MOCAT_config["adr"]["adr_times"]
         target_shell = MOCAT_config["adr"]["target_shell"]
         target_species = MOCAT_config["adr"]["target_species"]
         p_remove = MOCAT_config["adr"]["p_remove"]
+        data_storage_b = np.zeros((self.MOCAT.scenario_properties.simulation_duration,self.MOCAT.scenario_properties.n_shells))
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -151,13 +157,19 @@ class IAMSolver:
                 # 0 based index 
 
                 # sammie addition:
-                if ((time_idx in adr_times) and (sp in target_species)):
-                    target_species_env = propagated_environment[i*self.MOCAT.scenario_properties.n_shells:(i+1)*self.MOCAT.scenario_properties.n_shells]
+                species_idx_start = i*self.MOCAT.scenario_properties.n_shells
+                species_idx_end = (i+1)*self.MOCAT.scenario_properties.n_shells
+                if ((time_idx in adr_times) and (sp in target_species) and (implement_adr == 1)):
+                    # target_species_env = propagated_environment[i*self.MOCAT.scenario_properties.n_shells:(i+1)*self.MOCAT.scenario_properties.n_shells]
                     for j in target_shell:
-                        target_species_env[j-1] = (1-p_remove)*target_species_env[j-1]
-                    propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells] = target_species_env
+                        # target_species_env[j-1] = (1-p_remove)*target_species_env[j-1]
+                        propagated_environment[species_idx_start:species_idx_end][j-1] *= (1-p_remove)
+
+                if sp in target_species:
+                    data_storage_b[time_idx-1] = propagated_environment[species_idx_start:species_idx_end]
                     
-                species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                species_data[sp][time_idx - 1] = propagated_environment[species_idx_start:species_idx_end]
+                
 
             # Fringe Equilibrium Controller
             start_time = time.time()
@@ -198,7 +210,47 @@ class IAMSolver:
                 "umpy": umpy, 
                 "excess_returns": excess_returns
             }
-        
+            
+        # sammie addition
+        df = pd.DataFrame(data_storage_b)
+        df.to_csv('./Results/rocket_body_data.csv', index=False)
+        num_plots = self.MOCAT.scenario_properties.n_shells
+
+        # fig, axes = plt.subplots(2,int(num_plots/2),figsize=(6, 12),sharex=True)
+        if time_idx == 10:
+            for i in range(num_plots):
+            # if i in range(int(num_plots/2)):
+            #     row_idx = 0
+            #     col_idx = i
+            
+            # elif i in range(int(num_plots/2),num_plots):
+            #     row_idx = 1
+            #     col_idx = i-5
+            # axes[row_idx,col_idx].plot(tf,data_storage_b)
+            # axes[row_idx,col_idx].set_xlabel("Year")
+            # axes[row_idx,col_idx].set_ylabel("Species Amount")
+            # axes[row_idx,col_idx].set_title("Rocket Bodies in Shell "+str(i+1))
+                testing_vals = data_storage_b[:,i]
+                testing_vals_2 = data_storage_b[:][i]
+                plt.plot(tf,data_storage_b[:,i])
+                plt.xlabel("Year")
+                plt.ylabel("Species Amount")
+                plt.title("Rocket Bodies in Shell "+str(i+1))
+                plt.savefig('./Results/b_count_shell'+str(i+1)+'.png')
+                plt.close()
+        # plt.tight_layout()
+        # plt.savefig('./Results/b_count_over_time.png')
+            for i in range(num_plots):
+                plt.plot(tf,data_storage_b[:,i],label='Shell'+str(i+1))
+                # plt.legend("Shell "+str(i+1))
+            plt.xlabel("Year")
+            plt.ylabel("Species Amount")
+            plt.title("Rocket Bodies in All Shells")
+            plt.legend(loc='center right',bbox_to_anchor=(1.25,0.5))
+            plt.savefig('./Results/b_count_all_shells.png',bbox_inches='tight',pad_inches=0.25)
+            plt.close()
+
+
         PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
     def get_mocat(self):
@@ -240,7 +292,7 @@ if __name__ == "__main__":
         iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-
+    testing = "value"
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="S")

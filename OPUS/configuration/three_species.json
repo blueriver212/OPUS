@@ -12,9 +12,9 @@
         "max_altitude": 1600,
         "min_altitude": 200,
         "n_shells": 10,
-        "simulation_duration": 10,
+        "simulation_duration": 20,
         "start_date": "01/02/2024",
-        "steps": 10,
+        "steps": 20,
         "v_imp": 10, 
         "baseline": true,
         "fragment_spreading": false, 
@@ -113,11 +113,11 @@
     ],
     "status": "not started",
     "adr": {
-            "implement": 0,
-            "target_shell": [4],
+            "implement": 1,
+            "target_shell": [4,5,6],
             "target_species": ["B"],
-            "adr_times": [5,10,15,20],
-            "p_remove": 0.2
+            "adr_times": [3,6,9,12,15,18],
+            "p_remove": 0.15
     }
     
 }
