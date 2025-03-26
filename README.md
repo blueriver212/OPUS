@@ -112,8 +112,7 @@ PlotHandler(MOCAT_model, scenario_files, simulation_name, comparison=True)
 ```
 
 ## Customization and Extension
-
-You can:
+There are various ways to complete policy and configuration comparison, including:
 - Add new policies via config files (e.g. new bonds, disposal rules)
 - Modify economics (discount rate, revenue function, costs)
 - Extend debris model parameters (shell count, object properties)
@@ -121,12 +120,10 @@ You can:
 
 ## References
 - Original OPUS paper: https://arxiv.org/abs/2309.10252
-- PMD Bond Paper: [PDF in repo]
+- PMD Bond Paper: # Will be uploaded after conference.
 - MOCAT-pySSEM model: https://github.com/ARCLab-MIT/pyssem/
 
 ## License
 MIT License
-
 ---
-
-For contributions, bug reports, or feature requests, open an issue or pull request on [GitHub](https://github.com/blueriver212/OPUS).
+For contributions, bug reports, or feature requests, open an issue or pull request on [GitHub](https://github.com/blueriver212/OPUS) or contact Indigo at: indigo.brownhall.20@ucl.ac.uk
