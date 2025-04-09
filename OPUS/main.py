@@ -11,6 +11,7 @@ import time
 # sammie addition
 import matplotlib.pyplot as plt
 import pandas as pd
+from utils.ADRParameters import ADRParameters
 
 
 class IAMSolver:
@@ -20,6 +21,8 @@ class IAMSolver:
         self.MOCAT = None
         self.econ_params_json = None
         self.pmd_linked_species = None
+        # sammie addition
+        self.adr_params_json = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
@@ -59,7 +62,7 @@ class IAMSolver:
         ### CONFIGURE MOCAT MODEL
         #########################
         if self.MOCAT is None:
-            self.MOCAT, self.econ_params_json, self.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
+            self.MOCAT, self.econ_params_json, self.adr_params_json, self.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
             print(self.MOCAT.scenario_properties.x0)
 
         # If testing using MOCAT x0 use:
@@ -70,11 +73,18 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
+
+        # sammie addition
+
+        adr_params = ADRParameters(self.adr_params_json,mocat=self.MOCAT)
         if scenario_name != "Baseline":
             econ_params.modify_params_for_simulation(scenario_name)
+            adr_params.modify_adr_params_for_simulation(scenario_name)
         else: # needs to be a better way of doing this 
             econ_params.bond = None
             econ_params.tax = 0
+            adr_params.implement = 0
+            
 
         econ_params.calculate_cost_fn_parameters()
 
@@ -102,7 +112,7 @@ class IAMSolver:
         launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
 
         lam[fringe_start_slice:fringe_end_slice] = launch_rate
-        
+   
         
         ####################
         ### SIMULATION LOOP
@@ -121,12 +131,15 @@ class IAMSolver:
 
 
         # sammie addition:
-        # adr_times = [5, 10, 15, 20]
-        implement_adr = MOCAT_config["adr"]["implement"]
-        adr_times = MOCAT_config["adr"]["adr_times"]
-        target_shell = MOCAT_config["adr"]["target_shell"]
-        target_species = MOCAT_config["adr"]["target_species"]
-        p_remove = MOCAT_config["adr"]["p_remove"]
+
+        
+        adr_times = adr_params.times
+        implement_adr = adr_params.implement
+        p_remove = adr_params.p_remove
+        target_shell = adr_params.shell
+        target_species = adr_params.species 
+
+
         data_storage_b = np.zeros((self.MOCAT.scenario_properties.simulation_duration,self.MOCAT.scenario_properties.n_shells))
         for time_idx in tf:
 
@@ -160,6 +173,7 @@ class IAMSolver:
                 species_idx_start = i*self.MOCAT.scenario_properties.n_shells
                 species_idx_end = (i+1)*self.MOCAT.scenario_properties.n_shells
                 if ((time_idx in adr_times) and (sp in target_species) and (implement_adr == 1)):
+                    print("ACTIVELY REMOVING DEBRIS")
                     # target_species_env = propagated_environment[i*self.MOCAT.scenario_properties.n_shells:(i+1)*self.MOCAT.scenario_properties.n_shells]
                     for j in target_shell:
                         # target_species_env[j-1] = (1-p_remove)*target_species_env[j-1]
@@ -211,44 +225,44 @@ class IAMSolver:
                 "excess_returns": excess_returns
             }
             
-        # sammie addition
-        df = pd.DataFrame(data_storage_b)
-        df.to_csv('./Results/rocket_body_data.csv', index=False)
-        num_plots = self.MOCAT.scenario_properties.n_shells
+        # # sammie addition
+        # df = pd.DataFrame(data_storage_b)
+        # df.to_csv('./Results/rocket_body_data.csv', index=False)
+        # num_plots = self.MOCAT.scenario_properties.n_shells
 
-        # fig, axes = plt.subplots(2,int(num_plots/2),figsize=(6, 12),sharex=True)
-        if time_idx == 10:
-            for i in range(num_plots):
-            # if i in range(int(num_plots/2)):
-            #     row_idx = 0
-            #     col_idx = i
+        # # fig, axes = plt.subplots(2,int(num_plots/2),figsize=(6, 12),sharex=True)
+        # if time_idx == 10:
+        #     for i in range(num_plots):
+        #     # if i in range(int(num_plots/2)):
+        #     #     row_idx = 0
+        #     #     col_idx = i
             
-            # elif i in range(int(num_plots/2),num_plots):
-            #     row_idx = 1
-            #     col_idx = i-5
-            # axes[row_idx,col_idx].plot(tf,data_storage_b)
-            # axes[row_idx,col_idx].set_xlabel("Year")
-            # axes[row_idx,col_idx].set_ylabel("Species Amount")
-            # axes[row_idx,col_idx].set_title("Rocket Bodies in Shell "+str(i+1))
-                testing_vals = data_storage_b[:,i]
-                testing_vals_2 = data_storage_b[:][i]
-                plt.plot(tf,data_storage_b[:,i])
-                plt.xlabel("Year")
-                plt.ylabel("Species Amount")
-                plt.title("Rocket Bodies in Shell "+str(i+1))
-                plt.savefig('./Results/b_count_shell'+str(i+1)+'.png')
-                plt.close()
-        # plt.tight_layout()
-        # plt.savefig('./Results/b_count_over_time.png')
-            for i in range(num_plots):
-                plt.plot(tf,data_storage_b[:,i],label='Shell'+str(i+1))
-                # plt.legend("Shell "+str(i+1))
-            plt.xlabel("Year")
-            plt.ylabel("Species Amount")
-            plt.title("Rocket Bodies in All Shells")
-            plt.legend(loc='center right',bbox_to_anchor=(1.25,0.5))
-            plt.savefig('./Results/b_count_all_shells.png',bbox_inches='tight',pad_inches=0.25)
-            plt.close()
+        #     # elif i in range(int(num_plots/2),num_plots):
+        #     #     row_idx = 1
+        #     #     col_idx = i-5
+        #     # axes[row_idx,col_idx].plot(tf,data_storage_b)
+        #     # axes[row_idx,col_idx].set_xlabel("Year")
+        #     # axes[row_idx,col_idx].set_ylabel("Species Amount")
+        #     # axes[row_idx,col_idx].set_title("Rocket Bodies in Shell "+str(i+1))
+        #         testing_vals = data_storage_b[:,i]
+        #         testing_vals_2 = data_storage_b[:][i]
+        #         plt.plot(tf,data_storage_b[:,i])
+        #         plt.xlabel("Year")
+        #         plt.ylabel("Species Amount")
+        #         plt.title("Rocket Bodies in Shell "+str(i+1))
+        #         plt.savefig('./Results/b_count_shell'+str(i+1)+'.png')
+        #         plt.close()
+        # # plt.tight_layout()
+        # # plt.savefig('./Results/b_count_over_time.png')
+        #     for i in range(num_plots):
+        #         plt.plot(tf,data_storage_b[:,i],label='Shell'+str(i+1))
+        #         # plt.legend("Shell "+str(i+1))
+        #     plt.xlabel("Year")
+        #     plt.ylabel("Species Amount")
+        #     plt.title("Rocket Bodies in All Shells")
+        #     plt.legend(loc='center right',bbox_to_anchor=(1.25,0.5))
+        #     plt.savefig('./Results/b_count_all_shells.png',bbox_inches='tight',pad_inches=0.25)
+        #     plt.close()
 
 
         PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
@@ -281,6 +295,9 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    "adr_b",
+                    "adr_n_223",
+                    
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -298,17 +315,19 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
+    # ADR_config = json.load(open("./OPUS/configuration/adr.json"))
+
     simulation_name = "ESDC_run_3"
 
     iam_solver = IAMSolver()
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
-    # # # # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # # # # # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
     # # # Assuming PlotHandler can handle multiple outputs from different iam_solver instances
@@ -317,5 +336,5 @@ if __name__ == "__main__":
 
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    MOCAT,_,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

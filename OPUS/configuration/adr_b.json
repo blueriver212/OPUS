@@ -1,0 +1,7 @@
+{
+    "implement": 1,
+    "target_shell": [7,8],
+    "target_species": ["B"],
+    "adr_times": [5,10],
+    "p_remove": 0.2
+}

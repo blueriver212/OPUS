@@ -11,7 +11,7 @@
         "LC": 0.1,
         "max_altitude": 1200,
         "min_altitude": 200,
-        "n_shells": 20,
+        "n_shells": 10,
         "simulation_duration": 10,
         "start_date": "01/02/2024",
         "steps": 20,
@@ -113,11 +113,11 @@
     ],
     "status": "not started",
     "adr": {
-            "implement": 1,
-            "target_shell": [4,5,6],
+            "implement": 0,
+            "target_shell": [7,8],
             "target_species": ["B"],
-            "adr_times": [3,6,9,12,15,18],
-            "p_remove": 0.15
+            "adr_times": [5,10,15,20,25,30],
+            "p_remove": 0.2
     }
     
 }

@@ -540,54 +540,54 @@ class PlotHandler:
         # #         plt.close()
         # #         print(f"Comparison plot saved to {out_path}")
 
-        # def comparison_UMPY(self, plot_data_lists, other_data_lists):
-        #         """
-        #         Create a comparison plot of total UMPY over time for multiple scenarios.
-        #         Each scenario is plotted on the same figure with a label derived from 
-        #         its scenario name.
-        #         """
-        #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-        #         os.makedirs(comparison_folder, exist_ok=True)
+        def comparison_UMPY(self, plot_data_lists, other_data_lists):
+                """
+                Create a comparison plot of total UMPY over time for multiple scenarios.
+                Each scenario is plotted on the same figure with a label derived from 
+                its scenario name.
+                """
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
 
-        #         # Create a single figure for all scenarios
-        #         plt.figure(figsize=(8, 5))
+                # Create a single figure for all scenarios
+                plt.figure(figsize=(8, 5))
 
-        #         # Loop through each plot_data and other_data pair
-        #         for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-        #                 # 1) Sort the timesteps
-        #                 timesteps = sorted(other_data.keys(), key=int)
-        #                 umpy_sums = []
+                # Loop through each plot_data and other_data pair
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # 1) Sort the timesteps
+                        timesteps = sorted(other_data.keys(), key=int)
+                        umpy_sums = []
 
-        #                 # 2) Sum the 'umpy' values for each timestep
-        #                 for ts in timesteps:
-        #                         umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
-        #                         total_umpy = np.sum(umpy_list)
-        #                         umpy_sums.append(total_umpy)
+                        # 2) Sum the 'umpy' values for each timestep
+                        for ts in timesteps:
+                                umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
+                                total_umpy = np.sum(umpy_list)
+                                umpy_sums.append(total_umpy)
 
-        #                 # Here we assume `plot_data` has an attribute storing the scenario name.
-        #                 # Adjust this to match your actual code if the attribute differs.
-        #                 scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        # Here we assume `plot_data` has an attribute storing the scenario name.
+                        # Adjust this to match your actual code if the attribute differs.
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-        #                 # 3) Plot each scenario on the same figure
-        #                 plt.plot(
-        #                 timesteps,
-        #                 umpy_sums,
-        #                 marker='o',
-        #                 label=scenario_label
-        #                 )
+                        # 3) Plot each scenario on the same figure
+                        plt.plot(
+                        timesteps,
+                        umpy_sums,
+                        marker='o',
+                        label=scenario_label
+                        )
 
-        #         # 4) Labels, legend, and layout
-        #         plt.xlabel("Year (timestep)")
-        #         plt.ylabel("UMPY (kg/year)")
-        #         plt.title("UMPY Evolution Over Time (All Scenarios)")
-        #         plt.legend()
-        #         plt.tight_layout()
+                # 4) Labels, legend, and layout
+                plt.xlabel("Year (timestep)")
+                plt.ylabel("UMPY (kg/year)")
+                plt.title("UMPY Evolution Over Time (All Scenarios)")
+                plt.legend()
+                plt.tight_layout()
 
-        #         # 5) Save the figure using the first plot_data's path 
-        #         out_path = os.path.join(comparison_folder, "umpy_over_time.png")
-        #         plt.savefig(out_path, dpi=300, bbox_inches="tight")
-        #         plt.close()
-        #         print(f"Comparison UMPY plot saved to {out_path}")
+                # 5) Save the figure using the first plot_data's path 
+                out_path = os.path.join(comparison_folder, "umpy_over_time.png")
+                plt.savefig(out_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Comparison UMPY plot saved to {out_path}")
 
         def comparison_final_umpy_vs_total_count(self, plot_data_lists, other_data_lists):
                 """
