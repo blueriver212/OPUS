@@ -212,15 +212,15 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "bond_0k_25yr",
+                    "bond_0k_25yr",
                     # "bond_100k",
-                    # # "bond_200k",
-                    # # "bond_300k",
+                    # "bond_200k",
+                    # "bond_300k",
                     # "bond_500k",
-                    "bond_800k",
+                    # "bond_800k",
                     # "bond_100k_25yr",
-                    # # "bond_200k_25yr",
-                    # # "bond_300k_25yr",
+                    # "bond_200k_25yr",
+                    # "bond_300k_25yr",
                     # "bond_500k_25yr",
                     # "bond_800k_25yr",
                     # "tax_1",
@@ -228,15 +228,15 @@ if __name__ == "__main__":
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
-
-    simulation_name = "ADR"
-
+    simulation_name = "pmd_check"
     iam_solver = IAMSolver()
 
     # no parallel processing
     for scenario_name in scenario_files:
         # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
         iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    
+    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
