@@ -96,7 +96,7 @@ class IAMSolver:
                                     derelict_start_slice, derelict_end_slice)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
-        launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
+        launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
 
         lam[fringe_start_slice:fringe_end_slice] = launch_rate
         
@@ -127,9 +127,9 @@ class IAMSolver:
             fringe_initial_guess = None
 
             # Propagate the model and take the final state of the environment
-            propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam)
+            propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam, time_idx)
             propagated_environment = propagated_environment[-1, :] 
-            propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
+            propagated_environment, sum_non_compliance = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
             # Update the constellation satellites for the next period - should only be 5%.
@@ -163,7 +163,7 @@ class IAMSolver:
                 econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice)
 
             # Solve for equilibrium launch rates
-            launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
+            launch_rate, col_probability_all_species, umpy, excess_returns, non_compliance_totals = open_access.solver()
 
             # Update the initial conditions for the next period
             lam[fringe_start_slice:fringe_end_slice] = launch_rate
@@ -181,7 +181,8 @@ class IAMSolver:
                 "launch_rate" : launch_rate, 
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy, 
-                "excess_returns": excess_returns
+                "excess_returns": excess_returns,
+                "non_compliance": non_compliance_totals
             }
         
         PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
@@ -212,38 +213,40 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "bond_0k_25yr",
-                    # "bond_100k",
+                    "bond_0k_25yr",
+                    # # "bond_100k",
                     # # "bond_200k",
-                    # # "bond_300k",
-                    # "bond_500k",
-                    "bond_800k",
-                    # "bond_100k_25yr",
+                    # "bond_300k",
+                    # # "bond_500k",
+                    # "bond_800k",
+                    # # "bond_100k_25yr",
                     # # "bond_200k_25yr",
-                    # # "bond_300k_25yr",
-                    # "bond_500k_25yr",
+                    # "bond_300k_25yr",
+                    # # "bond_500k_25yr",
                     # "bond_800k_25yr",
-                    # "tax_1",
+                    # # "tax_1",
                     # "tax_2"
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "ADR"
+    simulation_name = "Densities"
 
     iam_solver = IAMSolver()
 
-    # no parallel processing
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    # # no parallel processing
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
-    # Parallel Processing
-    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # # Parallel Processing
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
+
+    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
+    
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

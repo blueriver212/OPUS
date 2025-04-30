@@ -31,11 +31,13 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
         integrator=scenario_props["integrator"],
         density_model=scenario_props["density_model"],
         LC=scenario_props["LC"],
-        v_imp = scenario_props.get("v_imp", None),
-        fragment_spreading=scenario_props.get("fragment_spreading", True),
-        parallel_processing=scenario_props.get("parallel_processing", False),
+        v_imp = scenario_props.get("v_imp", None), 
+        fragment_spreading=scenario_props.get("fragment_spreading", False),
+        parallel_processing=scenario_props.get("parallel_processing", True),
         baseline=scenario_props.get("baseline", False),
-        indicator_variables=scenario_props.get("indicator_variables", False),
+        indicator_variables=scenario_props.get("indicator_variables", None),
+        launch_scenario=scenario_props["launch_scenario"],
+        SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None,
     )
 
     species = MOCAT_config["species"]
