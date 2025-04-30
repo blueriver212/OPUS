@@ -70,4 +70,4 @@ def evaluate_pmd(state_matrix, pmd_rate, deltat, fringe_start_slice, fringe_end_
     # Now for the non_compliant derelicts. They just remain where they are. 
     state_matrix[derelict_start_slice:derelict_end_slice] += non_compliant_derelicts
  
-    return state_matrix
+    return state_matrix, sum_non_compliant

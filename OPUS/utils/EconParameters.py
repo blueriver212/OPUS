@@ -1,8 +1,7 @@
 import numpy as np
 from pyssem.model import Model
-from pyssem.utils.drag.drag import densityexp
+from pyssem.utils.drag.drag import densityexp, density_jb2008
 import pandas as pd
-import matplotlib.pyplot as plt
 
 class EconParameters:
     """
@@ -65,7 +64,7 @@ class EconParameters:
 
         # Here using the ballastic coefficient of the species, we are trying to find the highest compliant altitude/shell
         for k in range(self.mocat.scenario_properties.n_shells):
-            rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
+            rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k], solar_activity='medium')
 
             # satellite 
             beta = 0.0172 # ballastic coefficient, area * mass * drag coefficient. This should be done for each species!
@@ -85,7 +84,7 @@ class EconParameters:
 
         # Calculate drag delta-v for stationkeeping maneuvers
         for k in range(self.mocat.scenario_properties.n_shells):
-            rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
+            rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k])
             orbital_velocity = np.sqrt(self.mocat.scenario_properties.mu / self.mocat.scenario_properties.R0[k])
             F_drag = 2.2 * 0.5 * rhok * orbital_velocity**2 * 1.741 # this is cd and area and have been hard coded
             v_drag[k] = F_drag / 223 * delta_t * 1e-3

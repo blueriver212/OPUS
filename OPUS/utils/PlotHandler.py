@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.animation as animation
 import math
+import pickle
 
 class PlotData:
         """
@@ -93,8 +94,8 @@ class PlotHandler:
                 
                 plot_data_list = []
                 other_data_list = []
-                econ_params_list = []                
-                
+                econ_params_list = []
+
                 # Loop through the scenario files and generate the plots
                 for scenario in self.scenario_files:
                         scenario_folder = os.path.join(self.simulation_folder, scenario)
@@ -387,6 +388,8 @@ class PlotHandler:
                 plt.close()
                 print(f"Stacked bar chart saved to {file_path}")
 
+        
+
         def comparison_total_species_count(self, plot_data_lists, other_data_lists=None):
                 """
                 Creates a comparison plot of total species count over time.
@@ -589,143 +592,464 @@ class PlotHandler:
         #         plt.close()
         #         print(f"Comparison UMPY plot saved to {out_path}")
 
-        def comparison_final_umpy_vs_total_count(self, plot_data_lists, other_data_lists):
+        def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
                 """
-                Create and save a scatter plot where each scenario is represented by a point.
-                The X axis is the final UMPY value (kg/year) and the Y axis is the final total count of objects.
-                
-                Parameters
-                ----------
-                plot_data_lists : list
-                        A list of PlotData objects containing species count data in the 'data' attribute.
-                other_data_lists : list
-                        A list of dictionaries (one per scenario) that include timesteps with an "umpy" key.
+                Create a scatter plot showing:
+                - X-axis: bond amount (£)
+                - Y-axis: non-compliance (%)
+                - Point color or size: total money paid (non_compliance × bond)
+
+                Assumes bond amount is encoded in the scenario name, e.g., 'bond_800k'.
                 """
-                # Create folder for comparison plots
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
                 scatter_folder = os.path.join(self.simulation_folder, "comparisons")
                 os.makedirs(scatter_folder, exist_ok=True)
-                scatter_file_path = os.path.join(scatter_folder, "scatter_final_umpy_vs_total_count.png")
-                
-                final_umpy_values = []
-                final_total_counts = []
-                labels = []
-                
-                # Loop over each scenario's data
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # --- Calculate final UMPY value ---
-                        timesteps = sorted(other_data.keys(), key=int)
-                        last_timestep = timesteps[-1]
-                        # Sum the "umpy" list at the final timestep
-                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
-                        
-                        # --- Calculate final total count of objects ---
-                        # Assumes plot_data.data is a dictionary: {species: 2D array with shape (time, shells), ...}
-                        total_count = 0
-                        for sp, data in plot_data.data.items():
-                                data_arr = np.array(data)  # ensure it's a NumPy array
-                                # Sum the counts for the final time step (assumed to be the first dimension)
-                                final_count_sp = np.sum(data_arr[-1, :])
-                                total_count += final_count_sp
-                        
-                        final_umpy_values.append(final_umpy)
-                        final_total_counts.append(total_count)
-                        scenario_label = getattr(plot_data, "scenario", f"Scenario {i+1}")
-                        labels.append(scenario_label)
-                
-                # --- Create scatter plot ---
-                plt.figure(figsize=(8, 6))
-                plt.scatter(final_umpy_values, final_total_counts, marker='o')
-                
-                # Annotate each point with its scenario label
-                for x, y, label in zip(final_umpy_values, final_total_counts, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
-                        
-                plt.xlabel("Final UMPY (kg/year)")
-                plt.ylabel("Final Total Count of Objects")
-                plt.title("Final UMPY vs Final Total Count by Scenario")
-                plt.grid(True)
-                plt.tight_layout()
-                plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
-                plt.close()
-                print(f"Scatter plot saved to {scatter_file_path}")
+                file_path = os.path.join(scatter_folder, "scatter_noncompliance_vs_bond.png")
 
-
-        def comparison_umpy_vs_count_and_collision(self, plot_data_lists, other_data_lists):
-                """
-                Create a side-by-side scatter plot with two subplots:
-                - Left subplot: Final UMPY (x-axis) vs. Final Total Count of Objects (y-axis)
-                - Right subplot: Final UMPY (x-axis) vs. Final Collision Probability (y-axis)
-                
-                For each scenario:
-                - Final UMPY is computed as the sum of the "umpy" array at the final timestep.
-                - Final Total Count is computed by summing, for each species in plot_data.data,
-                        the counts from the last row (final timestep) across all shells.
-                - Final Collision Probability is computed as the sum of the 
-                        "collision_probability_all_species" array at the final timestep.
-                """
-                # Create a folder for saving the plot.
-                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(scatter_folder, exist_ok=True)
-                file_path = os.path.join(scatter_folder, "final_umpy_vs_count_and_collision.png")
-                
-                # Prepare lists to store values and labels for each scenario.
-                final_umpy_vals = []
-                final_total_counts = []
-                final_collision_probs = []
+                bond_vals = []
+                noncompliance_vals = []
+                total_money_vals = []
                 labels = []
-                
-                # Loop over scenarios.
+
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # Get scenario label (or default if not available)
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-                        
-                        # Sort timesteps and get the final one.
+                        print(scenario_label)
                         timesteps = sorted(other_data.keys(), key=int)
-                        last_timestep = timesteps[-1]
-                        
-                        # Compute final UMPY (x-axis value)
-                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
-                        
-                        # Compute final total count (sum over species from plot_data.data)
-                        total_count = 0
-                        for sp, data in plot_data.data.items():
-                        # Assume data is an array-like with shape (time, shells)
-                                arr = np.array(data)
-                                total_count += np.sum(arr[-1, :])
-                        
-                        # Compute final collision probability by summing the provided array.
-                        final_collision = np.sum(other_data[last_timestep]["collision_probability"])
-                        
-                        final_umpy_vals.append(final_umpy)
-                        final_total_counts.append(total_count)
-                        final_collision_probs.append(final_collision)
+                        first_timestep = timesteps[0]
+                        nc = other_data[first_timestep]["non_compliance"]
+
+                        # Extract bond amount from name (e.g., "bond_800k" → 800000)
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if match:
+                                bond = int(match.group(1)) * 1_000
+                        else:
+                                bond = 0  # e.g., for "baseline"
+
+                        total = bond * nc
+                        bond_vals.append(bond)
+                        noncompliance_vals.append(nc)
+                        total_money_vals.append(total)
                         labels.append(scenario_label)
+
+                plt.figure(figsize=(10, 6))
+                scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
+                plt.colorbar(scatter, label="Total Money Paid (£)")
                 
-                # Create a figure with two subplots side by side.
-                fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-                
-                # Left subplot: Final UMPY vs. Final Total Count
-                axes[0].scatter(final_umpy_vals, final_total_counts, s=100, zorder=3)
-                for x, y, label in zip(final_umpy_vals, final_total_counts, labels):
-                        axes[0].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
-                axes[0].set_xlabel("Final UMPY (kg/year)")
-                axes[0].set_ylabel("Final Total Count of Objects")
-                axes[0].set_title("Final UMPY vs. Total Count")
-                axes[0].grid(True, zorder=0)
-                
-                # Right subplot: Final UMPY vs. Final Collision Probability
-                axes[1].scatter(final_umpy_vals, final_collision_probs, s=100, zorder=3)
-                for x, y, label in zip(final_umpy_vals, final_collision_probs, labels):
-                        axes[1].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
-                axes[1].set_xlabel("Final UMPY (kg/year)")
-                axes[1].set_ylabel("Final Collision Probability")
-                axes[1].set_title("Final UMPY vs. Collision Probability")
-                axes[1].grid(True, zorder=0)
-                
+                for x, y, label in zip(bond_vals, noncompliance_vals, labels):
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+
+                plt.xlabel("Bond Amount (£)")
+                plt.ylabel("Non-Compliance (%)")
+                plt.title("Non-Compliance vs. Bond Level")
+                plt.grid(True, zorder=0)
                 plt.tight_layout()
-                plt.savefig(file_path, dpi=300, bbox_inches="tight")
-                plt.close()
-                print(f"Final UMPY vs. Count and Collision Probability scatter plots saved to {file_path}")
+                plt.savefig(file_path, dpi=300)
+                plt.show()
+                print(f"Scatter plot saved to {file_path}")
+        
+        def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
+                """
+                Create a scatter plot showing:
+                - X-axis: bond amount (£)
+                - Y-axis: non-compliance (%)
+                - Point color or size: total money paid (non_compliance × bond)
+                Labels now show total money in millions with a $ sign.
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "scatter_noncompliance_vs_bond.png")
+
+                bond_vals = []
+                noncompliance_vals = []
+                total_money_vals = []
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        timesteps = sorted(other_data.keys(), key=int)
+                        first_timestep = timesteps[-1]
+                        nc = other_data[first_timestep]["non_compliance"]
+
+                        # Extract bond amount from name (e.g., "bond_800k" → 800000)
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if match:
+                                bond = int(match.group(1)) * 1_000
+                        else:
+                                bond = 0  # e.g., for "baseline"
+
+                        total = bond * nc
+                        bond_vals.append(bond)
+                        noncompliance_vals.append(nc)
+                        total_money_vals.append(total)
+
+                plt.figure(figsize=(10, 6))
+                scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
+                plt.colorbar(scatter, label="Total Money Paid (£)")
+
+                # Annotate with rounded money values in millions
+                for x, y, total in zip(bond_vals, noncompliance_vals, total_money_vals):
+                        label = f"${round(total / 1_000_000):,}M"
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+
+                plt.xlabel("Bond Amount (£)")
+                plt.ylabel("Count of Derelicts")
+                plt.title("Final Year: Derelict Count vs Bond Pot")
+                plt.grid(True, zorder=0)
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                plt.show()
+                print(f"Scatter plot saved to {file_path}")
+
+        def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
+                """
+                Scatter plot showing:
+                - X-axis: bond amount (£)
+                - Y-axis: total UMPY (kg) at each timestep
+                - Point color: simulation year (from timestep index)
+                
+                Labels show rounded money paid in millions ($Xm), where:
+                total_money = non_compliance × bond
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "scatter_bond_vs_umpy.png")
+
+                bond_vals = []
+                umpy_vals = []
+                total_money_vals = []
+                year_vals = []
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # Extract bond amount from scenario name
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        bond = int(match.group(1)) * 1_000 if match else 0
+
+                        timesteps = sorted(other_data.keys(), key=int)
+
+                        for t in timesteps:
+                                timestep_data = other_data[t]
+
+                                umpy = np.sum(timestep_data["umpy"])
+                                non_compliance = timestep_data["non_compliance"]
+                                total_money = bond * non_compliance
+
+                                bond_vals.append(bond)
+                                umpy_vals.append(umpy)
+                                total_money_vals.append(total_money)
+                                year_vals.append(int(t))  # Assuming timestep = simulation year
+
+                # Create the scatter plot
+                plt.figure(figsize=(10, 6))
+                scatter = plt.scatter(bond_vals, umpy_vals, c=year_vals, cmap='plasma', s=100, zorder=3)
+                cbar = plt.colorbar(scatter)
+                cbar.set_label("Simulation Year")
+
+                # Annotate each point with $Xm
+                for x, y, total in zip(bond_vals, umpy_vals, total_money_vals):
+                        label = f"${round(total / 1_000_000):,}M"
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=7)
+
+                plt.xlabel("Bond Amount (£)")
+                plt.ylabel("Total UMPY (kg)")
+                plt.title("Total UMPY vs. Bond Level by Year")
+                plt.grid(True, zorder=0)
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                plt.show()
+                print(f"Scatter plot saved to {file_path}")
+
+        def comparison_umpy_vs_final_metrics(self, plot_data_lists, other_data_lists):
+                """
+                Create side-by-side scatter plots:
+                - Final UMPY vs Total Object Count
+                - Final UMPY vs Collision Probability
+                - Final UMPY vs Derelict Count (split by naturally compliant vs not)
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                from matplotlib.lines import Line2D
+                import os
+                import re
+                import json
+
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "umpy_vs_metrics.png")
+
+                umpy_vals = []
+                total_counts = []
+                collision_probs = []
+                derelict_nat_vals = []
+                derelict_non_vals = []
+                colors_nat = []
+                colors_non = []
+                markers_nat = []
+                markers_non = []
+                labels = []
+
+                tax_counter = 1
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        scenario_folder = scenario_label.lower()
+
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+
+                        # Final UMPY and collision probability
+                        final_umpy = np.sum(other_data[final_ts]["umpy"])
+                        final_cp = np.sum(other_data[final_ts].get("collision_probability_all_species", []))
+
+                        # Final object count
+                        total = 0
+                        for sp, arr in plot_data.data.items():
+                                arr_np = np.array(arr)
+                                if arr_np.ndim == 2:
+                                        total += np.sum(arr_np[-1, :])
+
+                        # Get derelict array
+                        derelict_arr = np.array(plot_data.data.get("N_223kg", []))
+                        final_derelicts = derelict_arr[-1] if derelict_arr.ndim == 2 else None
+                        if final_derelicts is None:
+                                continue
+
+                        # Load econ_params JSON
+                        scenario_path = os.path.join(self.simulation_folder, scenario_label)
+                        econ_file = next((f for f in os.listdir(scenario_path) if f.startswith("econ_params") and f.endswith(".json")), None)
+                        if not econ_file:
+                                continue
+                        with open(os.path.join(scenario_path, econ_file), "r") as f:
+                                econ = json.load(f)
+
+                        nat_vec = np.array(econ.get("naturally_compliant_vector", []))
+                        if len(nat_vec) != len(final_derelicts):
+                                continue
+
+                        nat_count = np.sum(final_derelicts[nat_vec == 1])
+                        non_count = np.sum(final_derelicts[nat_vec == 0])
+
+                        # Scenario style
+                        is_tax = "tax" in scenario_folder
+                        is_25yr = "25yr" in scenario_folder
+                        bond_match = re.findall(r'\d+', scenario_folder)
+                        bond_value = int(bond_match[0]) if bond_match else None
+                        labels.append(f"{bond_value}k" if bond_value else "0k")
+
+                        if is_tax:
+                                color = "blue"
+                                marker = "s"
+                        elif bond_value == 0:
+                                color = "orange"
+                                marker = "o"
+                        elif bond_value is None:
+                                color = "green"
+                                marker = "o"
+                        else:
+                                color = "orange" if is_25yr else "green"
+                                marker = "o"
+
+                        # Store all values
+                        umpy_vals.append(final_umpy)
+                        total_counts.append(total)
+                        collision_probs.append(final_cp)
+
+                        derelict_nat_vals.append(nat_count)
+                        derelict_non_vals.append(non_count)
+                        colors_nat.append(color)
+                        colors_non.append(color)
+                        markers_nat.append(marker)
+                        markers_non.append(marker)
+
+                # --- Plot ---
+                fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6), sharex=True)
+
+                # 1. UMPY vs Object Count
+                for x, y, color, marker in zip(umpy_vals, total_counts, colors_nat, markers_nat):
+                        ax1.scatter(x, y, color=color, marker=marker, s=90)
+                ax1.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
+                ax1.set_ylabel("Final Total Count of Objects", fontsize=14, fontweight="bold")
+                ax1.set_title("UMPY vs Object Count", fontsize=14, fontweight="bold")
+                ax1.grid(True)
+                ax1.tick_params(labelsize=12)
+
+                # 2. UMPY vs Collision Probability
+                for x, y, color, marker in zip(umpy_vals, collision_probs, colors_nat, markers_nat):
+                        ax2.scatter(x, y, color=color, marker=marker, s=90)
+                ax2.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
+                ax2.set_ylabel("Final Collision Probability", fontsize=14, fontweight="bold")
+                ax2.set_title("UMPY vs Collision Probability", fontsize=14, fontweight="bold")
+                ax2.grid(True)
+                ax2.tick_params(labelsize=12)
+
+                # 3. UMPY vs Derelict Counts (Split)
+                for x, y, color, marker, bond in zip(umpy_vals, derelict_nat_vals, colors_nat, markers_nat, labels):
+                        ax3.scatter(x, y, color='green', marker=marker, s=90)
+                        ax3.annotate(f"B = {bond}", (x, y), textcoords="offset points", xytext=(5, 5), fontsize=9)
+
+                for x, y, color, marker, bond in zip(umpy_vals, derelict_non_vals, colors_non, markers_non, labels):
+                        ax3.scatter(x, y, color='red', marker=marker, s=90)
+                        ax3.annotate(f"B = {bond}", (x, y), textcoords="offset points", xytext=(5, 5), fontsize=9)
+
+                ax3.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
+                ax3.set_ylabel("Derelict Count (N_223kg)", fontsize=14, fontweight="bold")
+                ax3.set_title("UMPY vs Derelicts (Split)", fontsize=14, fontweight="bold")
+                ax3.grid(True)
+                ax3.tick_params(labelsize=12)
+
+                # --- Shared Legend ---
+                legend_elements = [
+                        Line2D([0], [0], marker='o', color='w', label='5yr PMD', markerfacecolor='green', markersize=10),
+                        Line2D([0], [0], marker='o', color='w', label='25yr PMD', markerfacecolor='orange', markersize=10),
+                        Line2D([0], [0], marker='s', color='w', label='Tax Scenario', markerfacecolor='blue', markersize=10),
+                        Line2D([0], [0], marker='o', color='w', label='Nat. Compliant Derelicts', markerfacecolor='green', markersize=10),
+                        Line2D([0], [0], marker='o', color='w', label='Non-Compliant Derelicts', markerfacecolor='red', markersize=10)
+                ]
+                ax3.legend(handles=legend_elements, loc='upper left', fontsize=11, title="Scenario Type")
+
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                plt.show()
+                print(f"Comparison plots saved to {file_path}")
+
+        def comparison_object_counts_vs_bond(self, plot_data_lists, other_data_lists):
+                """
+                Compare number of derelicts (N_223kg) and fringe satellites (Su) across 5yr and 25yr PMD scenarios.
+                Separates naturally compliant vs non-compliant derelicts using econ_params.
+
+                X-axis: Bond amount ($k)
+                Y-axis: Number of objects
+                """
+                import os
+                import json
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                root_folder = self.simulation_folder
+
+                # Separate derelicts by compliance category
+                bond_5yr_nat, nat_5yr = [], []
+                bond_5yr_non, non_5yr = [], []
+                bond_25yr_nat, nat_25yr = [], []
+                bond_25yr_non, non_25yr = [], []
+
+                # Fringe satellite counts
+                bond_5yr_Su, Su_5yr = [], []
+                bond_25yr_Su, Su_25yr = [], []
+
+                for folder_name in os.listdir(root_folder):
+                        folder_path = os.path.join(root_folder, folder_name)
+                        if not os.path.isdir(folder_path):
+                                continue
+
+                        is_25yr = folder_name.endswith("25yr")
+                        match = re.findall(r"\d+", folder_name)
+                        bond = float(match[0]) if match else None
+                        if bond is None:
+                                continue
+
+                        species_file = next((f for f in os.listdir(folder_path) if f.startswith("species_data")), None)
+                        econ_file = next((f for f in os.listdir(folder_path) if f.startswith("econ_params") and f.endswith(".json")), None)
+                        if not econ_file:
+                                continue
+
+                        with open(os.path.join(folder_path, econ_file), "r") as f:
+                                econ = json.load(f)
+                        if not species_file or not econ_file:
+                                continue
+
+                        with open(os.path.join(folder_path, species_file), "r") as f:
+                                data = json.load(f)
+                        with open(os.path.join(folder_path, econ_file), "r") as f:
+                                econ = json.load(f)
+
+                        try:
+                                N_arr = np.array(data["N_223kg"])  # (timesteps, shells)
+                                Su_arr = np.array(data["Su"])      # (timesteps, shells)
+                                final_N = N_arr[-1]
+                                final_Su = np.sum(Su_arr[-1])
+                        except (KeyError, IndexError, TypeError):
+                                continue
+
+                        nat_vec = np.array(econ.get("naturally_compliant_vector", []))
+                        if len(nat_vec) != len(final_N):
+                                continue  # mismatch in dimensions
+
+                        nat_sum = np.sum(final_N[nat_vec == 1])
+                        non_sum = np.sum(final_N[nat_vec == 0])
+
+                        if is_25yr:
+                                bond_25yr_nat.append(bond)
+                                nat_25yr.append(nat_sum)
+                                bond_25yr_non.append(bond)
+                                non_25yr.append(non_sum)
+                                bond_25yr_Su.append(bond)
+                                Su_25yr.append(final_Su)
+                        else:
+                                bond_5yr_nat.append(bond)
+                                nat_5yr.append(nat_sum)
+                                bond_5yr_non.append(bond)
+                                non_5yr.append(non_sum)
+                                bond_5yr_Su.append(bond)
+                                Su_5yr.append(final_Su)
+
+                # --- Sort helper ---
+                def sort_by_bond(bonds, vals):
+                        zipped = sorted(zip(bonds, vals), key=lambda x: x[0])
+                        return zip(*zipped) if zipped else ([], [])
+
+                bond_5yr_nat, nat_5yr = sort_by_bond(bond_5yr_nat, nat_5yr)
+                bond_5yr_non, non_5yr = sort_by_bond(bond_5yr_non, non_5yr)
+                bond_25yr_nat, nat_25yr = sort_by_bond(bond_25yr_nat, nat_25yr)
+                bond_25yr_non, non_25yr = sort_by_bond(bond_25yr_non, non_25yr)
+                bond_5yr_Su, Su_5yr = sort_by_bond(bond_5yr_Su, Su_5yr)
+                bond_25yr_Su, Su_25yr = sort_by_bond(bond_25yr_Su, Su_25yr)
+
+                # --- Plot ---
+                plt.figure(figsize=(10, 6))
+
+                # Derelicts
+                plt.scatter(bond_5yr_nat, nat_5yr, marker='o', color='green', label='5yr PMD - Nat. Compliant Derelicts')
+                plt.scatter(bond_5yr_non, non_5yr, marker='o', color='red', label='5yr PMD - Non-Comp. Derelicts')
+                plt.scatter(bond_25yr_nat, nat_25yr, marker='^', color='green', label='25yr PMD - Nat. Compliant Derelicts')
+                plt.scatter(bond_25yr_non, non_25yr, marker='^', color='red', label='25yr PMD - Non-Comp. Derelicts')
+
+                # Fringe satellites
+                plt.plot(bond_5yr_Su, Su_5yr, marker='s', linestyle='-', color='blue', label='5yr PMD - Fringe Sats')
+                plt.plot(bond_25yr_Su, Su_25yr, marker='s', linestyle='--', color='blue', label='25yr PMD - Fringe Sats')
+
+                plt.xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                plt.ylabel("Number of Objects", fontsize=14, fontweight='bold')
+                plt.xticks(fontsize=12, fontweight='bold')
+                plt.yticks(fontsize=12, fontweight='bold')
+                plt.grid(True)
+                plt.legend(fontsize=12, loc='upper right')
+                plt.tight_layout()
+
+                for spine in plt.gca().spines.values():
+                        spine.set_linewidth(1.5)
+
+                # Save and show
+                file_path = os.path.join(self.simulation_folder, "comparisons", "object_counts_vs_bond_split.png")
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                plt.savefig(file_path, dpi=300)
+                plt.show()
+                print(f"Split object count plot saved to {file_path}")
 
 
 
