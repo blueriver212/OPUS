@@ -5,6 +5,8 @@ from utils.OpenAccessSolver import OpenAccessSolver
 from utils.PostProcessing import PostProcessing
 from utils.PlotHandler import PlotHandler
 from utils.PostMissionDisposal import evaluate_pmd
+from utils.MultiSpecies import MultiSpecies
+from utils.MultiSpeciesOpenAccessSolver import MultiSpeciesOpenAccessSolver
 from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
@@ -19,7 +21,7 @@ class IAMSolver:
         self.pmd_linked_species = None
 
     @staticmethod
-    def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
+    def get_species_position_indexes(MOCAT, constellation_sats):
         """
             The MOCAT model works on arrays that are the number of shells x number of species.
             Often throughout the model, we see the original list being spliced. 
@@ -34,66 +36,73 @@ class IAMSolver:
         constellation_start_slice = (constellation_sats_idx * MOCAT.scenario_properties.n_shells)
         constellation_end_slice = constellation_start_slice + MOCAT.scenario_properties.n_shells
 
-        fringe_idx = MOCAT.scenario_properties.species_names.index(fringe_sats)
-        fringe_start_slice = (fringe_idx * MOCAT.scenario_properties.n_shells)
-        fringe_end_slice = fringe_start_slice + MOCAT.scenario_properties.n_shells
+        return constellation_start_slice, constellation_end_slice
+    
+    
 
-        derelict_idx = MOCAT.scenario_properties.species_names.index(pmd_linked_species)
-        derelict_start_slice = (derelict_idx * MOCAT.scenario_properties.n_shells)
-        derelict_end_slice = derelict_start_slice + MOCAT.scenario_properties.n_shells
-
-        return constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice
+        return multispecies
 
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name):
         """
             The main function that runs the IAM solver.
         """
         # Define the species that are part of the constellation and fringe
-        constellation_sats = "S"
-        fringe_sats = "Su"
+        constellation_sat = "S"
+        multi_species_names = ["Su", "Sns"]
+
+        # This will create a list of OPUSSpecies objects. 
+        multi_species = MultiSpecies(multi_species_names)
 
         #########################
         ### CONFIGURE MOCAT MODEL
         #########################
         if self.MOCAT is None:
-            self.MOCAT, self.econ_params_json, self.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
+            self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
             print(self.MOCAT.scenario_properties.x0)
 
-        # If testing using MOCAT x0 use:
+        multi_species.get_species_position_indexes(self.MOCAT)
         x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
-        constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats, self.pmd_linked_species)
     
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
-        econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
         if scenario_name != "Baseline":
-            econ_params.modify_params_for_simulation(scenario_name)
+            for species in multi_species.species:
+                species.modify_econ_params(self.econ_params_json, scenario_name)
         else: # needs to be a better way of doing this 
-            econ_params.bond = None
-            econ_params.tax = 0
+            for species in multi_species.species:
+                species.econ_params.bond = None
+                species.econ_params.tax = 0
 
-        econ_params.calculate_cost_fn_parameters()
-
+        # Calculate cost fn parameters
+        for species in multi_species.species:
+            species.econ_params.calculate_cost_fn_parameters()
+        
         ############################
         ### CONSTELLATION PARAMETERS
         ############################
+
+        # Get the slices for the constellation and fringe satellites
+        constellation_start_slice, constellation_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sat)
         constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
         lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
 
         # Fringe population automomous controller. 
         launch_mask = np.ones((self.MOCAT.scenario_properties.n_shells,))
 
-        # Solver guess is 5% of the current fringe satellites. Update The launch file.
-        solver_guess = 0.05 * np.array(x0[fringe_start_slice:fringe_end_slice]) * launch_mask
-        lam[fringe_start_slice:fringe_end_slice] = solver_guess
+        # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
+        solver_guess = x0
+        for species in multi_species.species:
+            if species.name == constellation_sat:
+                continue
+            else:
+                solver_guess[species.start_slice:species.end_slice] = 0.05 * np.array(x0[species.start_slice:species.end_slice]) * launch_mask  
+                lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
         ############################
         ### SOLVE FOR THE FIRST YEAR
         ############################
-        open_access = OpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", 
-                                    econ_params, lam, fringe_start_slice, fringe_end_slice,
-                                    derelict_start_slice, derelict_end_slice)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -213,7 +222,7 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "bond_0k_25yr",
+                    # "bond_0k_25yr",
                     # # "bond_100k",
                     # # "bond_200k",
                     # "bond_300k",
@@ -228,21 +237,21 @@ if __name__ == "__main__":
                     # "tax_2"
                 ]
     
-    MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_species.json"))
 
     simulation_name = "Densities"
 
     iam_solver = IAMSolver()
 
     # # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # Parallel Processing
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
