@@ -1,6 +1,64 @@
 import numpy as np
 
-def evaluate_pmd(state_matrix, pmd_rate, deltat, fringe_start_slice, fringe_end_slice,
+def evaluate_pmd(state_matrix, multi_species):
+    """
+    NOW FOR MULTI SPECIES
+    """
+    # State matrix holds all the entire environment, multi_species holds all of the information required for PMD
+
+    for species in multi_species.species:
+        # FIND COMPLIANT SHELLS
+        # Find he idx of the last naturally compliant shell 
+        last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
+
+        # Identify non-compliant shells
+        non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
+
+        # Get the number of items in each shell within the fringe range
+        num_items_fringe = state_matrix[species.start_slice:species.end_slice]
+
+        # Compute the number of derelicts for each shell.
+        # If your pmd_rate is 65% (0.65) then your compliance is 0.65 of your annual amount. 
+        compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.pmd_rate
+
+        # Non compliance derelicts
+        # Then your non-compliance is 1-0.63 = 0.35 of your annnual ammount
+        non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1-species.econ_params.pmd_rate)
+
+        # Remove the appropriate number of fringe satellites based on active lifetime.
+        state_matrix[species.start_slice:species.end_slice] -= (1 / species.deltat) * num_items_fringe
+
+        # There are three posibilites. 
+        # 1. The shell is naturally compliant, so all derelicts remain where they are. 
+
+        # 2. The compliant_derelicts are added to the last compliant shell.
+
+        # 3. The non_compliant_derelicts remain where they are. 
+
+        # Sum the derelict numbers for non-compliant shells.
+        sum_non_compliant = np.sum(compliant_derelicts[non_compliant_mask])
+
+        # Add the sum of non-compliant derelicts to the last compliant shell.
+        compliant_derelicts[last_compliant_shell] += sum_non_compliant
+
+        # Zero out the derelict counts in the non-compliant shells.
+        compliant_derelicts[non_compliant_mask] = 0
+
+        # Now add the adjusted derelict numbers to the state matrix in the derelict slice.
+        state_matrix[species.derelict_start_slice:species.derelict_end_slice] += compliant_derelicts
+
+        # Now for the non_compliant derelicts. They just remain where they are. 
+        state_matrix[species.derelict_start_slice:species.derelict_end_slice] += non_compliant_derelicts
+
+        # Save required information to the species
+        species.sum_non_compliant = sum_non_compliant
+        species.sum_compliant = sum(compliant_derelicts)
+    
+    return state_matrix, multi_species
+ 
+
+
+def evaluate_pmd2(state_matrix, pmd_rate, deltat, fringe_start_slice, fringe_end_slice,
                  derelict_start_slice, derelict_end_slice, econ_parms):
     """
     For OPUS, the PMD rate is variable. Here we adjust the state matrix based on the 

@@ -7,6 +7,7 @@ from utils.PlotHandler import PlotHandler
 from utils.PostMissionDisposal import evaluate_pmd
 from utils.MultiSpecies import MultiSpecies
 from utils.MultiSpeciesOpenAccessSolver import MultiSpeciesOpenAccessSolver
+from utils.Helpers import insert_launches_into_lam
 from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
@@ -37,10 +38,6 @@ class IAMSolver:
         constellation_end_slice = constellation_start_slice + MOCAT.scenario_properties.n_shells
 
         return constellation_start_slice, constellation_end_slice
-    
-    
-
-        return multispecies
 
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name):
         """
@@ -61,22 +58,18 @@ class IAMSolver:
             print(self.MOCAT.scenario_properties.x0)
 
         multi_species.get_species_position_indexes(self.MOCAT)
+        multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
         x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
     
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
-        if scenario_name != "Baseline":
-            for species in multi_species.species:
-                species.modify_econ_params(self.econ_params_json, scenario_name)
-        else: # needs to be a better way of doing this 
-            for species in multi_species.species:
-                species.econ_params.bond = None
-                species.econ_params.tax = 0
-
-        # Calculate cost fn parameters
+        
+        # For each simulation - we will need to modify the base economic parameters for the species. 
         for species in multi_species.species:
-            species.econ_params.calculate_cost_fn_parameters()
+            species.econ_params.modify_params_for_simulation(scenario_name)
+            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
+
         
         ############################
         ### CONSTELLATION PARAMETERS
@@ -107,7 +100,8 @@ class IAMSolver:
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
 
-        lam[fringe_start_slice:fringe_end_slice] = launch_rate
+
+        lam = insert_launches_into_lam(lam, launch_rate, multi_species)
         
         
         ####################
@@ -138,8 +132,7 @@ class IAMSolver:
             # Propagate the model and take the final state of the environment
             propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam, time_idx)
             propagated_environment = propagated_environment[-1, :] 
-            propagated_environment, sum_non_compliance = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
-                                                    fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
+            propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
 
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
@@ -157,25 +150,26 @@ class IAMSolver:
             start_time = time.time()
             print(f"Now starting period {time_idx}...")
 
-            open_access = OpenAccessSolver(
-                self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice)
-            
-            collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
-            ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species)
 
             # Calculate solver_guess
-            solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
+            solver_guess = lam
+            for species in multi_species.species:
+                # Calculate the probability of collision based on the new position
+                collision_probability = open_access.calculate_probability_of_collision(propagated_environment, species.name)
+                
+                # Rate of Return
+                rate_of_return = open_access.fringe_rate_of_return(propagated_environment, collision_probability, species)
+                solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability) * launch_mask
 
-            open_access = OpenAccessSolver(
-                self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice)
+
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
 
             # Solve for equilibrium launch rates
-            launch_rate, col_probability_all_species, umpy, excess_returns, non_compliance_totals = open_access.solver()
+            launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
 
             # Update the initial conditions for the next period
-            lam[fringe_start_slice:fringe_end_slice] = launch_rate
+            lam = insert_launches_into_lam(lam, launch_rate, multi_species)
 
             elapsed_time = time.time() - start_time
             print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
@@ -185,16 +179,16 @@ class IAMSolver:
 
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
-                "ror": ror,
+                "ror": rate_of_return,
                 "collision_probability": collision_probability,
                 "launch_rate" : launch_rate, 
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy, 
                 "excess_returns": excess_returns,
-                "non_compliance": non_compliance_totals
+                "non_compliance": last_non_compliance
             }
         
-        PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
+        PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, multi_species.species[0].econ_params)
 
     def get_mocat(self):
         return self.MOCAT
@@ -223,7 +217,7 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    # # "bond_100k",
+                    "bond_100k",
                     # # "bond_200k",
                     # "bond_300k",
                     # # "bond_500k",
@@ -239,23 +233,23 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_species.json"))
 
-    simulation_name = "Densities"
+    simulation_name = "Multi-Species-2"
 
     iam_solver = IAMSolver()
 
     # # no parallel processing
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # Parallel Processing
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
     
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    MOCAT = configure_mocat(MOCAT_config)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

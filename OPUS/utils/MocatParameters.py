@@ -4,7 +4,7 @@ from .EconParameters import EconParameters
 import json 
 import numpy as np
 
-def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies) -> Model:
+def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None) -> Model:
     """
         Configure's MOCAT-pySSEM model with a provided input json. 
         To find a correct configuration, please refer to the MOCAT documentation. https://github.com/ARCLab-MIT/pyssem/
@@ -41,8 +41,9 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies) -> Model:
 
     MOCAT.configure_species(species)
     # Create an active_loss_setup for each of the species in the model.
-    for species in multi_species.species:
-        MOCAT.opus_active_loss_setup(species.name)
+    if multi_species != None:
+        for species in multi_species.species:
+            MOCAT.opus_active_loss_setup(species.name)
 
     MOCAT.initial_population() 
     MOCAT.build_model()
@@ -50,6 +51,9 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies) -> Model:
     print("You have these species in the model: ", MOCAT.scenario_properties.species_names)
 
     # Find the PMD linked species and return the index. 
+    if multi_species == None:
+        return MOCAT
+
     for opus_species in multi_species.species:
         pmd_linked_species_to_fringe = [
             species
@@ -70,7 +74,7 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies) -> Model:
             sym_name = dict['sym_name']
             for species in multi_species.species:
                 if species.name == sym_name:
-                    species.econ_params = opus_params
+                    species.econ_params = EconParameters(opus_params, MOCAT)
         except KeyError:
             # If the sym_name is in the multi_species object, it means it has been asked to be econ parameterized. Used the default values.
             for obj in multi_species.species:

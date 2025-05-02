@@ -54,10 +54,11 @@ class EconParameters:
         # Bond amount
         self.bond = params.get("bond", None)
 
-        # Post Mission Disposal Rate
-        self.pmd_rate = 0.9
+    def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
 
-    def calculate_cost_fn_parameters(self):
+        # Save the pmd_rate as this will be passed from MOCAT
+        self.pmd_rate = pmd_rate
+
         shell_marginal_decay_rates = np.zeros(self.mocat.scenario_properties.n_shells)
         shell_marginal_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
         self.shell_cumulative_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
@@ -134,7 +135,7 @@ class EconParameters:
         self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
         
         if self.bond is None:
-            self.comp_rate = np.where(self.naturally_compliant_vector != 1, 0.65, self.comp_rate)
+            self.comp_rate = np.where(self.naturally_compliant_vector != 1, pmd_rate, self.comp_rate)
             return 
         
         self.discount_factor = 1/(1+self.discount_rate)
@@ -146,21 +147,20 @@ class EconParameters:
 
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
-        # self.comp_rate[mask] = np.minimum(0.65 + 0.35 * self.bond / self.bstar[mask], 1)
+        non_comp_rate = 1 - pmd_rate
+        self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
 
-        # With Option 1 quation 
-        A = 57
-        k = np.log(12) / 75
+        return       
 
-        scaled_effort = (self.bond / self.bstar[mask]) * 100
-        self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
-
-        return
-
-    def modify_params_for_simulation(self, configuration, baseline=False):
+    def modify_params_for_simulation(self, configuration: str):
         """
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
         """
+
+        if configuration.lower() == 'baseline':
+            self.bond = None
+            self.tax = 0
+            return
 
         # read the csv file - must be in the configuration folder
         path = f"./OPUS/configuration/{configuration}.csv"
@@ -180,10 +180,5 @@ class EconParameters:
                     setattr(self, parameter_name, parameter_value)
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
-
-        if baseline:
-            self.bond = None
-            self.tax = 0
-
 
 

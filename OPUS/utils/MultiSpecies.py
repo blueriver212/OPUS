@@ -1,3 +1,5 @@
+from pyssem.model import Model
+
 class MultiSpecies:
     """
     This will host each species that are required for the global optimisation. 
@@ -16,9 +18,8 @@ class MultiSpecies:
         """
         # Create a list of species objects with the name of the species
         self.species = [OPUSSpecies(name) for name in species_names]
-        self.econ_params = None
 
-    def get_species_position_indexes(self, MOCAT):
+    def get_species_position_indexes(self, MOCAT: Model):
         """
         Assigns start and end slice indices to each species and their PMD-linked species 
         in a MultiSpecies object.
@@ -38,8 +39,8 @@ class MultiSpecies:
             if obj.name not in species_names:
                 raise ValueError(f"Species name '{obj.name}' not found in MOCAT scenario properties.")
             
-            species_idx = species_names.index(obj.name)
-            obj.start_slice = species_idx * n_shells
+            obj.species_idx = species_names.index(obj.name)
+            obj.start_slice = obj.species_idx * n_shells
             obj.end_slice = obj.start_slice + n_shells
 
             # PMD-linked species slices (optional)
@@ -51,6 +52,24 @@ class MultiSpecies:
                 obj.derelict_start_slice = derelict_idx * n_shells
                 obj.derelict_end_slice = obj.derelict_start_slice + n_shells
 
+    def get_mocat_species_parameters(self, MOCAT: Model):
+        """
+            This function will find the MOCAT species for the fringe satellite and then 
+            abstract any information required for OPUS modelling. 
+            
+            Specifcially useful for the Solver, e.g DeltaT for Lifetime Assessment. 
+        """
+        values_to_extract = ['deltat', 'mass', 'Pm']
+        for opus_species in self.species:
+            for species_group in MOCAT.scenario_properties.species.values():
+                for mocat_species in species_group:
+                    if opus_species.name == mocat_species.sym_name:
+                        for attr in values_to_extract:
+                            try:
+                                value = getattr(mocat_species, attr)
+                                setattr(opus_species, attr, value)
+                            except AttributeError:
+                                print(f"Warning: '{attr}' not found in MOCAT species '{mocat_species.sym_name}'")
 
 class OPUSSpecies:
     """
@@ -68,3 +87,4 @@ class OPUSSpecies:
             Name of the species.
         """
         self.name = name
+        self.econ_params = None
