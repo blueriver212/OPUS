@@ -1,7 +1,7 @@
 {
     "implement": 1,
     "target_shell": [7,8],
-    "target_species": ["B"],
+    "target_species": ["N_0.0014372kg"],
     "adr_times": [5,10,15,20,25,30,35,40,45,50],
     "p_remove": 0.2
 }

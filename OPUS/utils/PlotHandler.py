@@ -771,6 +771,9 @@ class PlotHandler:
                         plt.xlabel('Year')
                         plt.ylabel('Shell Mid Altitude (km)')
                         plt.xticks(ticks=range(data.shape[0]), labels=range(1, data.shape[0] + 1))
+                        # sammie addition
+                        ax = plt.gca()
+                        ax.set_xticks(ax.get_xticks()[::2])
                         plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
 
                         # Save the plot to the designated folder
@@ -805,6 +808,8 @@ class PlotHandler:
                         ax.set_yticks(range(data.shape[1]))
                         ax.set_yticklabels(self.HMid)
                         fig.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04)
+                        # sammie addition
+                        ax.set_xticks(ax.get_xticks()[::2])
 
                 # Turn off unused subplots
                 for ax in axes[len(species_data):]:

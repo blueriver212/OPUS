@@ -295,9 +295,10 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "adr_b",
-                    "adr_n_223",
-                    
+                    # "adr_b",
+                    # "adr_n_223",
+                    # "adr_n_00141372",
+
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -325,16 +326,16 @@ if __name__ == "__main__":
         iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # # # # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
-    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
+    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
     # # # Assuming PlotHandler can handle multiple outputs from different iam_solver instances
-    # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="S")
+    # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
     # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)   
 
 
-    # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT,_,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    # MOCAT,_,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
