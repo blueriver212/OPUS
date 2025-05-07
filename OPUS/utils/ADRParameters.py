@@ -5,6 +5,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 
+# this is mostly a copy of EconParameters.py with a few adjustments.
+# currently it's not really being used since I couldn't figure it out, but the goal is to make 
+# it so that you can have ADR separate from the initial model setup.
+
 class ADRParameters:
     """
    trying to implement adr in a different way using a class and csv files
