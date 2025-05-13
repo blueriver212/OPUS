@@ -213,11 +213,12 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    # "bond_100k",
+                    "bond_100k",
                     # # "bond_200k",
                     # # "bond_300k",
                     # "bond_500k",
                     "bond_800k",
+                    "bond_1600k",
                     # "bond_100k_25yr",
                     # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
@@ -229,20 +230,20 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "ADR"
+    simulation_name = "New-Bonds"
 
     iam_solver = IAMSolver()
 
     # no parallel processing
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")

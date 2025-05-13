@@ -36,6 +36,8 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
         parallel_processing=scenario_props.get("parallel_processing", False),
         baseline=scenario_props.get("baseline", False),
         indicator_variables=scenario_props.get("indicator_variables", False),
+        launch_scenario=scenario_props["launch_scenario"],
+        SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None,
     )
 
     species = MOCAT_config["species"]
