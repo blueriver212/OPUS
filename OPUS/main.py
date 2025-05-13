@@ -45,7 +45,7 @@ class IAMSolver:
         """
         # Define the species that are part of the constellation and fringe
         constellation_sat = "S"
-        multi_species_names = ["Su", "Sns"]
+        multi_species_names = ["Su"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_species.json"))
 
-    simulation_name = "New-Bond-Test"
+    simulation_name = "Single-Species"
 
     iam_solver = IAMSolver()
 
@@ -243,13 +243,15 @@ if __name__ == "__main__":
     #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # Parallel Processing
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
     
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT = configure_mocat(MOCAT_config)
+    multi_species_names = ["Su", "Sns"]
+    multi_species = MultiSpecies(multi_species_names)
+    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

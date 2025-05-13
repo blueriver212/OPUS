@@ -139,15 +139,18 @@ class PlotHandler:
                         # Grab the attribute; see if it’s a callable (method)
                         attr = getattr(self, attr_name)
                         if callable(attr):
-                        # Skip known special methods
+                                # Skip known special methods
                                 if attr_name in ("__init__", "all_plots"):
                                         continue
 
-                        # Only call if it starts with 'comparison_'
-                        if attr_name.startswith("comparison_"):
-                                print(f"Creating plot: {attr_name}")
-                                plot_method = attr
-                                plot_method(plot_data_lists, other_data_lists)
+                                # Only call if it starts with 'comparison_'
+                                if attr_name.startswith("comparison_"):
+                                        print(f"Creating plot: {attr_name}")
+                                        try:
+                                                plot_method = attr
+                                                plot_method(plot_data_lists, other_data_lists)
+                                        except Exception as e:
+                                                print(f"⚠️ Failed to generate plot '{attr_name}': {e}")
 
         def all_plots(self, plot_data, other_data, econ_params):
                 """
