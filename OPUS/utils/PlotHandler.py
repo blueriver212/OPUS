@@ -1139,256 +1139,137 @@ class PlotHandler:
                 plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
                 plt.close()
 
-        def ror_cp_and_launch_rate(self, plot_data, other_data):
-                """
-                Generate and save a combined plot for time evolution of different parameters (RoR, Collision Probability, Launch Rate).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
 
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
+        ## These plots dont work
+        # def ror_cp_and_launch_rate(self, plot_data, other_data):
+        #         """
+        #         Generate and save a combined plot for time evolution of different parameters (RoR, Collision Probability, Launch Rate).
+        #         """
+        #         # Extract keys (timesteps) and sort
+        #         timesteps = sorted(other_data.keys(), key=int)
 
-                # Prepare the figure
-                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        #         # Get number of altitude shells (assuming all timesteps have the same length)
+        #         num_altitude_shells = len(other_data[timesteps[0]]["ror"])
 
-                # Color map for time evolution
-                colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
+        #         # Prepare the figure
+        #         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-                # Static Plot
-                for idx, timestep in enumerate(timesteps):
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
+        #         # Color map for time evolution
+        #         colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
 
-                        axes[0].plot(range(num_altitude_shells), ror, color=colors[idx], label=f"Year {timestep}")
-                        axes[1].plot(range(num_altitude_shells), collision_prob, color=colors[idx])
-                        axes[2].plot(range(num_altitude_shells), launch_rate, color=colors[idx])
+        #         # Static Plot
+        #         for idx, timestep in enumerate(timesteps):
+        #                 ror = other_data[timestep]["ror"]
+        #                 collision_prob = other_data[timestep]["collision_probability"]
+        #                 launch_rate = other_data[timestep]["launch_rate"]
+        #                 excess_returns = other_data[timestep]["excess_returns"]
 
-                axes[0].set_title("Rate of Return (RoR)")
-                axes[1].set_title("Collision Probability")
-                axes[2].set_title("Launch Rate")
+        #                 # Number of species is inferred from array length and known number of shells
+        #                 num_species = len(ror) // self.n_shells
 
-                # Set labels and ticks
-                for ax in axes:
-                        ax.set_xlabel("Shell - Mid Altitude (km)")
-                        ax.set_ylabel("Value")
-                        ax.set_xticklabels(self.HMid)
+        #                 for species_idx in range(num_species):
+        #                         label = f"Year {timestep} - Species {species_idx + 1}"
+        #                         start = species_idx * self.n_shells
+        #                         end = (species_idx + 1) * self.n_shells
 
-                # Add a legend
-                fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
+        #                         ror_slice = ror[start:end]
+        #                         cp_slice = collision_prob[start:end]
+        #                         lr_slice = launch_rate[start:end]
+        #                         er_slice = excess_returns[start:end]
 
-                # Tight layout
-                plt.tight_layout()
+        #                         if len(ror_slice) == self.n_shells:
+        #                                 axes[0].plot(self.HMid, ror_slice, color=colors[idx], label=label)
+        #                                 axes[1].plot(self.HMid, cp_slice, color=colors[idx])
+        #                                 axes[2].plot(self.HMid, lr_slice, color=colors[idx])
+        #                                 axes[3].plot(self.HMid, er_slice, color=colors[idx])
+        #                         else:
+        #                                 print(f"Warning: Skipping timestep {timestep}, species {species_idx} due to mismatched shell size.")
 
-                # Save the combined plot
-                combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
-                plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
-                plt.close()
 
-        def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
-                """
-                Generate and save an animated plot for the time evolution of different parameters (RoR, Collision Probability, Launch Rate).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
+        #         axes[0].set_title("Rate of Return (RoR)")
+        #         axes[1].set_title("Collision Probability")
+        #         axes[2].set_title("Launch Rate")
 
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
+        #         # Set labels and ticks
+        #         for ax in axes:
+        #                 ax.set_xlabel("Shell - Mid Altitude (km)")
+        #                 ax.set_ylabel("Value")
+        #                 ax.set_xticklabels(self.HMid)
 
-                # Determine global min/max for each metric across all timesteps
-                ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
-                collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
-                launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
+        #         # Add a legend
+        #         fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
 
-                ror_min, ror_max = min(ror_values), max(ror_values)
-                collision_min, collision_max = min(collision_values), max(collision_values)
-                launch_min, launch_max = min(launch_values), max(launch_values)
+        #         # Tight layout
+        #         plt.tight_layout()
 
-                # Create the figure and axes
-                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        #         # Save the combined plot
+        #         combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
+        #         plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
+        #         plt.close()
 
-                def update(frame):
-                        timestep = timesteps[frame]
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
+        # def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
+        #         """
+        #         Generate and save an animated plot for the time evolution of different parameters (RoR, Collision Probability, Launch Rate).
+        #         """
+        #         # Extract keys (timesteps) and sort
+        #         timesteps = sorted(other_data.keys(), key=int)
 
-                        for ax in axes:
-                                ax.clear()
+        #         # Get number of altitude shells (assuming all timesteps have the same length)
+        #         num_altitude_shells = len(other_data[timesteps[0]]["ror"])
 
-                                # Plot each metric with fixed y-axis limits
-                                axes[0].plot(range(num_altitude_shells), ror, color='b')
-                                axes[0].set_ylim(ror_min, ror_max)
-                                axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
-                                axes[0].set_xlabel("Shell - Mid Altitude (km)")
-                                axes[0].set_ylabel("RoR")
-                                axes[0].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-                                axes[0].set_xticklabels(self.HMid)
+        #         # Determine global min/max for each metric across all timesteps
+        #         ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
+        #         collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
+        #         launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
 
-                                axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
-                                axes[1].set_ylim(collision_min, collision_max)
-                                axes[1].set_title(f"Collision Probability - Year {timestep}")
-                                axes[1].set_xlabel("Shell - Mid Altitude (km)")
-                                axes[1].set_ylabel("Collision Probability")
-                                axes[1].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-                                axes[1].set_xticklabels(self.HMid)
+        #         ror_min, ror_max = min(ror_values), max(ror_values)
+        #         collision_min, collision_max = min(collision_values), max(collision_values)
+        #         launch_min, launch_max = min(launch_values), max(launch_values)
 
-                                axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
-                                axes[2].set_ylim(launch_min, launch_max)
-                                axes[2].set_title(f"Launch Rate - Year {timestep}")
-                                axes[2].set_xlabel("Shell - Mid Altitude (km)")
-                                axes[2].set_ylabel("Launch Rate")
-                                axes[2].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-                                axes[2].set_xticklabels(self.HMid)
+        #         # Create the figure and axes
+        #         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-                        plt.tight_layout()
+        #         def update(frame):
+        #                 timestep = timesteps[frame]
+        #                 ror = other_data[timestep]["ror"]
+        #                 collision_prob = other_data[timestep]["collision_probability"]
+        #                 launch_rate = other_data[timestep]["launch_rate"]
+
+        #                 for ax in axes:
+        #                         ax.clear()
+
+        #                         # Plot each metric with fixed y-axis limits
+        #                         axes[0].plot(range(num_altitude_shells), ror, color='b')
+        #                         axes[0].set_ylim(ror_min, ror_max)
+        #                         axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
+        #                         axes[0].set_xlabel("Shell - Mid Altitude (km)")
+        #                         axes[0].set_ylabel("RoR")
+        #                         axes[0].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+        #                         axes[0].set_xticklabels(self.HMid)
+
+        #                         axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
+        #                         axes[1].set_ylim(collision_min, collision_max)
+        #                         axes[1].set_title(f"Collision Probability - Year {timestep}")
+        #                         axes[1].set_xlabel("Shell - Mid Altitude (km)")
+        #                         axes[1].set_ylabel("Collision Probability")
+        #                         axes[1].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+        #                         axes[1].set_xticklabels(self.HMid)
+
+        #                         axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
+        #                         axes[2].set_ylim(launch_min, launch_max)
+        #                         axes[2].set_title(f"Launch Rate - Year {timestep}")
+        #                         axes[2].set_xlabel("Shell - Mid Altitude (km)")
+        #                         axes[2].set_ylabel("Launch Rate")
+        #                         axes[2].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+        #                         axes[2].set_xticklabels(self.HMid)
+
+        #                 plt.tight_layout()
                 
-                # Create the animation
-                ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
+        #         # Create the animation
+        #         ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
 
-                # Save as GIF
-                combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
-                ani.save(combined_file_path, writer="pillow", fps=2)
+        #         # Save as GIF
+        #         combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
+        #         ani.save(combined_file_path, writer="pillow", fps=2)
 
-                plt.close()
-
-        def ror_cp_and_launch_rate(self, plot_data, other_data):
-                """
-                Generate and save a combined plot for time evolution of different parameters
-                (RoR, Collision Probability, Launch Rate, Excess Returns).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
-
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
-
-                # Prepare the figure with 4 subplots now
-                fig, axes = plt.subplots(1, 4, figsize=(20, 5))
-
-                # Color map for time evolution
-                colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
-
-                # Static Plot: loop through each timestep and plot each metric
-                for idx, timestep in enumerate(timesteps):
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
-                        excess_returns = other_data[timestep]["excess_returns"]
-
-                        axes[0].plot(range(num_altitude_shells), ror, color=colors[idx], label=f"Year {timestep}")
-                        axes[1].plot(range(num_altitude_shells), collision_prob, color=colors[idx])
-                        axes[2].plot(range(num_altitude_shells), launch_rate, color=colors[idx])
-                        axes[3].plot(range(num_altitude_shells), excess_returns, color=colors[idx])
-
-                axes[0].set_title("Rate of Return (RoR)")
-                axes[1].set_title("Collision Probability")
-                axes[2].set_title("Launch Rate")
-                axes[3].set_title("Excess Returns")
-
-                # Set labels and ticks for each subplot
-                for ax in axes:
-                        ax.set_xlabel("Shell - Mid Altitude (km)")
-                        ax.set_ylabel("Value")
-                        ax.set_xticklabels(self.HMid)
-
-                # Add a legend to the figure (outside the individual axes)
-                fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
-
-                plt.tight_layout()
-
-                # Save the combined plot
-                combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
-                plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
-                plt.close()
-                print(f"All economic metrics single plot saved to {combined_file_path}")
-
-
-        def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
-                """
-                Generate and save an animated plot for the time evolution of different parameters 
-                (RoR, Collision Probability, Launch Rate, Excess Returns).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
-
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
-
-                # Determine global min/max for each metric across all timesteps
-                ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
-                collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
-                launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
-                excess_values = [val for timestep in timesteps for val in other_data[timestep]["excess_returns"]]
-
-                ror_min, ror_max = min(ror_values), max(ror_values)
-                collision_min, collision_max = min(collision_values), max(collision_values)
-                launch_min, launch_max = min(launch_values), max(launch_values)
-                excess_min, excess_max = min(excess_values), max(excess_values)
-
-                # Create the figure and axes with 4 subplots
-                fig, axes = plt.subplots(1, 4, figsize=(20, 5))
-
-                def update(frame):
-                        timestep = timesteps[frame]
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
-                        excess_returns = other_data[timestep]["excess_returns"]
-
-                        # Clear each axis before plotting new data
-                        for ax in axes:
-                                ax.clear()
-
-                        # Plot each metric with fixed y-axis limits
-                        axes[0].plot(range(num_altitude_shells), ror, color='b')
-                        axes[0].set_ylim(ror_min, ror_max)
-                        axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
-                        axes[0].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[0].set_ylabel("RoR")
-                        axes[0].set_xticks(range(len(self.HMid)))
-                        axes[0].set_xticklabels(self.HMid)
-
-                        axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
-                        axes[1].set_ylim(collision_min, collision_max)
-                        axes[1].set_title(f"Collision Probability - Year {timestep}")
-                        axes[1].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[1].set_ylabel("Collision Probability")
-                        axes[1].set_xticks(range(len(self.HMid)))
-                        axes[1].set_xticklabels(self.HMid)
-
-                        axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
-                        axes[2].set_ylim(launch_min, launch_max)
-                        axes[2].set_title(f"Launch Rate - Year {timestep}")
-                        axes[2].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[2].set_ylabel("Launch Rate")
-                        axes[2].set_xticks(range(len(self.HMid)))
-                        axes[2].set_xticklabels(self.HMid)
-
-                        axes[3].plot(range(num_altitude_shells), excess_returns, color='m')
-                        axes[3].set_ylim(excess_min, excess_max)
-                        axes[3].set_title(f"Excess Returns - Year {timestep}")
-                        axes[3].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[3].set_ylabel("Excess Returns")
-                        axes[3].set_xticks(range(len(self.HMid)))
-                        axes[3].set_xticklabels(self.HMid)
-
-                        plt.tight_layout()
-
-                # Create the animation
-                ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
-
-                # Save as GIF
-                combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
-                ani.save(combined_file_path, writer="pillow", fps=2)
-
-                plt.close()
-                print(f"Animated evolution plot saved to {combined_file_path}")
-
-
-        # def collision_probability_stacked_by_species(self, plot_data, other_data):
-        #         pass
-
-        # def pmd_effectiveness(self, plot_data, other_data):
-        #         pass
+        #         plt.close()

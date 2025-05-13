@@ -219,9 +219,9 @@ if __name__ == "__main__":
                     # "bond_0k_25yr",
                     "bond_100k",
                     # # "bond_200k",
-                    # "bond_300k",
+                    "bond_300k",
                     # # "bond_500k",
-                    # "bond_800k",
+                    "bond_800k",
                     # # "bond_100k_25yr",
                     # # "bond_200k_25yr",
                     # "bond_300k_25yr",
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_species.json"))
 
-    simulation_name = "Multi-Species-2"
+    simulation_name = "New-Bond-Test"
 
     iam_solver = IAMSolver()
 
