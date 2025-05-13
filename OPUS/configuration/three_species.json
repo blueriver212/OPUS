@@ -83,8 +83,8 @@
         {
             "sym_name": "N",
             "Cd": 2.2,
-            "mass": [0.5670, 223],
-            "radius": [0.1321, 1],
+            "mass": 0.5670,
+            "radius": 0.1321,
             "A": "Calculated based on radius",
             "active": false,
             "maneuverable": false,

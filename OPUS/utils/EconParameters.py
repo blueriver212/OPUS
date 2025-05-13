@@ -147,8 +147,15 @@ class EconParameters:
 
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
-        non_comp_rate = 1 - pmd_rate
-        self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
+        # non_comp_rate = 1 - pmd_rate
+        # self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
+
+        # With Option 1 quation 
+        A = 57
+        k = np.log(12) / 75
+
+        scaled_effort = (self.bond / self.bstar[mask]) * 100
+        self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
 
         return       
 
