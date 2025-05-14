@@ -65,8 +65,8 @@ class EconParameters:
 
         # Here using the ballastic coefficient of the species, we are trying to find the highest compliant altitude/shell
         for k in range(self.mocat.scenario_properties.n_shells):
-            rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k], solar_activity='medium')
-
+            #rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k], solar_activity='medium')
+            rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
             # satellite 
             beta = 0.0172 # ballastic coefficient, area * mass * drag coefficient. This should be done for each species!
             rvel_current_D = -rhok * beta * np.sqrt(self.mocat.scenario_properties.mu * self.mocat.scenario_properties.R0[k]) * (24 * 3600 * 365.25)
@@ -85,7 +85,7 @@ class EconParameters:
 
         # Calculate drag delta-v for stationkeeping maneuvers
         for k in range(self.mocat.scenario_properties.n_shells):
-            rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k])
+            rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
             orbital_velocity = np.sqrt(self.mocat.scenario_properties.mu / self.mocat.scenario_properties.R0[k])
             F_drag = 2.2 * 0.5 * rhok * orbital_velocity**2 * 1.741 # this is cd and area and have been hard coded
             v_drag[k] = F_drag / 223 * delta_t * 1e-3
@@ -147,15 +147,15 @@ class EconParameters:
 
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
-        # non_comp_rate = 1 - pmd_rate
-        # self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
+        non_comp_rate = 1 - pmd_rate
+        self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
 
         # With Option 1 quation 
-        A = 57
-        k = np.log(12) / 75
+        # A = 57
+        # k = np.log(12) / 75
 
-        scaled_effort = (self.bond / self.bstar[mask]) * 100
-        self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
+        # scaled_effort = (self.bond / self.bstar[mask]) * 100
+        # self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
 
         return       
 

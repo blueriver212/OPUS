@@ -392,8 +392,7 @@ class PlotHandler:
                 print(f"Stacked bar chart saved to {file_path}")
 
         
-
-        def comparison_total_species_count(self, plot_data_lists, other_data_lists=None):
+        def comparison_total_species_count(self, plot_data_lists, other_data_lists):
                 """
                 Creates a comparison plot of total species count over time.
                 Each species is plotted in its own subplot, comparing across all scenarios.
@@ -475,125 +474,54 @@ class PlotHandler:
 
                 print(f"Comparison plot saved to {out_path}")
 
-        # # def comparison_total_species_count(self):
-        # #         """
-        # #         Creates a comparison plot of total species count over time.
-        # #         Each species is plotted in its own subplot, comparing across all scenarios.
-        # #         """
+        def comparison_UMPY(self, plot_data_lists, other_data_lists):
+                """
+                Create a comparison plot of total UMPY over time for multiple scenarios.
+                Each scenario is plotted on the same figure with a label derived from 
+                its scenario name.
+                """
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
 
-        # #         # Create a "comparisons" folder under the main simulation folder
-        # #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-        # #         os.makedirs(comparison_folder, exist_ok=True)
+                # Create a single figure for all scenarios
+                plt.figure(figsize=(8, 5))
 
-        # #         # Dictionary to store time series data for each species across scenarios
-        # #         species_totals = {}
+                # Loop through each plot_data and other_data pair
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # 1) Sort the timesteps
+                        timesteps = sorted(other_data.keys(), key=int)
+                        umpy_sums = []
 
-        # #         # Loop over each scenario to extract data
-        # #         for scenario in self.scenario_files:
-        # #                 scenario_folder = os.path.join(self.simulation_folder, scenario)
-                        
-        # #                 if not os.path.exists(scenario_folder):
-        # #                         print(f"Warning: Cannot find {scenario_folder}; skipping.")
-        # #                         continue
+                        # 2) Sum the 'umpy' values for each timestep
+                        for ts in timesteps:
+                                umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
+                                total_umpy = np.sum(umpy_list)
+                                umpy_sums.append(total_umpy)
 
-        # #                 # Build PlotData to get the dictionary of species->data arrays
-        # #                 plot_data = PlotData(scenario, scenario_folder, self.MOCAT)
-        # #                 data_dict = plot_data.data  # {species: np.array(time, shells), ...}
+                        # Here we assume `plot_data` has an attribute storing the scenario name.
+                        # Adjust this to match your actual code if the attribute differs.
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-        # #                 for species, species_data in data_dict.items():
-        # #                         # Sum across shells to get a total count per time step
-        # #                         total_species_count = np.sum(species_data, axis=1)  # shape: (time,)
+                        # 3) Plot each scenario on the same figure
+                        plt.plot(
+                        timesteps,
+                        umpy_sums,
+                        marker='o',
+                        label=scenario_label
+                        )
 
-        # #                         # Store data per species
-        # #                         if species not in species_totals:
-        # #                                 species_totals[species] = {}
-                                
-        # #                         species_totals[species][scenario] = total_species_count
+                # 4) Labels, legend, and layout
+                plt.xlabel("Year (timestep)")
+                plt.ylabel("UMPY (kg/year)")
+                plt.title("UMPY Evolution Over Time (All Scenarios)")
+                plt.legend()
+                plt.tight_layout()
 
-        # #         # Count how many species we have
-        # #         num_species = len(species_totals)
-
-        # #         # If multiple species, create subplots in a grid
-        # #         num_cols = 2
-        # #         num_rows = math.ceil(num_species / num_cols)
-
-        # #         fig, axes = plt.subplots(num_rows, num_cols,
-        # #                                 figsize=(12, 6 * num_rows),
-        # #                                 sharex=True)
-        # #         # Flatten axes for easy iteration
-        # #         axes = np.array(axes).flatten()
-
-        # #         for idx, (species, scenario_data) in enumerate(species_totals.items()):
-        # #                 ax = axes[idx]
-        # #                 for scenario, counts in scenario_data.items():
-        # #                         ax.plot(counts, label=scenario, marker='o')
-
-        # #                 ax.set_title(f"Total Count across all shells for Species: {species}")
-        # #                 ax.set_xlabel("Year")
-        # #                 ax.set_ylabel("Total Count")
-        # #                 ax.legend()
-        # #                 ax.grid(True)
-
-        # #         # Hide any leftover empty subplots (if #species not a multiple of num_cols)
-        # #         for extra_ax in axes[num_species:]:
-        # #                 extra_ax.set_visible(False)
-
-        # #         plt.tight_layout()
-
-        # #         # Save the figure
-        # #         out_path = os.path.join(comparison_folder, "comparison_species_count.png")
-        # #         plt.savefig(out_path, dpi=300)
-        # #         plt.close()
-        # #         print(f"Comparison plot saved to {out_path}")
-
-        # def comparison_UMPY(self, plot_data_lists, other_data_lists):
-        #         """
-        #         Create a comparison plot of total UMPY over time for multiple scenarios.
-        #         Each scenario is plotted on the same figure with a label derived from 
-        #         its scenario name.
-        #         """
-        #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-        #         os.makedirs(comparison_folder, exist_ok=True)
-
-        #         # Create a single figure for all scenarios
-        #         plt.figure(figsize=(8, 5))
-
-        #         # Loop through each plot_data and other_data pair
-        #         for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-        #                 # 1) Sort the timesteps
-        #                 timesteps = sorted(other_data.keys(), key=int)
-        #                 umpy_sums = []
-
-        #                 # 2) Sum the 'umpy' values for each timestep
-        #                 for ts in timesteps:
-        #                         umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
-        #                         total_umpy = np.sum(umpy_list)
-        #                         umpy_sums.append(total_umpy)
-
-        #                 # Here we assume `plot_data` has an attribute storing the scenario name.
-        #                 # Adjust this to match your actual code if the attribute differs.
-        #                 scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-
-        #                 # 3) Plot each scenario on the same figure
-        #                 plt.plot(
-        #                 timesteps,
-        #                 umpy_sums,
-        #                 marker='o',
-        #                 label=scenario_label
-        #                 )
-
-        #         # 4) Labels, legend, and layout
-        #         plt.xlabel("Year (timestep)")
-        #         plt.ylabel("UMPY (kg/year)")
-        #         plt.title("UMPY Evolution Over Time (All Scenarios)")
-        #         plt.legend()
-        #         plt.tight_layout()
-
-        #         # 5) Save the figure using the first plot_data's path 
-        #         out_path = os.path.join(comparison_folder, "umpy_over_time.png")
-        #         plt.savefig(out_path, dpi=300, bbox_inches="tight")
-        #         plt.close()
-        #         print(f"Comparison UMPY plot saved to {out_path}")
+                # 5) Save the figure using the first plot_data's path 
+                out_path = os.path.join(comparison_folder, "umpy_over_time.png")
+                plt.savefig(out_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Comparison UMPY plot saved to {out_path}")
 
         def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
                 """
@@ -651,7 +579,6 @@ class PlotHandler:
                 plt.grid(True, zorder=0)
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
-                plt.show()
                 print(f"Scatter plot saved to {file_path}")
         
         def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
@@ -708,7 +635,6 @@ class PlotHandler:
                 plt.grid(True, zorder=0)
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
-                plt.show()
                 print(f"Scatter plot saved to {file_path}")
 
         def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
@@ -773,7 +699,6 @@ class PlotHandler:
                 plt.grid(True, zorder=0)
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
-                plt.show()
                 print(f"Scatter plot saved to {file_path}")
 
         def comparison_umpy_vs_final_metrics(self, plot_data_lists, other_data_lists):
@@ -926,7 +851,6 @@ class PlotHandler:
 
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
-                plt.show()
                 print(f"Comparison plots saved to {file_path}")
 
         def comparison_object_counts_vs_bond(self, plot_data_lists, other_data_lists):
@@ -1051,7 +975,6 @@ class PlotHandler:
                 file_path = os.path.join(self.simulation_folder, "comparisons", "object_counts_vs_bond_split.png")
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 plt.savefig(file_path, dpi=300)
-                plt.show()
                 print(f"Split object count plot saved to {file_path}")
 
 

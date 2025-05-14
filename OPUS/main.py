@@ -45,7 +45,7 @@ class IAMSolver:
         """
         # Define the species that are part of the constellation and fringe
         constellation_sat = "S"
-        multi_species_names = ["Su"]
+        multi_species_names = ["Su", "Sns"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -53,9 +53,9 @@ class IAMSolver:
         #########################
         ### CONFIGURE MOCAT MODEL
         #########################
-        if self.MOCAT is None:
-            self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
-            print(self.MOCAT.scenario_properties.x0)
+        # if self.MOCAT is None:
+        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
+        print(self.MOCAT.scenario_properties.x0)
 
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
@@ -70,7 +70,6 @@ class IAMSolver:
             species.econ_params.modify_params_for_simulation(scenario_name)
             species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
 
-        
         ############################
         ### CONSTELLATION PARAMETERS
         ############################
@@ -100,10 +99,8 @@ class IAMSolver:
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
 
-
         lam = insert_launches_into_lam(lam, launch_rate, multi_species)
-        
-        
+             
         ####################
         ### SIMULATION LOOP
         # For each year, take the previous state of the environment, 
@@ -148,9 +145,7 @@ class IAMSolver:
 
             # Fringe Equilibrium Controller
             start_time = time.time()
-            print(f"Now starting period {time_idx}...")
-
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
 
             # Calculate solver_guess
             solver_guess = lam
@@ -216,36 +211,36 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "bond_0k_25yr",
+                    "bond_0k_25yr",
                     "bond_100k",
                     # # "bond_200k",
                     "bond_300k",
-                    # # "bond_500k",
+                    # # # "bond_500k",
                     "bond_800k",
-                    # # "bond_100k_25yr",
+                    "bond_100k_25yr",
                     # # "bond_200k_25yr",
-                    # "bond_300k_25yr",
+                    "bond_300k_25yr",
                     # # "bond_500k_25yr",
-                    # "bond_800k_25yr",
+                    "bond_800k_25yr",
                     # # "tax_1",
                     # "tax_2"
                 ]
     
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "Single-Species"
+    simulation_name = "Single-Species-mew"
 
     iam_solver = IAMSolver()
 
-    # # no parallel processing
+    # # # no parallel processing
     # for scenario_name in scenario_files:
     #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
     #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # # Parallel Processing
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
