@@ -54,7 +54,10 @@ class PostProcessing:
                 "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
                 "umpy": data["umpy"], 
                 "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
-                "non_compliance": data["non_compliance"].tolist() if isinstance(data["non_compliance"], (list, np.ndarray)) else data["non_compliance"],
+                "non_compliance": {
+                    sp: val.tolist() if isinstance(val, (list, np.ndarray)) else val
+                    for sp, val in data["non_compliance"].items()
+                } if isinstance(data["non_compliance"], dict) else data["non_compliance"]
             }
             for time_idx, data in self.other_results.items()
         }
