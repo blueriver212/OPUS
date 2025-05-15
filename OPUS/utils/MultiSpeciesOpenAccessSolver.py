@@ -81,6 +81,12 @@ class MultiSpeciesOpenAccessSolver:
         self._last_excess_returns = excess_returns
         self._last_multi_species = multi_species
 
+        non_compliance_dict = {
+            species.name: species.sum_non_compliant for species in multi_species.species
+        }
+
+        self._last_non_compliance = non_compliance_dict
+
         return excess_returns
 
     def calculate_probability_of_collision(self, state_matrix, opus_species_name):
@@ -99,8 +105,6 @@ class MultiSpeciesOpenAccessSolver:
         """
          Calcualtes the fringe rate of return. It can be only used by one species at once. 
          Currently it assumes a linear revenue model, although other models can be used in the future. 
-
-
         """
         fringe_total = state_matrix[opus_species.start_slice:opus_species.end_slice]
 
