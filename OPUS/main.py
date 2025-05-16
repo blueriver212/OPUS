@@ -44,8 +44,7 @@ class IAMSolver:
             The main function that runs the IAM solver.
         """
         # Define the species that are part of the constellation and fringe
-        constellation_sat = "S"
-        multi_species_names = ["Su", "Sns"]
+        multi_species_names = ["S", "Su", "Sns"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -75,21 +74,22 @@ class IAMSolver:
         ############################
 
         # Get the slices for the constellation and fringe satellites
-        constellation_start_slice, constellation_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sat)
-        constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
-        lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
+        # constellation_start_slice, constellation_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sat)
+        # constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
+        # lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
 
         # Fringe population automomous controller. 
         launch_mask = np.ones((self.MOCAT.scenario_properties.n_shells,))
 
         # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
         solver_guess = x0
+        lam = np.full_like(x0, None, dtype=object)
         for species in multi_species.species:
-            if species.name == constellation_sat:
-                continue
-            else:
-                solver_guess[species.start_slice:species.end_slice] = 0.05 * np.array(x0[species.start_slice:species.end_slice]) * launch_mask  
-                lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
+            # if species.name == constellation_sat:
+            #     continue
+            # else:
+            solver_guess[species.start_slice:species.end_slice] = 0.05 * np.array(x0[species.start_slice:species.end_slice]) * launch_mask  
+            lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
         ############################
         ### SOLVE FOR THE FIRST YEAR
@@ -132,9 +132,9 @@ class IAMSolver:
             propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
 
             # Update the constellation satellites for the next period - should only be 5%.
-            for i in range(constellation_start_slice, constellation_end_slice):
-                if lam[i] is not None:
-                    lam[i] = lam[i] * 0.05
+            # for i in range(constellation_start_slice, constellation_end_slice):
+            #     if lam[i] is not None:
+            #         lam[i] = lam[i] * 0.05
 
             #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
         
@@ -212,23 +212,27 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     "bond_0k_25yr",
-                    # "bond_100k",
+                    "bond_100k",
                     # "bond_200k",
-                    "bond_300k",
-                    # "bond_500k",
+                    # # "bond_300k",
+                    # # # "bond_500k",
                     "bond_800k",
-                    # "bond_100k_25yr",
-                    # # "bond_200k_25yr",
-                    "bond_300k_25yr",
-                    # # "bond_500k_25yr",
+                    "bond_1200k",
+                    "bond_1600k",
+                    # # "bond_100k_25yr",
+                    # # # "bond_200k_25yr",
+                    # "bond_300k_25yr",
+                    # # # "bond_500k_25yr",
                     "bond_800k_25yr",
-                    # # "tax_1",
+                    "bond_1200k_25yr",
+                    "bond_1600k_25yr",
+                    "tax_1",
                     # "tax_2"
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "Test"
+    simulation_name = "Test-New"
 
     iam_solver = IAMSolver()
 
@@ -241,12 +245,9 @@ if __name__ == "__main__":
     with ThreadPoolExecutor() as executor:
         # Map process_scenario function over scenario_files
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
-
-
-    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
-    
+ 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    multi_species_names = ["Su", "Sns"]
+    multi_species_names = ["S","Su", "Sns"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

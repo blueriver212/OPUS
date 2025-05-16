@@ -34,8 +34,9 @@
         "prob_of_non_compliance": 0
     },
     "SEP_mapping": [
-        "T.loc[(T['phase'] == 2) & (T['obj_type'] == 2) & (T['maneuverable'] == 1), 'species_class'] = 'S'",
-        "T.loc[(T['obj_type'] == 2) & (T['maneuverable'] == 0), 'species_class'] = 'Su'",
+        "T.loc[(T['obj_type'] == 2) & (T['maneuverable'] == 1), 'species_class'] = 'Su'",
+        "T.loc[(T['phase'] == 2) & (T['mass'].between(220, 235) | T['mass'].between(250, 270) | T['mass'].between(295, 315) | T['mass'].between(700, 780) | T['mass'].between(1200, 1300) | T['mass'].between(125, 130)), 'species_class'] = 'S'",
+        "T.loc[(T['obj_type'] == 2) & (T['maneuverable'] == 0), 'species_class'] = 'Sns'",
         "T.loc[(T['obj_type'] >= 3), 'species_class'] = 'N'",
         "T.loc[(T['obj_type'] == 1), 'species_class'] = 'B'"
     ],
@@ -78,7 +79,7 @@
             "radius": 2,
             "A": "Calculated based on radius",
             "active": true,
-            "maneuverable": false,
+            "maneuverable": true,
             "trackable": true,
             "deltat": 5,
             "Pm": 0.65,
