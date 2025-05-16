@@ -71,6 +71,17 @@ class MultiSpecies:
                             except AttributeError:
                                 print(f"Warning: '{attr}' not found in MOCAT species '{mocat_species.sym_name}'")
 
+
+    def increase_demand(self):
+        """
+        This method will look through the species, if there is a demand growth value for any of the species. The revenue will be increased proportionally. 
+        """
+        for species in self.species:
+            if species.econ_params.demand_growth is not None:
+                species.econ_params.intercept = species.econ_params.intercept * (1 + species.econ_params.demand_growth)
+                print("intercept now: ", species.econ_params.intercept)
+
+        
 class OPUSSpecies:
     """
     This class is used to create a species object. 

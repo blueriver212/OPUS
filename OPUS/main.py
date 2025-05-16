@@ -157,6 +157,8 @@ class IAMSolver:
                 rate_of_return = open_access.fringe_rate_of_return(propagated_environment, collision_probability, species)
                 solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability) * launch_mask
 
+            # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
+            multi_species.increase_demand()
 
             open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
 
@@ -212,7 +214,9 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    # "bond_100k",
+                    "bond_100k",
+                    "bondrevenuegrowth_100k",
+                    "revenuegrowth_0k",
                     # # "bond_200k",
                     # # # "bond_300k",
                     # # # # "bond_500k",
@@ -232,7 +236,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "Test-New"
+    simulation_name = "Bond-With-Revnue-Growth"
 
     iam_solver = IAMSolver()
 
