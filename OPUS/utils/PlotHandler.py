@@ -853,6 +853,55 @@ class PlotHandler:
                 plt.savefig(file_path, dpi=300)
                 print(f"Comparison plots saved to {file_path}")
 
+        def comparison_total_welfare_vs_time(self, plot_data_lists, other_data_lists):
+                """
+                Plot total welfare over time for each scenario.
+                - Each line corresponds to one scenario.
+                - Welfare is summed across all S-prefixed species per timestep.
+                - Welfare = 100 × (sum of satellites)^2 at each timestep.
+                """
+                import numpy as np
+                import matplotlib.pyplot as plt
+                import os
+
+                coef = 1e2
+                plt.figure(figsize=(10, 6))
+
+                for plot_data in plot_data_lists:
+                        species_data = {sp: np.array(data) for sp, data in plot_data.data.items()}
+                        s_species_names = [sp for sp in species_data if sp.startswith("S")]
+
+                        if not s_species_names:
+                                print(f"No S-prefixed species found in scenario '{plot_data.scenario}'")
+                                continue
+
+                        # Sum all S-prefixed species into one welfare curve
+                        total_sats = None
+                        for sp in s_species_names:
+                                arr = species_data[sp]  # (timesteps, shells)
+                                sats = np.sum(arr, axis=1)  # (timesteps,)
+                                total_sats = sats if total_sats is None else total_sats + sats
+
+                        welfare = coef * (total_sats ** 2)
+                        label = getattr(plot_data, 'scenario', 'Unnamed Scenario')
+                        plt.plot(welfare, label=label, linewidth=2)
+
+                plt.title("Total Welfare Over Time by Scenario", fontsize=14, fontweight='bold')
+                plt.xlabel("Year", fontsize=12)
+                plt.ylabel("Welfare (Summed Across S-Prefixed Species)", fontsize=12)
+                plt.legend(title="Scenario", fontsize=10)
+                plt.grid(True)
+                plt.tight_layout()
+
+                # Save
+                outdir = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(outdir, exist_ok=True)
+                file_path = os.path.join(outdir, "total_welfare_across_scenarios.png")
+                plt.savefig(file_path, dpi=300)
+
+                print(f"Scenario-wise total welfare plot saved to {file_path}")
+
+
         def comparison_object_counts_vs_bond(self, plot_data_lists, other_data_lists):
                 """
                 Compare number of derelicts (N_223kg) and fringe satellites (Su) across 5yr and 25yr PMD scenarios.

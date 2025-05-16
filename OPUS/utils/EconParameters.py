@@ -1,6 +1,6 @@
 import numpy as np
 from pyssem.model import Model
-from pyssem.utils.drag.drag import densityexp, density_jb2008
+from pyssem.utils.drag.drag import densityexp
 import pandas as pd
 
 class EconParameters:
