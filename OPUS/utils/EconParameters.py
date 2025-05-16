@@ -54,6 +54,9 @@ class EconParameters:
         # Bond amount
         self.bond = params.get("bond", None)
 
+        # Demand growhth, annual rate
+        self.demand_growth = params.get("demand_growth", None)
+
     def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
 
         # Save the pmd_rate as this will be passed from MOCAT
