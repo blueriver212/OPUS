@@ -74,19 +74,28 @@ def evaluate_pmd(state_matrix, multi_species):
         num_items_fringe = state_matrix[start:end]
 
         if species_name == 'S':
-            # 97% removed from sim, 3% fail PMD and go to top naturally compliant shell
+            # 97% removed from sim, 3% fail PMD and get dropped randomly into compliant shells
             successful_pmd = 0.97 * (1 / species.deltat) * num_items_fringe
             failed_pmd = 0.03 * (1 / species.deltat) * num_items_fringe
 
             # Remove all satellites at end of life
             state_matrix[start:end] -= (1 / species.deltat) * num_items_fringe
 
-            # Identify the first naturally compliant shell (top = index 0)
-            top_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][0]
+            # Get naturally compliant shell indices
+            compliant_indices = np.where(species.econ_params.naturally_compliant_vector == 1)[0]
 
-            # Create empty array for derelict addition
+            # Distribute failed PMD randomly across compliant shells
             derelict_addition = np.zeros_like(num_items_fringe)
-            derelict_addition[top_compliant_shell] += np.sum(failed_pmd)
+
+            total_failed = np.sum(failed_pmd)
+            n_compliant = len(compliant_indices)
+
+            if n_compliant > 0:
+                # Generate a multinomial draw to split total_failed across compliant shells
+                proportions = np.random.multinomial(int(round(total_failed)), [1/n_compliant] * n_compliant)
+
+                for idx, shell_idx in enumerate(compliant_indices):
+                    derelict_addition[shell_idx] += proportions[idx]
 
             state_matrix[derelict_start:derelict_end] += derelict_addition
 
@@ -94,7 +103,7 @@ def evaluate_pmd(state_matrix, multi_species):
             species.sum_non_compliant = np.sum(failed_pmd)
 
         elif species_name == 'Su':
-            # Original logic
+            # All compliant PMD are dropped at the highest naturall compliant vector. 
             last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
             non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
 
