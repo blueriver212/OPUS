@@ -19,7 +19,8 @@
         "baseline": true,
         "fragment_spreading": false, 
         "parallel_processing": false,
-        "indicator_variables" : ["active_loss_per_species", "umpy"]
+        "indicator_variables" : ["active_loss_per_species", "umpy"],
+        "launch_scenario": "SEP1"
     },
     "simulation_name": "Indigo",
     "OPUS" :{
