@@ -87,7 +87,7 @@ class OpenAccessSolver:
             Return: 
                 - Active Loss per shell. This can be used to infer collision probability.  
         """
-        evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss(*state_matrix)
+        evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss['Su'](*state_matrix)
         evaluated_value_flat = [float(value[0]) for value in evaluated_value]
         return np.array(evaluated_value_flat)
     
