@@ -12,7 +12,7 @@
         "max_altitude": 1200,
         "min_altitude": 200,
         "n_shells": 10,
-        "simulation_duration": 25,
+        "simulation_duration": 10,
         "start_date": "01/02/2024",
         "steps": 20,
         "v_imp": 10, 
@@ -20,8 +20,14 @@
         "fragment_spreading": false, 
         "parallel_processing": false,
         "indicator_variables" : ["active_loss_per_species", "umpy"],
-        "launch_scenario": "SEP1"
+        "launch_scenario": "SEP1"       
     },
+    "SEP_mapping": [
+        "T.loc[(T['phase'] == 2) & (T['obj_type'] == 2) & (T['maneuverable'] == 1), 'species_class'] = 'S'",
+        "T.loc[(T['obj_type'] == 2) & (T['maneuverable'] == 0), 'species_class'] = 'Su'",
+        "T.loc[(T['obj_type'] >= 3), 'species_class'] = 'N'",
+        "T.loc[(T['obj_type'] == 1), 'species_class'] = 'B'"
+    ],
     "simulation_name": "Indigo",
     "OPUS" :{
         "sat_lifetime" : 5,

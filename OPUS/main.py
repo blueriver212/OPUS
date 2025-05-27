@@ -5,6 +5,7 @@ from utils.OpenAccessSolver import OpenAccessSolver
 from utils.PostProcessing import PostProcessing
 from utils.PlotHandler import PlotHandler
 from utils.PostMissionDisposal import evaluate_pmd
+from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
 import time
@@ -279,8 +280,6 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name):
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
     return solver.get_mocat()
 
-from concurrent.futures import ThreadPoolExecutor
-
 def process_scenario(scenario_name, MOCAT_config, simulation_name):
     iam_solver = IAMSolver()
     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
@@ -300,11 +299,12 @@ if __name__ == "__main__":
                     # "adr_n_00141372",
 
                     # "bond_0k_25yr",
-                    # "bond_100k",
+                    "bond_100k",
                     # # "bond_200k",
                     # # "bond_300k",
                     # "bond_500k",
-                    # "bond_800k",
+                    "bond_800k",
+                    "bond_1600k",
                     # "bond_100k_25yr",
                     # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
@@ -318,24 +318,21 @@ if __name__ == "__main__":
 
     # ADR_config = json.load(open("./OPUS/configuration/adr.json"))
 
-    simulation_name = "ESDC_run_3"
+    simulation_name = "New-Bonds"
 
     iam_solver = IAMSolver()
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
-    # # # # # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    # no parallel processing
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+
+    # Parallel Processing
+    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
     with ThreadPoolExecutor() as executor:
         # Map process_scenario function over scenario_files
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
-    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)
-    # # # Assuming PlotHandler can handle multiple outputs from different iam_solver instances
-    # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)   
-
-
-    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    # MOCAT,_,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
