@@ -36,17 +36,32 @@ class ADRParameters:
         """
 
         # read the csv file - must be in the configuration folder
-        # file = open('./OPUS/configuration/{configuration}.json')
-        file = open('./OPUS/configuration/'+configuration+'.json')
+        path = f"./OPUS/configuration/{configuration}.csv"
 
         # read the csv file
-        params = json.load(file)
-        
-        self.implement = params["implement"]
-        self.times = params["adr_times"]
-        self.shell = params["target_shell"]
-        self.species = params["target_species"]
-        self.p_remove = params["p_remove"]
+        parameters = pd.read_csv(path)
+
+        for i, row in parameters.iterrows():
+            parameter_type = row['parameter_type']
+            parameter_name = row['parameter_name']
+            parameter_value = row['parameter_value']
+
+            # Modify the value based on parameter_type
+            if parameter_type == 'adr':
+                if parameter_value == 1:
+                    file = open('./OPUS/configuration/'+configuration+'_adr.json')
+
+            # read the json file
+                    params = json.load(file)
+            
+                    self.implement = params["implement"]
+                    self.times = params["adr_times"]
+                    self.shell = params["target_shell"]
+                    self.species = params["target_species"]
+                    self.p_remove = params["p_remove"]
+            else:
+                print("No ADR implemented.")
+
 
 
         # if baseline:
