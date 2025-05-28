@@ -16,8 +16,8 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
     scenario_props = MOCAT_config["scenario_properties"]
     try:
         economic_parameters_json = MOCAT_config['OPUS']
-        # sammie addition
-        adr_parameters_json = MOCAT_config['adr']
+        # # sammie addition
+        # adr_parameters_json = MOCAT_config['adr']
     except:
         raise ValueError("Please ensure that the economic parameters of OPUS are configured correctly.")
 
@@ -64,4 +64,4 @@ def configure_mocat(MOCAT_config: json, fringe_satellite: str = None) -> Model:
     else:
         pmd_linked_species = pmd_linked_species_to_fringe[0].sym_name
  
-    return MOCAT, economic_parameters_json, adr_parameters_json, pmd_linked_species
+    return MOCAT, economic_parameters_json, pmd_linked_species, # adr_parameters_json

@@ -118,13 +118,6 @@
             "drag_func": "drag_func_exp"
         }
     ],
-    "status": "not started",
-    "adr": {
-            "implement": 0,
-            "target_shell": [7,8],
-            "target_species": ["B"],
-            "adr_times": [5,10,15,20,25,30],
-            "p_remove": 0.2
-    }
+    "status": "not started"
     
 }

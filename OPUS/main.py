@@ -132,8 +132,7 @@ class IAMSolver:
 
 
         # sammie addition:
-
-        
+        # pulling the ADR parameters into separate variables
         adr_times = adr_params.times
         implement_adr = adr_params.implement
         p_remove = adr_params.p_remove
@@ -227,6 +226,7 @@ class IAMSolver:
             }
             
         # # sammie addition
+        # this part is probably obsolete! but it is staying until i can confirm that
         # df = pd.DataFrame(data_storage_b)
         # df.to_csv('./Results/rocket_body_data.csv', index=False)
         # num_plots = self.MOCAT.scenario_properties.n_shells
@@ -333,6 +333,8 @@ if __name__ == "__main__":
         # Map process_scenario function over scenario_files
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
+    with open('mocat_config.txt', 'w') as fp:
+        fp.write(repr(MOCAT_config))
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    MOCAT,_, _, = configure_mocat(MOCAT_config, fringe_satellite="Su")
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

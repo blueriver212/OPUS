@@ -1,6 +1,3 @@
 parameter_type,parameter_name,parameter_value
 adr,implement,1
-adr,species,"N_223kg"
-adr,shell,[7 8]
-adr,times,[5 10]
-adr,p_remove,0.2
+

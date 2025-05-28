@@ -17,7 +17,7 @@ class ADRParameters:
     Then the calculate_cost_fn_parameters function is called to calculate the cost function parameters.
     """
     def __init__(self, adr_params_json, mocat: Model):
-
+        # i cannot tell if this is doing anything tbh
         # Save MOCAT
         self.mocat = mocat
 
@@ -51,7 +51,7 @@ class ADRParameters:
                 if parameter_value == 1:
                     file = open('./OPUS/configuration/'+configuration+'_adr.json')
 
-            # read the json file
+            # read the json file, should also be in the configuration folder
                     params = json.load(file)
             
                     self.implement = params["implement"]
