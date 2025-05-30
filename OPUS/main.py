@@ -10,8 +10,8 @@ import json
 import numpy as np
 import time
 # sammie addition
-import matplotlib.pyplot as plt
-import pandas as pd
+import matplotlib.pyplot as plt # may not need anymore
+import pandas as pd # may not need anymore
 from utils.ADRParameters import ADRParameters
 
 
@@ -134,13 +134,13 @@ class IAMSolver:
         # sammie addition:
         # pulling the ADR parameters into separate variables
         adr_times = adr_params.times
-        implement_adr = adr_params.implement
+        # implement_adr = adr_params.implement
         p_remove = adr_params.p_remove
         target_shell = adr_params.shell
         target_species = adr_params.species 
 
 
-        data_storage_b = np.zeros((self.MOCAT.scenario_properties.simulation_duration,self.MOCAT.scenario_properties.n_shells))
+        data_storage_b = np.zeros((self.MOCAT.scenario_properties.simulation_duration,self.MOCAT.scenario_properties.n_shells)) # may not need anymore
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -170,17 +170,21 @@ class IAMSolver:
                 # 0 based index 
 
                 # sammie addition:
+                # the variable propagated_environment is set up as an array that contains the amount of each species in each shell. the array is organized
+                # by species, e.g. if there are ten shells, the number of species S in shells 1 through 10 will be the first ten numbers; the number of species Su
+                # in shells 1 through 10 will be the next ten numbers, etc.
+                # the indices below are for the first shell (start) and last shell (end) for each species count
                 species_idx_start = i*self.MOCAT.scenario_properties.n_shells
                 species_idx_end = (i+1)*self.MOCAT.scenario_properties.n_shells
-                if ((time_idx in adr_times) and (sp in target_species) and (implement_adr == 1)):
+                if (time_idx in adr_times) and (sp in target_species): # and (implement_adr == 1)):
                     print("ACTIVELY REMOVING DEBRIS")
                     # target_species_env = propagated_environment[i*self.MOCAT.scenario_properties.n_shells:(i+1)*self.MOCAT.scenario_properties.n_shells]
                     for j in target_shell:
                         # target_species_env[j-1] = (1-p_remove)*target_species_env[j-1]
                         propagated_environment[species_idx_start:species_idx_end][j-1] *= (1-p_remove)
 
-                if sp in target_species:
-                    data_storage_b[time_idx-1] = propagated_environment[species_idx_start:species_idx_end]
+                if sp in target_species: # may not need anymore
+                    data_storage_b[time_idx-1] = propagated_environment[species_idx_start:species_idx_end] # may not need anymore
                     
                 species_data[sp][time_idx - 1] = propagated_environment[species_idx_start:species_idx_end]
                 
