@@ -13,6 +13,10 @@ import json
 import numpy as np
 import time
 
+# sammie addition
+from utils.ADRParameters import ADRParameters
+from utils.ADR import implement_adr
+
 class IAMSolver:
 
     def __init__(self):
@@ -20,6 +24,8 @@ class IAMSolver:
         self.MOCAT = None
         self.econ_params_json = None
         self.pmd_linked_species = None
+        # sammie addition
+        self.adr_params_json = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats):
@@ -45,7 +51,6 @@ class IAMSolver:
         """
         # Define the species that are part of the constellation and fringe
         multi_species_names = ["S", "Su", "Sns"]
-
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
@@ -67,7 +72,18 @@ class IAMSolver:
         # For each simulation - we will need to modify the base economic parameters for the species. 
         for species in multi_species.species:
             species.econ_params.modify_params_for_simulation(scenario_name)
-            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
+            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)
+
+
+        adr_params = ADRParameters(self.adr_params_json,mocat=self.MOCAT)
+
+        # sammie addition
+        if scenario_name != "Baseline":
+            adr_params.modify_adr_params_for_simulation(scenario_name)
+            adr_params.find_adr_stuff(scenario_name)
+        else: # needs to be a better way of doing this 
+            adr_params.target_species = []
+        
 
         ############################
         ### CONSTELLATION PARAMETERS
@@ -94,7 +110,7 @@ class IAMSolver:
         ############################
         ### SOLVE FOR THE FIRST YEAR
         ############################
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species,adr_params)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -131,6 +147,9 @@ class IAMSolver:
             propagated_environment = propagated_environment[-1, :] 
             propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
 
+            # sammie addition
+            if time_idx in adr_params.adr_times:
+                propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
             # Update the constellation satellites for the next period - should only be 5%.
             # for i in range(constellation_start_slice, constellation_end_slice):
             #     if lam[i] is not None:
@@ -213,10 +232,11 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    "adr_test"
                     # "bond_0k_25yr",
-                    "bond_100k",
-                    "bondrevenuegrowth_100k",
-                    "revenuegrowth_0k",
+                    # "bond_100k",
+                    # "bondrevenuegrowth_100k",
+                    # "revenuegrowth_0k",
                     # # "bond_200k",
                     # # # "bond_300k",
                     # # # # "bond_500k",
@@ -236,7 +256,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "Bond-With-Revnue-Growth"
+    simulation_name = "adr_test"
 
     iam_solver = IAMSolver()
 

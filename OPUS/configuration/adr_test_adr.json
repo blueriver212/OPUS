@@ -1,0 +1,60 @@
+{
+    "target_species": ["B","N_223kg"],
+    "adr_times": [5,10],
+    "properties":{
+        "S":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "Su":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "Sns":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "N_500kg":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "N_223kg":{
+            "target": 1,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "N_6kg":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "N_0.00141372kg":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "N_0.5670kg":{
+            "target": 0,
+            "p_remove": 0,
+            "t0": 1,
+            "n_max": 2
+        },
+        "B":{
+            "target": 1,
+            "p_remove": 0.1,
+            "t0": 5,
+            "n_max": 2
+        }
+    }
+}

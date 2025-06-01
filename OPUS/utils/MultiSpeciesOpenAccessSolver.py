@@ -9,9 +9,12 @@ from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd
 from .Helpers import insert_launches_into_lam
 
+# sammie addition
+from .ADR import implement_adr
+
 class MultiSpeciesOpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
-                 lam, multi_species):
+                 lam, multi_species, adr_params):
         """
         Initialize the MultiSpeciesOpenAccessSolver.
 
@@ -33,6 +36,9 @@ class MultiSpeciesOpenAccessSolver:
 
         self.tspan = np.linspace(0, 1, 2)
         self.time_idx = 0
+        
+        # sammie addition
+        self.adr_params = adr_params
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
@@ -59,6 +65,10 @@ class MultiSpeciesOpenAccessSolver:
 
         # Evaluate pmd
         state_next, multi_species = evaluate_pmd(state_next, self.multi_species)
+
+        # sammie addition
+        # Implement ADR
+        state_next = implement_adr(state_next,self.MOCAT,self.adr_params)
 
         # Gets the final output and update the current environment matrix
         self.current_environment = state_next
