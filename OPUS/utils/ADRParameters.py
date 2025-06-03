@@ -54,7 +54,6 @@ class ADRParameters:
                 
                         self.target_species = params["target_species"]
                         self.adr_times = params["adr_times"]
-                        self.n_max = params["n_max"]
                         self.properties = params["properties"]
                 else:
                     print("No ADR implemented.")

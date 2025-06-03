@@ -50,7 +50,7 @@ class IAMSolver:
             The main function that runs the IAM solver.
         """
         # Define the species that are part of the constellation and fringe
-        multi_species_names = ["S", "Su", "Sns"]
+        multi_species_names = ["S", "Su"]
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
@@ -79,10 +79,10 @@ class IAMSolver:
 
         # sammie addition
         if scenario_name != "Baseline":
-            adr_params.modify_adr_params_for_simulation(scenario_name)
             adr_params.find_adr_stuff(scenario_name)
         else: # needs to be a better way of doing this 
             adr_params.target_species = []
+            adr_params.adr_times = []
         
 
         ############################
@@ -148,7 +148,7 @@ class IAMSolver:
             propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
 
             # sammie addition
-            if time_idx in adr_params.adr_times:
+            if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
                 propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
             # Update the constellation satellites for the next period - should only be 5%.
             # for i in range(constellation_start_slice, constellation_end_slice):
@@ -164,7 +164,7 @@ class IAMSolver:
 
             # Fringe Equilibrium Controller
             start_time = time.time()
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear", lam, multi_species, adr_params)
 
             # Calculate solver_guess
             solver_guess = lam
@@ -179,7 +179,7 @@ class IAMSolver:
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
             multi_species.increase_demand()
 
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear", lam, multi_species, adr_params)
 
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -254,9 +254,9 @@ if __name__ == "__main__":
                     # # "tax_2"
                 ]
     
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "adr_test"
+    simulation_name = "ms_comp"
 
     iam_solver = IAMSolver()
 
@@ -271,7 +271,7 @@ if __name__ == "__main__":
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    multi_species_names = ["S","Su", "Sns"]
+    multi_species_names = ["S","Su"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
