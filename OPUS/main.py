@@ -50,7 +50,7 @@ class IAMSolver:
             The main function that runs the IAM solver.
         """
         # Define the species that are part of the constellation and fringe
-        multi_species_names = ["S", "Su"]
+        multi_species_names = ["S", "Su", "Sns"]
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
@@ -232,7 +232,20 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "adr_test"
+                    # "adr_test",
+                    "p_05",
+                    "p_10",
+                    "p_15",
+                    "p_20",
+                    "p_25",
+                    "p_35",
+                    "p_50",
+                    "p_65",
+                    "p_75",
+                    "p_85",
+                    "p_90",
+                    "p_95",
+                    "p_100"
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # "bondrevenuegrowth_100k",
@@ -254,9 +267,9 @@ if __name__ == "__main__":
                     # # "tax_2"
                 ]
     
-    MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "ms_comp"
+    simulation_name = "adr_percentages"
 
     iam_solver = IAMSolver()
 
@@ -271,7 +284,7 @@ if __name__ == "__main__":
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    multi_species_names = ["S","Su"]
+    multi_species_names = ["S","Su","Sns"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
