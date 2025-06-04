@@ -9,9 +9,12 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd
 
+# sammie addition
+from .ADR import implement_adr
+
 class OpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
-                 econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice):
+                 econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params):
         """
         Initialize the OpenAccessSolver.
 
@@ -35,6 +38,9 @@ class OpenAccessSolver:
         self.tspan = np.linspace(0, 1, 2)
         self.derelict_start_slice = derelict_start_slice
         self.derelict_end_slice = derelict_end_slice
+        
+        # sammie addition
+        self.adr_params = adr_params
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
@@ -60,6 +66,11 @@ class OpenAccessSolver:
         state_next = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
                                   self.fringe_start_slice, self.fringe_end_slice, self.derelict_start_slice, self.derelict_end_slice, 
                                   self.econ_params)
+
+        # sammie addition
+        # Implement ADR
+        # print("state_next_path: "+str(len(state_next_path)))
+        state_next = implement_adr(state_next,self.MOCAT,self.adr_params)
 
         # Gets the final output and update the current environment matrix
         self.current_environment = state_next

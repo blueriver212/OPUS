@@ -10,13 +10,19 @@ import json
 import numpy as np
 import time
 
+# sammie addition
+from utils.ADRParameters import ADRParameters
+from utils.ADR import implement_adr
+
 class IAMSolver:
 
     def __init__(self):
         self.output = None
-        self.MOCAT = None
+        self.MOCAT = None   
         self.econ_params_json = None
         self.pmd_linked_species = None
+        # sammie addition
+        self.adr_params_json = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
@@ -74,7 +80,17 @@ class IAMSolver:
             econ_params.tax = 0
 
         econ_params.calculate_cost_fn_parameters()
+        
+        
+        adr_params = ADRParameters(self.adr_params_json,mocat=self.MOCAT)
+        counter = 0
 
+        # sammie addition
+        if scenario_name != "Baseline":
+            adr_params.find_adr_stuff(scenario_name)
+        else: # needs to be a better way of doing this 
+            adr_params.target_species = []
+            adr_params.adr_times = []
         ############################
         ### CONSTELLATION PARAMETERS
         ############################
@@ -93,7 +109,7 @@ class IAMSolver:
         ############################
         open_access = OpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", 
                                     econ_params, lam, fringe_start_slice, fringe_end_slice,
-                                    derelict_start_slice, derelict_end_slice)
+                                    derelict_start_slice, derelict_end_slice,adr_params)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
@@ -132,6 +148,13 @@ class IAMSolver:
             propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
+            # sammie addition
+            if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
+                propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
+                counter = counter + 1
+                print("ADR Counter: " + str(counter))
+                print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
                 if lam[i] is not None:
@@ -150,7 +173,7 @@ class IAMSolver:
 
             open_access = OpenAccessSolver(
                 self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice)
+                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
             
             collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
             ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
@@ -160,7 +183,7 @@ class IAMSolver:
 
             open_access = OpenAccessSolver(
                 self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice)
+                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
 
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
@@ -212,13 +235,14 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    "adr_test"
                     # "bond_0k_25yr",
-                    "bond_100k",
+                    # "bond_100k",
                     # # "bond_200k",
                     # # "bond_300k",
                     # "bond_500k",
-                    "bond_800k",
-                    "bond_1600k",
+                    # "bond_800k",
+                    # "bond_1600k",
                     # "bond_100k_25yr",
                     # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
@@ -230,7 +254,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "New-Bonds"
+    simulation_name = "adr_ss"
 
     iam_solver = IAMSolver()
 
