@@ -63,7 +63,7 @@ class IAMSolver:
         ### CONFIGURE MOCAT MODEL
         #########################
         if self.MOCAT is None:
-            self.MOCAT, self.econ_params_json, self.adr_params_json, self.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
+            self.MOCAT, self.econ_params_json, self.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
             print(self.MOCAT.scenario_properties.x0)
 
         # If testing using MOCAT x0 use:
@@ -77,7 +77,7 @@ class IAMSolver:
 
         # sammie addition
 
-        adr_params = ADRParameters(self.adr_params_json,mocat=self.MOCAT)
+        adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         if scenario_name != "Baseline":
             econ_params.modify_params_for_simulation(scenario_name)
             adr_params.modify_adr_params_for_simulation(scenario_name)
@@ -322,7 +322,7 @@ if __name__ == "__main__":
 
     # ADR_config = json.load(open("./OPUS/configuration/adr.json"))
 
-    simulation_name = "New-Bonds"
+    simulation_name = "old_adr_comp"
 
     iam_solver = IAMSolver()
 
@@ -340,5 +340,5 @@ if __name__ == "__main__":
     with open('mocat_config.txt', 'w') as fp:
         fp.write(repr(MOCAT_config))
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT,_, _, = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    MOCAT,_ , _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

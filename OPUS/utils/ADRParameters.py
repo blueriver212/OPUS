@@ -22,13 +22,13 @@ class ADRParameters:
         self.mocat = mocat
 
         # self.lift_price = 5000
-        params = adr_params_json.get("adr",adr_params_json)
+        # params = adr_params_json.get("adr",adr_params_json)
 
-        self.implement = params.get('implement',0)
-        self.species = params.get('species',"B")
-        self.shell = params.get('shell',[7,8])
-        self.times = params.get('times',[5,10])
-        self.p_remove = params.get('p_remove',0.2)
+        self.implement = 0
+        self.species = "B"
+        self.shell = [7,8]
+        self.times = [5,10]
+        self.p_remove = 0
         
     def modify_adr_params_for_simulation(self, configuration, baseline=False):
         """
@@ -54,7 +54,7 @@ class ADRParameters:
             # read the json file, should also be in the configuration folder
                     params = json.load(file)
             
-                    self.implement = params["implement"]
+                    # self.implement = params["implement"]
                     self.times = params["adr_times"]
                     self.shell = params["target_shell"]
                     self.species = params["target_species"]
