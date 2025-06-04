@@ -132,6 +132,9 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
+        # sammie addition
+        counter = 0
+
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -150,6 +153,9 @@ class IAMSolver:
             # sammie addition
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
                 propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
+                counter = counter + 1
+                print("ADR Counter: " + str(counter))
+                print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
             # Update the constellation satellites for the next period - should only be 5%.
             # for i in range(constellation_start_slice, constellation_end_slice):
             #     if lam[i] is not None:
@@ -232,20 +238,20 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "adr_test",
-                    "p_05",
-                    "p_10",
-                    "p_15",
-                    "p_20",
-                    "p_25",
-                    "p_35",
-                    "p_50",
-                    "p_65",
-                    "p_75",
-                    "p_85",
-                    "p_90",
-                    "p_95",
-                    "p_100"
+                    "adr_test",
+                    # "p_05",
+                    # "p_10",
+                    # "p_15",
+                    # "p_20",
+                    # "p_25",
+                    # "p_35",
+                    # "p_50",
+                    # "p_65",
+                    # "p_75",
+                    # "p_85",
+                    # "p_90",
+                    # "p_95",
+                    # "p_100"
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # "bondrevenuegrowth_100k",
@@ -269,7 +275,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "adr_percentages"
+    simulation_name = "double_baseline"
 
     iam_solver = IAMSolver()
 

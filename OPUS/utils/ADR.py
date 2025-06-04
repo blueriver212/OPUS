@@ -9,7 +9,7 @@ def implement_adr(state_matrix,MOCAT,adr_params):
             params = adr_params.properties.get(sp) 
             start = i*MOCAT.scenario_properties.n_shells
             end = (i+1)*MOCAT.scenario_properties.n_shells
-
+            old = state_matrix[start:end]
             max_indices = [0] * params.get("n_max")
             if params.get("target") == 1:
                 # sorted_mat = sorted(state_matrix[start:end], reverse=True)
@@ -21,5 +21,9 @@ def implement_adr(state_matrix,MOCAT,adr_params):
                     state_matrix[start:end][j-1] *= (1-params.get("p_remove"))
             else:
                 state_matrix = state_matrix
+            diff = state_matrix[start:end]-old
+            if any(x != 0 for x in diff):
+                print("This is what's up with the ADR state matrix bit: " + str(diff))
+    # print(state_matrix)
 
     return state_matrix

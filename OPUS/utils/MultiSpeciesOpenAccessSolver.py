@@ -68,6 +68,7 @@ class MultiSpeciesOpenAccessSolver:
 
         # sammie addition
         # Implement ADR
+        # print("state_next_path: "+str(len(state_next_path)))
         state_next = implement_adr(state_next,self.MOCAT,self.adr_params)
 
         # Gets the final output and update the current environment matrix
