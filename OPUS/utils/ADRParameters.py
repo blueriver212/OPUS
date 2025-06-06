@@ -28,6 +28,7 @@ class ADRParameters:
         self.adr_times = None
         self.n_max = None        
         self.properties = None
+        self.time = None
     def find_adr_stuff(self, configuration, baseline=False):
         """
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
@@ -55,8 +56,12 @@ class ADRParameters:
                         self.target_species = params["target_species"]
                         self.adr_times = params["adr_times"]
                         self.properties = params["properties"]
+                        self.time = params["time"]
                 else:
                     print("No ADR implemented.")
+        else:
+            print("No ADR implemented.")
+
         
 
 

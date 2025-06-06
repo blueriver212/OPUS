@@ -16,6 +16,7 @@ import time
 # sammie addition
 from utils.ADRParameters import ADRParameters
 from utils.ADR import implement_adr
+from utils.ADR import implement_adr_cont
 
 class IAMSolver:
 
@@ -83,6 +84,7 @@ class IAMSolver:
         else: # needs to be a better way of doing this 
             adr_params.target_species = []
             adr_params.adr_times = []
+            adr_params.time = 0
         
 
         ############################
@@ -110,7 +112,7 @@ class IAMSolver:
         ############################
         ### SOLVE FOR THE FIRST YEAR
         ############################
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species,adr_params)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species, adr_params)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -151,11 +153,20 @@ class IAMSolver:
             propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
 
             # sammie addition
+
+            # to implement ADR at specified times:
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
                 propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
-                counter = counter + 1
-                print("ADR Counter: " + str(counter))
-                print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+                # counter = counter + 1
+                # print("ADR Counter: " + str(counter))
+                # print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+
+            # # for discrete, continuous ADR
+            # adr_params.time = time_idx
+            # propagated_environment = implement_adr_cont(propagated_environment, self.MOCAT, adr_params)
+
+
+
             # Update the constellation satellites for the next period - should only be 5%.
             # for i in range(constellation_start_slice, constellation_end_slice):
             #     if lam[i] is not None:
@@ -275,7 +286,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "double_baseline"
+    simulation_name = "adr_test_2"
 
     iam_solver = IAMSolver()
 
