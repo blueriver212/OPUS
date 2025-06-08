@@ -286,7 +286,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "adr_test_2"
+    simulation_name = "adr_test"
 
     iam_solver = IAMSolver()
 
