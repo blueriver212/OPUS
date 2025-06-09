@@ -73,7 +73,7 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-        if scenario_name != "Baseline":
+        if (scenario_name != "Baseline"):
             econ_params.modify_params_for_simulation(scenario_name)
         else: # needs to be a better way of doing this 
             econ_params.bond = None
@@ -86,7 +86,8 @@ class IAMSolver:
         counter = 0
 
         # sammie addition
-        if scenario_name != "Baseline":
+        adr_params.time = 0
+        if (scenario_name != "Baseline"):
             adr_params.find_adr_stuff(scenario_name)
         else: # needs to be a better way of doing this 
             adr_params.target_species = []
@@ -148,6 +149,8 @@ class IAMSolver:
             propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
+
+            adr_params.time = time_idx
             # sammie addition
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
                 propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
@@ -254,7 +257,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "adr_ss"
+    simulation_name = "ss_time"
 
     iam_solver = IAMSolver()
 
