@@ -79,12 +79,13 @@ class IAMSolver:
         adr_params = ADRParameters(self.adr_params_json,mocat=self.MOCAT)
 
         # sammie addition
-        if scenario_name != "Baseline":
+        adr_params.time = 0
+        if not scenario_name.startswith("Baseline"):
             adr_params.find_adr_stuff(scenario_name)
         else: # needs to be a better way of doing this 
             adr_params.target_species = []
             adr_params.adr_times = []
-            adr_params.time = 0
+            # adr_params.time = 0
         
 
         ############################
@@ -155,6 +156,7 @@ class IAMSolver:
             # sammie addition
 
             # to implement ADR at specified times:
+            adr_params.time = time_idx
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
                 propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
                 # counter = counter + 1
@@ -286,7 +288,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "adr_test"
+    simulation_name = "ms_time"
 
     iam_solver = IAMSolver()
 
