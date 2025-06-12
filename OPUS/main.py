@@ -73,7 +73,7 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-        if (scenario_name != "Baseline"):
+        if not scenario_name.startswith("Baseline"):
             econ_params.modify_params_for_simulation(scenario_name)
         else: # needs to be a better way of doing this 
             econ_params.bond = None
@@ -87,7 +87,7 @@ class IAMSolver:
 
         # sammie addition
         adr_params.time = 0
-        if (scenario_name != "Baseline"):
+        if not scenario_name.startswith("Baseline"):
             adr_params.find_adr_stuff(scenario_name)
         else: # needs to be a better way of doing this 
             adr_params.target_species = []
@@ -238,7 +238,20 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "adr_test"
+                    "p_05",
+                    "p_10",
+                    "p_15",
+                    "p_20",
+                    "p_25",
+                    "p_35",
+                    "p_50",
+                    "p_65",
+                    "p_75",
+                    "p_85",
+                    "p_90",
+                    "p_95",
+                    "p_100"
+                    # "adr_b",
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -257,7 +270,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "ss_time"
+    simulation_name = "ss_percentages"
 
     iam_solver = IAMSolver()
 
@@ -268,9 +281,9 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")

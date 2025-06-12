@@ -448,7 +448,8 @@ class PlotHandler:
                         ax = axes[idx]
                         # scenario_data looks like {scenario_name: np.array([...])}
                         for scenario_name, counts in scenario_data.items():
-                                ax.plot(range(len(counts)), counts, label=scenario_name, marker='o')
+                                x_axis = range(len(counts)) + np.ones(len(counts))
+                                ax.plot(x_axis, counts, label=scenario_name, marker='o')
 
                         ax.set_title(f"Total Count across all shells: {species}")
                         ax.set_xlabel("Time Steps (or Years)")
@@ -727,6 +728,57 @@ class PlotHandler:
                 plt.close()
                 print(f"Final UMPY vs. Count and Collision Probability scatter plots saved to {file_path}")
 
+        def comparison_total_launch(self, plot_data_lists, other_data_lists):
+                """
+                Creates a comparison plot of total species count over time.
+                Each species is plotted in its own subplot, comparing across all scenarios.
+                """
+
+                # Create a "comparisons" folder under the main simulation folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Dictionary to store time series data for each species across scenarios
+                # Structure: species_totals[species][scenario_name] = np.array of total counts over time
+                launch_totals = {}
+
+                # Loop over each PlotData to extract data
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # We assume `plot_data.scenario` holds the scenario name
+                        # If it doesn't, change the attribute name or use a default label.
+                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+
+                        # Retrieve the dictionary of species -> data arrays
+                        # e.g., {species: np.array(time, shells), ...
+
+                        
+                        for j, year in enumerate(other_data):
+                                launches = other_data[year]['launch_rate']
+                                if scenario_name not in launch_totals:
+                                        launch_totals[scenario_name] = np.zeros(len(other_data))
+                                launch_totals[scenario_name][j] = np.sum(launches)
+                
+                for idx, scenario_name in enumerate(launch_totals):
+                        launches = launch_totals[scenario_name]
+                        x_axis = range(len(launches)) + np.ones(len(launches))
+                        if idx <= 9:
+                                plt.plot(x_axis, launches, label=scenario_name, marker='o')
+                        elif (idx > 9) and (idx <= 19):
+                                plt.plot(x_axis, launches, label=scenario_name, marker='X')
+                        else:
+                                plt.plot(x_axis, launches, label=scenario_name, marker='>')
+                        
+                plt.title(f"Total Launches across all shells")
+                plt.xlabel("Time Steps (Years)")
+                plt.ylabel("Total Launches")
+                plt.legend()
+                plt.grid(True)
+
+                out_path = os.path.join(comparison_folder, "total_launches_comparison.png")
+                plt.savefig(out_path, dpi=300)
+                plt.close()
+
+                print(f"Comparison launch plot saved to {out_path}")
 
 
         def UMPY(self, plot_data, other_data):

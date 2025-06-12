@@ -33,7 +33,7 @@ class ADRParameters:
         """
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
         """
-        if (configuration != "Baseline"):
+        if not configuration.startswith("Baseline"):
             # read the csv file - must be in the configuration folder
             path = f"./OPUS/configuration/{configuration}.csv"
 
