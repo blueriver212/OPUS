@@ -54,6 +54,7 @@ class PostProcessing:
                 "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
                 "umpy": data["umpy"], 
                 "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
+                "ICs": data["ICs"].tolist() if isinstance(data["ICs"], (list, np.ndarray)) else data["ICs"], #sammie addition
             }
             for time_idx, data in self.other_results.items()
         }

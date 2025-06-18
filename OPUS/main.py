@@ -68,7 +68,7 @@ class IAMSolver:
         # If testing using MOCAT x0 use:
         x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
         constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats, self.pmd_linked_species)
-    
+        
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
@@ -207,7 +207,8 @@ class IAMSolver:
                 "launch_rate" : launch_rate, 
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy, 
-                "excess_returns": excess_returns
+                "excess_returns": excess_returns,
+                "ICs": x0 # sammie addition
             }
         
         PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
@@ -281,9 +282,9 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")

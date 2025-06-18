@@ -447,9 +447,14 @@ class PlotHandler:
                 for idx, (species, scenario_data) in enumerate(species_totals.items()):
                         ax = axes[idx]
                         # scenario_data looks like {scenario_name: np.array([...])}
-                        for scenario_name, counts in scenario_data.items():
+                        for i, (scenario_name, counts) in enumerate(scenario_data.items()):
                                 x_axis = range(len(counts)) + np.ones(len(counts))
-                                ax.plot(x_axis, counts, label=scenario_name, marker='o')
+                                if i <= 9:
+                                        ax.plot(x_axis, counts, label=scenario_name, marker='o')
+                                elif (i > 9) and (i <= 19):
+                                        ax.plot(x_axis, counts, label=scenario_name, marker='X')
+                                else:
+                                        ax.plot(x_axis, counts, label=scenario_name, marker='>')
 
                         ax.set_title(f"Total Count across all shells: {species}")
                         ax.set_xlabel("Time Steps (or Years)")
@@ -780,6 +785,100 @@ class PlotHandler:
 
                 print(f"Comparison launch plot saved to {out_path}")
 
+        def comparison_initial_conditions(self, plot_data_lists, other_data_lists):
+                """
+                Creates a comparison plot of total species count over time.
+                Each species is plotted in its own subplot, comparing across all scenarios.
+                """
+
+                # Create a "comparisons" folder under the main simulation folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Dictionary to store time series data for each species across scenarios
+                # Structure: species_totals[species][scenario_name] = np.array of total counts over time
+                species_totals = {}
+                IC = {}
+
+                # Loop over each PlotData to extract data
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # We assume `plot_data.scenario` holds the scenario name
+                        # If it doesn't, change the attribute name or use a default label.
+                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+                        x0 = other_data["1"]["ICs"]
+                        for idx, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+                                if sp not in IC:
+                                        IC[sp] = np.zeros(self.n_shells)
+                                IC[sp] = np.sum(x0[idx * self.n_shells:(idx + 1) * self.n_shells])
+
+
+                        # Retrieve the dictionary of species -> data arrays
+                        # e.g., {species: np.array(time, shells), ...}
+                        data_dict = plot_data.data
+
+                        for species, species_data in data_dict.items():
+                        # Sum across shells to get a total count per time step
+                        # species_data has shape (time, shells), so we sum across axis=1
+                                total_species_count = np.sum(species_data, axis=1)  # shape: (time,)
+
+                                # Store data per species
+                                if species not in species_totals:
+                                        species_totals[species] = {}
+
+                                # Keep track of the total count array by scenario
+                                species_totals[species][scenario_name] = total_species_count - IC[species]
+
+                # Count how many species we have
+                num_species = len(species_totals)
+
+                print(num_species)
+                print("Species found overall:", list(species_totals.keys()))
+
+                # If multiple species, create subplots in a grid
+                num_cols = 2
+                num_rows = math.ceil(num_species / num_cols)
+
+                fig, axes = plt.subplots(
+                        nrows=num_rows,
+                        ncols=num_cols,
+                        figsize=(12, 6 * num_rows),
+                        sharex=True
+                )
+
+                # Flatten axes for easy iteration (in case num_rows > 1)
+                axes = np.array(axes).flatten()
+
+                # Plot each species in its own subplot
+                for idx, (species, scenario_data) in enumerate(species_totals.items()):
+                        ax = axes[idx]
+                        # scenario_data looks like {scenario_name: np.array([...])}
+                        for i, (scenario_name, counts) in enumerate(scenario_data.items()):
+                                x_axis = range(len(counts)) + np.ones(len(counts))
+                                if i <= 9:
+                                        ax.plot(x_axis, counts, label=scenario_name, marker='o')
+                                elif (i > 9) and (i <= 19):
+                                        ax.plot(x_axis, counts, label=scenario_name, marker='X')
+                                else:
+                                        ax.plot(x_axis, counts, label=scenario_name, marker='>')
+
+                        ax.set_title(f"Change in Total Count across all shells: {species}")
+                        ax.set_xlabel("Time Steps (or Years)")
+                        ax.set_ylabel("Change in Total Count")
+                        ax.legend()
+                        ax.grid(True)
+
+                # Hide any leftover empty subplots (if #species < num_rows * num_cols)
+                for extra_ax in axes[num_species:]:
+                        extra_ax.set_visible(False)
+
+                plt.tight_layout()
+
+                # Save the figure
+                out_path = os.path.join(comparison_folder, "comparison_IC_difference.png")
+                plt.savefig(out_path, dpi=300)
+                plt.close()
+
+                print(f"Comparison plot saved to {out_path}")
 
         def UMPY(self, plot_data, other_data):
                  # 1) Sort the timesteps and prepare arrays
