@@ -11,6 +11,7 @@ from .PostMissionDisposal import evaluate_pmd
 
 # sammie addition
 from .ADR import implement_adr
+from .ADR import implement_adr2
 
 class OpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
@@ -70,7 +71,7 @@ class OpenAccessSolver:
         # sammie addition
         # Implement ADR
         # print("state_next_path: "+str(len(state_next_path)))
-        state_next = implement_adr(state_next,self.MOCAT,self.adr_params)
+        state_next = implement_adr2(state_next,self.MOCAT,self.adr_params)
 
         # Gets the final output and update the current environment matrix
         self.current_environment = state_next

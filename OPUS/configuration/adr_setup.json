@@ -1,0 +1,186 @@
+{
+    "p_05":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.05],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_10":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.1],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_15":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.15],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_20":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.20],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_25":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.25],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_35":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.35],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_50":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.5],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_65":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.65],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_75":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.75],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_85":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.85],
+        "target_shell": [5, 6],
+        "n_max": [2]
+    },
+    "p_90":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.90],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_95":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [0.95],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "p_100":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["p"],
+        "p_remove": [1],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_5":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [5],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_10":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [10],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_25":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [25],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_35":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [35],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_50":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [50],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_75":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [75],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_100":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [100],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_200":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [200],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_150":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [150],
+        "target_shell": [5, 6],
+        "n_max": 2
+    },
+    "n_250":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [250],
+        "target_shell": [5, 6],
+        "n_max": 2
+    }
+}

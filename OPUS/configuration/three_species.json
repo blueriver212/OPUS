@@ -38,7 +38,14 @@
         "tax": 0,
         "delta_v_cost": 1000,
         "lift_price": 5000,
-        "prob_of_non_compliance": 0
+        "prob_of_non_compliance": 0,
+        "ADR": {
+            "target_species": ["N_223kg"],
+            "adr_times": [3],
+            "remove_method": ["p"],
+            "p_remove": [0.1],
+            "target_shell": [5,6]
+        }
     },
     "species": [
         {

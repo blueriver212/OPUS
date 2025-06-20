@@ -13,6 +13,8 @@ import time
 # sammie addition
 from utils.ADRParameters import ADRParameters
 from utils.ADR import implement_adr
+from utils.ADR import implement_adr2
+import os
 
 class IAMSolver:
 
@@ -73,7 +75,8 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-        if not scenario_name.startswith("Baseline"):
+        # if not scenario_name.startswith("Baseline") and not scenario_name.startswith("n"):
+        if not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
             econ_params.modify_params_for_simulation(scenario_name)
         else: # needs to be a better way of doing this 
             econ_params.bond = None
@@ -82,16 +85,13 @@ class IAMSolver:
         econ_params.calculate_cost_fn_parameters()
         
         
-        adr_params = ADRParameters(self.adr_params_json,mocat=self.MOCAT)
+        adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         counter = 0
 
         # sammie addition
         adr_params.time = 0
-        if not scenario_name.startswith("Baseline"):
-            adr_params.find_adr_stuff(scenario_name)
-        else: # needs to be a better way of doing this 
-            adr_params.target_species = []
-            adr_params.adr_times = []
+        adr_params.adr_parameter_setup(scenario_name)
+
         ############################
         ### CONSTELLATION PARAMETERS
         ############################
@@ -153,7 +153,7 @@ class IAMSolver:
             adr_params.time = time_idx
             # sammie addition
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
-                propagated_environment = implement_adr(propagated_environment,self.MOCAT,adr_params)
+                propagated_environment = implement_adr2(propagated_environment,self.MOCAT,adr_params)
                 counter = counter + 1
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
@@ -239,19 +239,29 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "p_05",
-                    "p_10",
-                    "p_15",
-                    "p_20",
-                    "p_25",
-                    "p_35",
-                    "p_50",
-                    "p_65",
-                    "p_75",
-                    "p_85",
-                    "p_90",
-                    "p_95",
-                    "p_100"
+                    # "p_05",
+                    # "p_10",
+                    # "p_15",
+                    # "p_20",
+                    # "p_25",
+                    # "p_35",
+                    # "p_50",
+                    # "p_65",
+                    # "p_75",
+                    # "p_85",
+                    # "p_90",
+                    # "p_95",
+                    # "p_100"
+                    "n_5",
+                    "n_10",
+                    "n_25",
+                    "n_35",
+                    "n_50",
+                    "n_75",
+                    "n_100",
+                    "n_150",
+                    "n_200",
+                    "n_250"
                     # "adr_b",
                     # "bond_0k_25yr",
                     # "bond_100k",
@@ -271,7 +281,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "ss_percentages"
+    simulation_name = "ss_numbers_n223kg_10years"
 
     iam_solver = IAMSolver()
 

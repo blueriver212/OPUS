@@ -27,7 +27,7 @@ class ADRParameters:
         self.target_species = None
         self.adr_times = None
         self.n_max = None        
-        self.properties = None
+        self.remove_method = None
         self.time = None
     def find_adr_stuff(self, configuration, baseline=False):
         """
@@ -67,3 +67,27 @@ class ADRParameters:
         # if baseline:
         #     self.bond = None
         #     self.tax = 0
+    def adr_parameter_setup(self, configuration, baseline=False):
+        if not configuration.startswith("Baseline"):
+            test = "test"
+            file = open('./OPUS/configuration/adr_setup.json')
+            adr = json.load(file)
+            params = adr[configuration]
+            self.adr_times = params["adr_times"]
+            self.target_species = params["target_species"]
+            
+            self.remove_method = params["remove_method"]
+            if "p" in self.remove_method:
+                self.p_remove = params["p_remove"]
+            if "n" in self.remove_method:
+                self.n_remove = params["n_remove"]
+
+            self.target_shell = params["target_shell"]
+            self.n_max = params["n_max"]
+            # if configuration not in
+        else:
+            print("No ADR implemented. ")
+            self.target_species = []
+            self.adr_times = []
+            self.target_shell = []
+            
