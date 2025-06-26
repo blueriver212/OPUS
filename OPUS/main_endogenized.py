@@ -153,6 +153,7 @@ class IAMSolver:
            
            #J- Applying ADR
             removals_left  = int(tax_revenue_lastyr // removal_cost)
+            leftover_tax_revenue = tax_revenue_lastyr - removals_left*removal_cost
             ops_budget = []
 
             ops_now = [] 
@@ -244,7 +245,7 @@ class IAMSolver:
             #J- Adding in Economic Welfare
             fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
             total_fringe_sat = np.sum(fringe_pop)
-            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2
+            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
 
             #J- Last year's tax revenue
             tax_revenue_lastyr = float(open_access._last_total_revenue)
