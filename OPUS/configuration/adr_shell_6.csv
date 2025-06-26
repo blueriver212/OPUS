@@ -1,7 +1,6 @@
 parameter_type,parameter_name,parameter_value
-econ,tax,.32
 econ,adr,1
 econ,shell_1,5
-econ,year_1,every
+econ,year_1,5
 econ,species_1,N_223kg
-econ,num_remove_1,150
+econ,num_remove_1,20

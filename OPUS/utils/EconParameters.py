@@ -18,6 +18,9 @@ class EconParameters:
         # Save MOCAT
         self.mocat = mocat
 
+        #J- Adding in ADR On/off (for ADR module to work)
+        self.adr = 0
+
         # self.lift_price = 5000
         params = econ_params_json.get("OPUS", econ_params_json)
 
@@ -174,14 +177,19 @@ class EconParameters:
             parameter_name = row['parameter_name']
             parameter_value = row['parameter_value']
 
-            # Modify the value based on parameter_type
+            # Modify the value based on parameter_type (J- had to update this so the ADR specifications could be read in)
             if parameter_type == 'econ':
+                try:
+                    # "1", "0.02", "5e6" → float  (int if .is_integer())
+                    num = float(parameter_value)
+                    parameter_value = int(num) if num.is_integer() else num
+                except ValueError:
+                    pass
                 # If the field exists in the class, update its value
-                if hasattr(self, parameter_name):
-                    setattr(self, parameter_name, parameter_value)
+                setattr(self, parameter_name, parameter_value)
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
-
+                
         if baseline:
             self.bond = None
             self.tax = 0

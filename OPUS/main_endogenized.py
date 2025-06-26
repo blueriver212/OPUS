@@ -127,6 +127,10 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
+        #Last year tax revenue and removal cost initialization
+        tax_revenue_lastyr = 0.0
+        removal_cost = 5000000
+
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -148,6 +152,9 @@ class IAMSolver:
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
            
            #J- Applying ADR
+            removals_left  = int(tax_revenue_lastyr // removal_cost)
+            ops_budget = []
+
             ops_now = [] 
         
             if adr_enabled:                                 # master switch from the CSV
@@ -157,12 +164,36 @@ class IAMSolver:
                     or op["year"] == "every"             # recurring campaign
                 ]
 
-            if ops_now:                                 # non-empty ⇒ do the work
+            if removals_left > 0 and ops_now:
+                # -- walk through the *ops_now* list IN ITS EXISTING ORDER,
+                #    so the user controls priority simply by ordering rows
+                for op in ops_now:
+                    if removals_left == 0:
+                        break
+
+                    # what is physically still in that shell / species?
+                    k_shell       = int(op["shell"])
+                    species_index = self.MOCAT.scenario_properties.species_names.index(op["species"])
+                    flat_idx      = species_index * self.MOCAT.scenario_properties.n_shells + k_shell
+                    stock_here    = int(propagated_environment[flat_idx])
+
+                    # user-defined cap (CSV) – treat <=0 as “no cap”
+                    cap_here = int(op["num_remove"])
+                    if cap_here <= 0:
+                        cap_here = stock_here
+
+                    take = min(stock_here, cap_here, removals_left)
+                    if take:
+                        # clone the dict so we don’t overwrite the template
+                        ops_budget.append({**op, "num_remove": take})
+                        removals_left -= take
+
+            if ops_budget:                                 # non-empty ⇒ do the work
                 before = propagated_environment.copy()  # optional debug
                 propagated_environment = apply_ADR(
                     propagated_environment,
                     mocat=self.MOCAT,
-                    operations=ops_now
+                    operations=ops_budget
                 )
                 print("ADR removed",
                     (before - propagated_environment).sum(),
@@ -179,10 +210,6 @@ class IAMSolver:
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
-
-            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-            total_tax_revenue = float(open_access.last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
 
             # Fringe Equilibrium Controller
             start_time = time.time()
@@ -218,6 +245,9 @@ class IAMSolver:
             fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
             total_fringe_sat = np.sum(fringe_pop)
             welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2
+
+            #J- Last year's tax revenue
+            tax_revenue_lastyr = float(open_access._last_total_revenue)
 
             # Save the results that will be used for plotting later (J- included tax revenue and welfare)
             simulation_results[time_idx] = {
@@ -270,9 +300,9 @@ if __name__ == "__main__":
                     #"adr_shell_8",
                     #"adr_shell_9",
                     #"adr_shell_10",
-                    #"tax_1_NE",
-                    #"tax_2_NE",
-                    "no_disposal_100_nc"
+                    "tax_1",
+                    "tax_2",
+                    #"no_disposal_PMD"
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))

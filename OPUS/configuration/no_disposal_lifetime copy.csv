@@ -1,3 +1,2 @@
 parameter_type,parameter_name,parameter_value
-econ,tax,.32
-econ,adr,0
+econ,tax,0

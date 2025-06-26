@@ -40,6 +40,7 @@ class PostProcessing:
         serializable_species_data = {sp: data.tolist() for sp, data in self.species_data.items()}
 
         # Save the serialized data to a JSON file in the appropriate folder
+        #J- added in tax revenue and welfare values for output to JSON files
         output_path = f"./Results/{self.simulation_name}/{self.scenario_name}/species_data_{self.scenario_name}.json"
         with open(output_path, 'w') as json_file:
             json.dump(serializable_species_data, json_file, indent=4)
@@ -54,6 +55,9 @@ class PostProcessing:
                 "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
                 "umpy": data["umpy"], 
                 "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
+                "tax_revenue_total": data["tax_revenue_total"],
+                "tax_revenue_by_shell": data["tax_revenue_by_shell"].tolist() if isinstance(data["tax_revenue_by_shell"], np.ndarray) else data["tax_revenue_by_shell"],
+                "welfare": data.get("welfare",0),
             }
             for time_idx, data in self.other_results.items()
         }
