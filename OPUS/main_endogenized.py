@@ -129,7 +129,8 @@ class IAMSolver:
 
         #Last year tax revenue and removal cost initialization
         tax_revenue_lastyr = 0.0
-        removal_cost = 5000000
+        removal_cost = 625000
+        leftover_tax_revenue = 0.0
 
         for time_idx in tf:
 
@@ -153,7 +154,7 @@ class IAMSolver:
            
            #J- Applying ADR
             removals_left  = int(tax_revenue_lastyr // removal_cost)
-            leftover_tax_revenue = tax_revenue_lastyr - removals_left*removal_cost
+            
             ops_budget = []
 
             ops_now = [] 
@@ -199,6 +200,10 @@ class IAMSolver:
                 print("ADR removed",
                     (before - propagated_environment).sum(),
                     "objects in year", time_idx)
+                leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+                
+            
             
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
@@ -302,7 +307,7 @@ if __name__ == "__main__":
                     #"adr_shell_9",
                     #"adr_shell_10",
                     "tax_1",
-                    "tax_2",
+                    #"tax_2",
                     #"no_disposal_PMD"
                 ]
     

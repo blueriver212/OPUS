@@ -270,9 +270,9 @@ if __name__ == "__main__":
                     #"adr_shell_8",
                     #"adr_shell_9",
                     #"adr_shell_10",
-                    #"tax_1_NE",
+                    "tax_1",
                     #"tax_2_NE",
-                    "no_disposal_100_nc"
+                    #"no_disposal_100_nc"
                 ]
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
