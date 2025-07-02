@@ -21,15 +21,16 @@ from sklearn.model_selection import GridSearchCV
 
 class IAMSolver:
 
-    def __init__(self, target_species = [], p_remove = 0):
+    def __init__(self, params = []):
         self.output = None
         self.MOCAT = None   
         self.econ_params_json = None
         self.pmd_linked_species = None
         # sammie addition
         self.adr_params_json = None
-        self.target_species = target_species
-        self.p_remove = p_remove
+        self.params = params
+        # self.target_species = target_species
+        # self.p_remove = p_remove
         self.umpy_score = None
 
     @staticmethod
@@ -96,19 +97,25 @@ class IAMSolver:
 
         # sammie addition
         adr_params.time = 0
-        if self.target_species is not None or (len(self.target_species) == 0):
+        if self.params is None or (len(self.params) == 0):
             adr_params.adr_parameter_setup(scenario_name)
         else:
-            adr_params.target_species = self.target_species
-            adr_params.p_remove = self.p_remove
+            if self.params is not None or len(self.params != 0):
+                # for i, rows in enumerate(self.params):
+                if scenario_name in self.params:
+                    adr_params.target_species = [self.params[1]]
+                    adr_params.p_remove = [self.params[2]]
+            else:
+                adr_params.target_species = []
+                adr_params.p_remove = 0
             adr_params.adr_times = [3]
             adr_params.remove_method = ["p"]
             if "B" in adr_params.target_species or "N_0.00141372kg" in adr_params.target_species:
-                adr_params.target_shell = [7, 8]
+                adr_params.target_shell = [7]
             elif "N_223kg" in adr_params.target_species:
-                adr_params.target_shell = [5, 6]
+                adr_params.target_shell = [5]
             elif "N_0.567kg" in adr_params.target_species:
-                adr_params.target_shell = [6, 7]
+                adr_params.target_shell = [7]
 
 
         
@@ -238,7 +245,7 @@ class IAMSolver:
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy, 
                 "excess_returns": excess_returns,
-                "ICs": x0, # sammie addition, returns the initial populations of each shell
+                "ICs": x0, # sammie addition
                 "excess_returns": excess_returns,
                 "tax_revenue_total": total_tax_revenue,
                 "tax_revenue_by_shell": shell_revenue,
@@ -247,11 +254,96 @@ class IAMSolver:
         
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
-        # sammie addition: returns the final UMPY value as the sum across all shells
+        # sammie addition:
+        
         self.umpy_score = var.umpy_score
+        self.adr_dict = var.adr_dict
+        test = "test"
 
     def get_mocat(self):
         return self.MOCAT
+
+    def fit(self, target_species, p_remove):
+        params = [None]*(len(target_species)*len(p_remove))
+        scenario_files = []
+        counter = 0
+        save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
+        adr_dict = {}
+        best_umpy = None
+
+        for i, sp in enumerate(target_species):
+            # self.target_species = sp
+            for j, per in enumerate(p_remove):
+                scenario_name = f"{sp}_{per}"
+                scenario_files.append(scenario_name)
+                params[counter] = [scenario_name, sp, per, []]
+                
+                counter = counter + 1
+                # self.p_remove = per
+
+        solver = IAMSolver()
+        MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
+
+                # solver.MOCAT, solver.econ_params_json, solver.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite="Su")
+        solver.params = params
+        with ThreadPoolExecutor() as executor:
+            # Map process_scenario function over scenario_files
+            results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
+
+        for i, items in enumerate(results):
+            adr_dict.update(results[i][1])
+            
+        best_umpy = min(adr_dict.values())
+
+        # best_scen = k for k, v in adr_dict.items() if v == best_umpy
+        
+        # best_scen = adr_dict.get(best_umpy)
+        for k, v in adr_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][3] = v
+                    if v == best_umpy and k == params[i][0]:
+                        best_scen = params[i][0]
+                        best_idx = i
+        # row, col = params.index(best_scen)
+
+        best_species = params[best_idx][1]
+        best_per = params[best_idx][2]
+
+        # for k, v in adr_dict.items():
+
+        #     params
+
+                # solver.iam_solver(scenario_name, solver.MOCAT, simulation_name)
+
+                # score = solver.umpy_score
+                # params[counter][2] = score
+
+
+
+
+                # if counter == 0:
+                #     best_umpy = score
+                #     best_species = sp
+                #     best_per = per
+                #     best_idx = counter
+                #     best_scen = scenario_name
+                # elif (score < best_umpy) and (counter != 0):
+                #     best_umpy = score
+                #     best_species = sp
+                #     best_per = per
+                #     best_idx = counter
+                #     best_scen = scenario_name
+
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+        with open(save_path, 'w') as json_file:
+            json.dump(params, json_file, indent=4)
+                
+        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(best_species) + " and " + str(best_per)+" percent removed in "+str(best_scen)+" scenario. ")
+        print("Best UMPY Index: ", best_idx)
+        
+        return self, solver.MOCAT, scenario_files, best_umpy
 
     def get_params(self, deep=True):
         test = "test"
@@ -260,6 +352,13 @@ class IAMSolver:
             "p_remove": self.p_remove
         }
         return self, params
+    
+    def score(self):
+        score = PostProcessing.umpy_score
+        file = open(f"./Results/{simulation_name}/Baseline/final_umpy.json")
+        score = json.load(file)
+        return score
+
 
 def run_scenario(scenario_name, MOCAT_config, simulation_name):
     """
@@ -270,10 +369,11 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name):
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
     return solver.get_mocat()
 
-def process_scenario(scenario_name, MOCAT_config, simulation_name):
+def process_scenario(scenario_name, MOCAT_config, simulation_name, params):
     iam_solver = IAMSolver()
+    iam_solver.params = params
     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
-    return iam_solver.get_mocat()
+    return iam_solver.get_mocat(), iam_solver.adr_dict
 
 if __name__ == "__main__":
     ####################
@@ -284,6 +384,29 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    # "p_05",
+                    # "p_10",
+                    # "p_15",
+                    # "p_20",
+                    # "p_25",
+                    # "p_35",
+                    # "p_50",
+                    # "p_65",
+                    # "p_75",
+                    # "p_85",
+                    # "p_90",
+                    # "p_95",
+                    # "p_100"
+                    # "n_5",
+                    # "n_10",
+                    # "n_25",
+                    # "n_35",
+                    # "n_50",
+                    # "n_75",
+                    # "n_100",
+                    # "n_150",
+                    # "n_200",
+                    # "n_250"
                     # "adr_b",
                     # "bond_0k_25yr",
                     # "bond_100k",
@@ -303,7 +426,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "results_test"
+    simulation_name = "umpy_opt"
 
     iam_solver = IAMSolver()
 
@@ -312,12 +435,36 @@ if __name__ == "__main__":
     #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
     #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
+    # sammie addition: sets up grid of parameters (in this case, target species and removal percentage) to run in fit
+    param_grid = {
+        "target_species": [
+            "N_223kg", 
+            "B", 
+            # "N_0.567kg",
+            # "N_0.00141372kg",
+        ],
+        "p_remove": np.linspace(0, 0.5, num=20)
+
+    }
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    #     test = "test"
+
+    ts = np.array(param_grid["target_species"])
+    tp = np.array(param_grid["p_remove"])
+    # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
+    opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, p_remove=tp)
+
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison = True)
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+
+    # normalize umpy and welfare over same value or something? take average??? 
+    # look into similar method for current optimization of just umpy
+    # create loop to run for each value in target_species, then go through all of the p_remove and save the stuff to a json grid before moving on to the next thing
+    # compare the umpy scores of them and save the best ones 

@@ -103,6 +103,8 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                     old = state_matrix[start:end]
                     # max_indices = [0] * adr_params.n_max
                     # # targeting the shells with the most of the target species:
+                    # add a statement that says what shell is being targeted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    # add option for targeting shell with highest prob. collision !!!!!!!!!!!
                     # sorted_mat = sorted(state_matrix[start:end], reverse=True)
                     # for j in range(adr_params.n_max):
                     #     jj = j-1

@@ -9,6 +9,8 @@ class PostProcessing:
         self.simulation_name = simulation_name # this is the overall name of the simulation
         self.species_data = species_data
         self.econ_params = econ_params
+        self.umpy_score = None # sammie addition
+        self.adr_dict = {}
 
         # Other results will have this form
         # simulation_results[time_idx] = {
@@ -55,6 +57,9 @@ class PostProcessing:
                 "umpy": data["umpy"], 
                 "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
                 "ICs": data["ICs"].tolist() if isinstance(data["ICs"], (list, np.ndarray)) else data["ICs"], #sammie addition
+                "tax_revenue_total": data["tax_revenue_total"],
+                "tax_revenue_by_shell": data["tax_revenue_by_shell"].tolist() if isinstance(data["tax_revenue_by_shell"], np.ndarray) else data["tax_revenue_by_shell"],
+                "welfare": data.get("welfare",0),
             }
             for time_idx, data in self.other_results.items()
         }
@@ -64,7 +69,37 @@ class PostProcessing:
         with open(other_results_output_path, 'w') as json_file:
             json.dump(serializable_other_results, json_file, indent=4)
 
+        final_key = list(self.other_results.keys())[-1]
+        # final_results = self.other_results.keys()[-1]
+
+        test = "test"
+        final_umpy = np.sum(self.other_results[final_key]["umpy"])
+        score = final_umpy #* (-1)
+        umpy_path = f"./Results/{self.simulation_name}/{self.scenario_name}/final_umpy.json"
+        if not os.path.exists(os.path.dirname(umpy_path)):
+            os.makedirs(os.path.dirname(umpy_path))
+        with open(umpy_path, 'w') as json_file:
+            json.dump(score, json_file, indent=4)
+        self._umpy_score = score
+
+        self._adr_dict[self.scenario_name] = self._umpy_score
         print(f"other_results has been exported to {other_results_output_path}")
+
+    @property
+    def umpy_score(self):
+        return self._umpy_score
+    
+    @umpy_score.setter
+    def umpy_score(self, value, deep=True):
+        self._umpy_score = value
+
+    @property
+    def adr_dict(self):
+        return self._adr_dict
+    
+    @adr_dict.setter
+    def adr_dict(self, value):
+        self._adr_dict = value
 
     def post_process_economic_data(self, econ_params):
         """

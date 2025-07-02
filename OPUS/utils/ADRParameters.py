@@ -72,19 +72,24 @@ class ADRParameters:
             test = "test"
             file = open('./OPUS/configuration/adr_setup.json')
             adr = json.load(file)
-            params = adr[configuration]
-            self.adr_times = params["adr_times"]
-            self.target_species = params["target_species"]
-            
-            self.remove_method = params["remove_method"]
-            if "p" in self.remove_method:
-                self.p_remove = params["p_remove"]
-            if "n" in self.remove_method:
-                self.n_remove = params["n_remove"]
+            if configuration in adr:
+                params = adr[configuration]
+                self.adr_times = params["adr_times"]
+                self.target_species = params["target_species"]
+                
+                self.remove_method = params["remove_method"]
+                if "p" in self.remove_method:
+                    self.p_remove = params["p_remove"]
+                if "n" in self.remove_method:
+                    self.n_remove = params["n_remove"]
 
-            self.target_shell = params["target_shell"]
-            self.n_max = params["n_max"]
-            # if configuration not in
+                self.target_shell = params["target_shell"]
+                self.n_max = params["n_max"]
+            elif configuration not in adr:
+                print("No ADR implemented. ")
+                self.target_species = []
+                self.adr_times = []
+                self.target_shell = []
         else:
             print("No ADR implemented. ")
             self.target_species = []

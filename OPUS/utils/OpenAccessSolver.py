@@ -89,6 +89,22 @@ class OpenAccessSolver:
         self._last_collision_probability = collision_probability
         self._last_excess_returns = excess_returns
 
+        #J- Calculating tax revenue for specified tax rate 
+        fringe_total = state_next[self.fringe_start_slice : self.fringe_end_slice]
+        Cp = collision_probability
+        cost_per_sat = np.array(self.econ_params.cost)
+        tax_rate = self.econ_params.tax
+
+        #J- main calculation
+        tax_revenue = (tax_rate)*Cp*cost_per_sat*fringe_total
+        total_revenue = tax_revenue.sum()
+
+        self._last_tax_revenue = tax_revenue
+        self._last_total_revenue = total_revenue
+        self._dbg_tax_rate       = tax_rate 
+        self._dbg_Cp             = Cp  
+        self._dbg_cost_per_sat   = cost_per_sat
+        self._dbg_fringe_total   = fringe_total
         return excess_returns
 
     def calculate_probability_of_collision(self, state_matrix):
@@ -175,6 +191,30 @@ class OpenAccessSolver:
 
         return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns
     
+        #Joey - Tax revenue properties (had to add these in for access to them in Main)
+    @property
+    def last_tax_revenue(self):
+        return getattr(self,"_last_tax_revenue", None)
+    
+    @property
+    def last_total_revenue(self):
+        return getattr(self, '_last_total_revenue', 0.0)
+    
+    @property
+    def dbg_tax_rate(self):
+        return getattr(self, "_dbg_tax_rate", None)
+
+    @property
+    def dbg_Cp(self):
+        return getattr(self, "_dbg_Cp", None)
+
+    @property
+    def dbg_cost_per_sat(self):
+        return getattr(self, "_dbg_cost_per_sat", None)
+
+    @property
+    def dbg_fringe_total(self):
+        return getattr(self, "_dbg_fringe_total", None)
    
 def create_bar_chart(data, title, xlabel, ylabel, filename):
     plt.figure(figsize=(8, 6))
