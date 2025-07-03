@@ -21,6 +21,9 @@ class EconParameters:
         #J- Adding in ADR On/off (for ADR module to work)
         self.adr = 0
 
+        #J- Adding in cost of removal as a parameter for easier access in scenario files.
+        self.removal_cost = 5000000
+
         # self.lift_price = 5000
         params = econ_params_json.get("OPUS", econ_params_json)
 

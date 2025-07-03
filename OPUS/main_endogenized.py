@@ -127,9 +127,9 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
-        #Last year tax revenue and removal cost initialization
+        #J- Last year tax revenue and removal cost initialization
         tax_revenue_lastyr = 0.0
-        removal_cost = 625000
+        removal_cost = econ_params.removal_cost
         leftover_tax_revenue = 0.0
 
         for time_idx in tf:
@@ -168,7 +168,7 @@ class IAMSolver:
 
             if removals_left > 0 and ops_now:
                 # -- walk through the *ops_now* list IN ITS EXISTING ORDER,
-                #    so the user controls priority simply by ordering rows
+                #    so the we can control priority simply by ordering rows
                 for op in ops_now:
                     if removals_left == 0:
                         break
@@ -179,7 +179,7 @@ class IAMSolver:
                     flat_idx      = species_index * self.MOCAT.scenario_properties.n_shells + k_shell
                     stock_here    = int(propagated_environment[flat_idx])
 
-                    # user-defined cap (CSV) – treat <=0 as “no cap”
+                    # Derelict removal cap (CSV) – treat <=0 as “no cap”
                     cap_here = int(op["num_remove"])
                     if cap_here <= 0:
                         cap_here = stock_here
@@ -190,8 +190,8 @@ class IAMSolver:
                         ops_budget.append({**op, "num_remove": take})
                         removals_left -= take
 
-            if ops_budget:                                 # non-empty ⇒ do the work
-                before = propagated_environment.copy()  # optional debug
+            if ops_budget: # non-empty ⇒ do the work
+                before = propagated_environment.copy() 
                 propagated_environment = apply_ADR(
                     propagated_environment,
                     mocat=self.MOCAT,
@@ -203,7 +203,6 @@ class IAMSolver:
                 leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
                 print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
                 
-            
             
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
