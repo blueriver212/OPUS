@@ -252,8 +252,8 @@ class IAMSolver:
             total_fringe_sat = np.sum(fringe_pop)
             welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
 
-            #J- Last year's tax revenue
-            tax_revenue_lastyr = float(open_access._last_total_revenue)
+            #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
+            tax_revenue_lastyr = float(open_access._last_total_revenue)+leftover_tax_revenue
 
             # Save the results that will be used for plotting later (J- included tax revenue and welfare)
             simulation_results[time_idx] = {
