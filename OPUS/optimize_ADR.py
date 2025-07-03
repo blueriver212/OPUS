@@ -32,6 +32,7 @@ class IAMSolver:
         # self.target_species = target_species
         # self.p_remove = p_remove
         self.umpy_score = None
+        self.welfare_dict = {}
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
@@ -259,6 +260,8 @@ class IAMSolver:
         self.umpy_score = var.umpy_score
         self.adr_dict = var.adr_dict
         test = "test"
+        # self.welfare = welfare
+        self.welfare_dict[scenario_name] = welfare
 
     def get_mocat(self):
         return self.MOCAT
@@ -269,6 +272,7 @@ class IAMSolver:
         counter = 0
         save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
         adr_dict = {}
+        welfare_dict = {}
         best_umpy = None
 
         for i, sp in enumerate(target_species):
@@ -276,7 +280,7 @@ class IAMSolver:
             for j, per in enumerate(p_remove):
                 scenario_name = f"{sp}_{per}"
                 scenario_files.append(scenario_name)
-                params[counter] = [scenario_name, sp, per, []]
+                params[counter] = [scenario_name, sp, per, [], []]
                 
                 counter = counter + 1
                 # self.p_remove = per
@@ -292,57 +296,57 @@ class IAMSolver:
 
         for i, items in enumerate(results):
             adr_dict.update(results[i][1])
-            
+            welfare_dict.update(results[i][2])
+
+        best_welfare = max(welfare_dict.values())            
         best_umpy = min(adr_dict.values())
 
-        # best_scen = k for k, v in adr_dict.items() if v == best_umpy
-        
-        # best_scen = adr_dict.get(best_umpy)
         for k, v in adr_dict.items():
             for i, rows in enumerate(params):
                 if k in rows:
                     params[i][3] = v
                     if v == best_umpy and k == params[i][0]:
-                        best_scen = params[i][0]
-                        best_idx = i
-        # row, col = params.index(best_scen)
+                        umpy_scen = params[i][0]
+                        umpy_idx = i
 
-        best_species = params[best_idx][1]
-        best_per = params[best_idx][2]
+        for k, v in welfare_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][4] = v
+                    if v == best_welfare and k == params[i][0]:
+                        welfare_scen = params[i][0]
+                        welfare_idx = i
 
-        # for k, v in adr_dict.items():
+        umpy_species = params[umpy_idx][1]
+        umpy_per = params[umpy_idx][2]
 
-        #     params
-
-                # solver.iam_solver(scenario_name, solver.MOCAT, simulation_name)
-
-                # score = solver.umpy_score
-                # params[counter][2] = score
-
-
-
-
-                # if counter == 0:
-                #     best_umpy = score
-                #     best_species = sp
-                #     best_per = per
-                #     best_idx = counter
-                #     best_scen = scenario_name
-                # elif (score < best_umpy) and (counter != 0):
-                #     best_umpy = score
-                #     best_species = sp
-                #     best_per = per
-                #     best_idx = counter
-                #     best_scen = scenario_name
+        welfare_species = params[welfare_idx][1]
+        welfare_per = params[welfare_idx][2]
 
         if not os.path.exists(os.path.dirname(save_path)):
             os.makedirs(os.path.dirname(save_path))
         with open(save_path, 'w') as json_file:
             json.dump(params, json_file, indent=4)
-                
-        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(best_species) + " and " + str(best_per)+" percent removed in "+str(best_scen)+" scenario. ")
-        print("Best UMPY Index: ", best_idx)
+
+        if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
+            os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
+        with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
+            json.dump({"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_per,"UMPY":best_umpy, "Welfare":params[umpy_idx][4]}, json_file, indent = 4)
+            json.dump({"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_per,"UMPY":params[welfare_idx][3], "Welfare":best_welfare}, json_file, indent = 4)
+
+        # if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_welfare_params.json")):
+        #     os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_welfare_params.json"))
+        # with open(f"./Results/{simulation_name}/comparisons/best_welfare_params.json", 'w') as json_file:
+        #     json.dump({welfare_scen, welfare_idx, welfare_species, welfare_per, params[welfare_idx][3]}, json_file, indent = 4)    
+
+
+        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_per)+" percent removed in "+str(umpy_scen)+" scenario. ")
+        print("Best UMPY Index: ", umpy_idx)
+        print("Welfare in Best UMPY Scenario: ", params[umpy_idx][4])
         
+        print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_per) + " percent removed in " + str(welfare_scen) + " scenario. ")
+        print("Best Welfare Index: ", welfare_idx)
+        print("UMPY in Best Welfare Scenario: ", params[welfare_idx][3])
         return self, solver.MOCAT, scenario_files, best_umpy
 
     def get_params(self, deep=True):
@@ -373,7 +377,7 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name, params):
     iam_solver = IAMSolver()
     iam_solver.params = params
     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
-    return iam_solver.get_mocat(), iam_solver.adr_dict
+    return iam_solver.get_mocat(), iam_solver.adr_dict, iam_solver.welfare_dict
 
 if __name__ == "__main__":
     ####################
@@ -426,7 +430,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "umpy_opt"
+    simulation_name = "umpy_welfare_test"
 
     iam_solver = IAMSolver()
 
@@ -443,7 +447,8 @@ if __name__ == "__main__":
             # "N_0.567kg",
             # "N_0.00141372kg",
         ],
-        "p_remove": np.linspace(0, 0.5, num=20)
+        "p_remove": np.linspace(0, 0.5, num=2),
+        "tax_rate": [0]*5
 
     }
     # Parallel Processing
