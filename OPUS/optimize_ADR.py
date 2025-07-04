@@ -105,13 +105,19 @@ class IAMSolver:
             if self.params is not None or len(self.params != 0):
                 if scenario_name in self.params:
                     adr_params.target_species = [self.params[1]]
-                    adr_params.p_remove = [self.params[2]]
+                    if self.params[2] < 1:
+                        adr_params.p_remove = [self.params[2]]
+                        adr_params.remove_method = ["p"]
+                    elif self.params[2] > 1:
+                        adr_params.n_remove = [self.params[2]]
+                        adr_params.remove_method = ["n"]
             else:
                 adr_params.target_species = []
                 adr_params.p_remove = 0
+                adr_params.remove_method = ["p"]
 
             adr_params.adr_times = [3]
-            adr_params.remove_method = ["p"]
+            
             if "B" in adr_params.target_species or "N_0.00141372kg" in adr_params.target_species:
                 adr_params.target_shell = [7]
             elif "N_223kg" in adr_params.target_species:
