@@ -128,6 +128,8 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                         idx = adr_params.target_species.index(sp)
                         n_remove = adr_params.n_remove[idx]
                         for j in adr_params.target_shell:
+                            if adr_params.removals_left < n_remove:
+                                n_remove = adr_params.removals_left
                             if n_remove > state_matrix[start:end][j-1]:
                                 state_matrix[start:end][j-1] = 0
                             else:

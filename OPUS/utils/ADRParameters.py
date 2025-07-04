@@ -29,6 +29,8 @@ class ADRParameters:
         self.n_max = None        
         self.remove_method = None
         self.time = None
+        self.removals_left = None
+        
     def find_adr_stuff(self, configuration, baseline=False):
         """
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
