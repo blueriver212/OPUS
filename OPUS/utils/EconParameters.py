@@ -57,6 +57,8 @@ class EconParameters:
         # Demand growhth, annual rate
         self.demand_growth = params.get("demand_growth", None)
 
+        self.mass = params.get("mass", None)
+
     def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
 
         # Save the pmd_rate as this will be passed from MOCAT
@@ -91,7 +93,7 @@ class EconParameters:
             rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
             orbital_velocity = np.sqrt(self.mocat.scenario_properties.mu / self.mocat.scenario_properties.R0[k])
             F_drag = 2.2 * 0.5 * rhok * orbital_velocity**2 * 1.741 # this is cd and area and have been hard coded
-            v_drag[k] = F_drag / 223 * delta_t * 1e-3
+            v_drag[k] = F_drag / self.mass * delta_t * 1e-3
 
         # Calculate the delta-v for deorbiting
         original_orbit_delta_v = np.zeros(self.mocat.scenario_properties.n_shells)
@@ -124,7 +126,7 @@ class EconParameters:
         lifetime_loss = (self.sat_lifetime - self.lifetime_after_deorbit) / self.sat_lifetime
 
         # Cost function compilation
-        self.total_lift_price = np.full_like(self.naturally_compliant_vector, self.lift_price * 223) # this is mass and hard coded, needs to be fixed
+        self.total_lift_price = np.full_like(self.naturally_compliant_vector, self.lift_price * self.mass)
         self.lifetime_loss_cost = lifetime_loss * self.intercept
         self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
         self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
