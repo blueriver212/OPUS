@@ -83,7 +83,7 @@ class OpenAccessSolver:
         cost_per_sat = np.array(self.econ_params.cost)
         tax_rate = self.econ_params.tax
 
-            #J- main calculation
+        #J- main calculation
         tax_revenue = (tax_rate)*Cp*cost_per_sat*fringe_total
         total_revenue = tax_revenue.sum()
 
