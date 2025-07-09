@@ -15,22 +15,20 @@ from utils.ADRParameters import ADRParameters
 from utils.ADR import implement_adr
 from utils.ADR import implement_adr2
 import os
-from sklearn.model_selection import GridSearchCV
-# import blackbox as bb
 
 
 class IAMSolver:
 
-    def __init__(self, target_species = [], p_remove = 0):
+    def __init__(self, params = []):
         self.output = None
         self.MOCAT = None   
         self.econ_params_json = None
         self.pmd_linked_species = None
         # sammie addition
         self.adr_params_json = None
-        self.target_species = target_species
-        self.p_remove = p_remove
+        self.params = params
         self.umpy_score = None
+        self.welfare_dict = {}
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
@@ -86,7 +84,11 @@ class IAMSolver:
             econ_params.modify_params_for_simulation(scenario_name)
         else: # needs to be a better way of doing this 
             econ_params.bond = None
-            econ_params.tax = 0
+            # sammie addition: seeing if a param grid is being used
+            if self.params is not None and (len(self.params) != 0):
+                econ_params.tax = self.params[3]
+            else:
+                econ_params.tax = 0
 
         econ_params.calculate_cost_fn_parameters()
         
@@ -96,23 +98,34 @@ class IAMSolver:
 
         # sammie addition
         adr_params.time = 0
-        if self.target_species is not None or (len(self.target_species) == 0):
+        removals = {}
+        if self.params is None or (len(self.params) == 0):
             adr_params.adr_parameter_setup(scenario_name)
         else:
-            adr_params.target_species = self.target_species
-            adr_params.p_remove = self.p_remove
+            # setting up params for optimization
+            if self.params is not None or len(self.params != 0):
+                if scenario_name in self.params:
+                    adr_params.target_species = [self.params[1]]
+                    if self.params[2] < 1:
+                        adr_params.p_remove = [self.params[2]]
+                        adr_params.remove_method = ["p"]
+                    elif self.params[2] > 1:
+                        adr_params.n_remove = [self.params[2]]
+                        adr_params.remove_method = ["n"]
+            else:
+                adr_params.target_species = []
+                adr_params.p_remove = 0
+                adr_params.remove_method = ["p"]
+
             adr_params.adr_times = [3]
-            adr_params.remove_method = ["p"]
+            
             if "B" in adr_params.target_species or "N_0.00141372kg" in adr_params.target_species:
-                adr_params.target_shell = [7, 8]
+                adr_params.target_shell = [7]
             elif "N_223kg" in adr_params.target_species:
-                adr_params.target_shell = [5, 6]
+                adr_params.target_shell = [5]
             elif "N_0.567kg" in adr_params.target_species:
-                adr_params.target_shell = [6, 7]
-
-
+                adr_params.target_shell = [7]
         
-
         ############################
         ### CONSTELLATION PARAMETERS
         ############################
@@ -154,10 +167,19 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
+        #J- Last year tax revenue and removal cost initialization
+        tax_revenue_lastyr = 0.0
+        removal_cost = 625000
+        leftover_tax_revenue = 0.0
+
         for time_idx in tf:
 
             print("Starting year ", time_idx)
             
+            #J- Tax Revenue read in
+            total_tax_revenue = float(open_access._last_total_revenue)
+            shell_revenue = open_access.last_tax_revenue.tolist()
+
             # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
             tspan = np.linspace(0, 1, 2)
             
@@ -170,12 +192,15 @@ class IAMSolver:
             propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
-
-            adr_params.time = time_idx
+            # sammie addition: adding in removals left from econ-adr branch
+            adr_params.removals_left  = int(tax_revenue_lastyr // removal_cost)
+            
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
+            adr_params.time = time_idx
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
-                propagated_environment = implement_adr2(propagated_environment,self.MOCAT,adr_params)
+                propagated_environment, num_removed = implement_adr2(propagated_environment,self.MOCAT,adr_params)
                 counter = counter + 1
+                removals[time_idx] = num_removed
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
 
@@ -230,6 +255,9 @@ class IAMSolver:
             total_fringe_sat = np.sum(fringe_pop)
             welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2
 
+            #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
+            tax_revenue_lastyr = float(open_access._last_total_revenue)+leftover_tax_revenue
+
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
                 "ror": ror,
@@ -238,7 +266,7 @@ class IAMSolver:
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy, 
                 "excess_returns": excess_returns,
-                "ICs": x0, # sammie addition, returns the initial populations of each shell
+                "ICs": x0, # sammie addition
                 "excess_returns": excess_returns,
                 "tax_revenue_total": total_tax_revenue,
                 "tax_revenue_by_shell": shell_revenue,
@@ -247,19 +275,115 @@ class IAMSolver:
         
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
-        # sammie addition: returns the final UMPY value as the sum across all shells
+        # sammie addition: storing the optimizable values and params
         self.umpy_score = var.umpy_score
+        self.adr_dict = var.adr_dict
+        self.welfare_dict[scenario_name] = welfare
+
+        save_path = f"./Results/{simulation_name}/{scenario_name}/objects_removed.json"
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+        with open(save_path, 'w') as json_file:
+            json.dump(removals, json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
 
-    def get_params(self, deep=True):
-        test = "test"
-        params = {
-            "target_species": self.target_species,
-            "p_remove": self.p_remove
-        }
-        return self, params
+    def fit(self, target_species, amount_remove, tax_rate):
+        # sammie addition:
+        # function to create a "grid" of the specified parameters and plug those into the IAMSolver
+        # Inputs:
+        #   target_species -- a list of strings containing the names of the species being removed via ADR
+        #   amount_remove -- a list of integers containing either the percentage or number of objects being removed through ADR
+        #   tax_rate -- a list of integers containing the tax rate to be levied for ADR
+        # Outputs:
+        #   solver.MOCAT -- the configuration of MOCAT as used in the solver
+        #   scenario_files -- the list of scenarios used in the optimization
+        #   best_umpy -- the lowest UMPY value achieved in the scenarios
+
+        params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate))
+        scenario_files = []
+        counter = 0
+        save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
+        adr_dict = {}
+        welfare_dict = {}
+        best_umpy = None
+
+        # running through each parameter to set up configurations
+        for i, sp in enumerate(target_species):
+            for j, am in enumerate(amount_remove):
+                for ii, tax in enumerate(tax_rate):
+                    scenario_name = f"{sp}_{am}_{tax}"
+                    scenario_files.append(scenario_name)
+                    params[counter] = [scenario_name, sp, am, tax, [], []]
+                    counter = counter + 1
+
+        # setting up solver and MOCAT configuration
+        solver = IAMSolver()
+        MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
+        solver.params = params
+
+        with ThreadPoolExecutor() as executor:
+            # Map process_scenario function over scenario_files
+            results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
+
+        # setting up dictionaries with the results from the solver
+        for i, items in enumerate(results):
+            adr_dict.update(results[i][1])
+            welfare_dict.update(results[i][2])
+
+        # finding maximum welfare value and minimum UMPY value
+        best_welfare = max(welfare_dict.values())            
+        best_umpy = min(adr_dict.values())
+
+        # updating the parameter grid with UMPY and welfare values in each scenario, then saving the indices of the
+        # minimum UMPY and maximum welfare within the parameter grid
+        for k, v in adr_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][4] = v
+                    if v == best_umpy and k == params[i][0]:
+                        umpy_scen = params[i][0]
+                        umpy_idx = i
+
+        for k, v in welfare_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][5] = v
+                    if v == best_welfare and k == params[i][0]:
+                        welfare_scen = params[i][0]
+                        welfare_idx = i
+
+        # finding the parameters for the best UMPY and welfare scenarios
+        umpy_species = params[umpy_idx][1]
+        umpy_am = params[umpy_idx][2]
+        umpy_tax = params[umpy_idx][3]
+
+        welfare_species = params[welfare_idx][1]
+        welfare_am = params[welfare_idx][2]
+        welfare_tax = params[welfare_idx][3]
+
+        # saving parameter grid
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+        with open(save_path, 'w') as json_file:
+            json.dump(params, json_file, indent=4)
+
+        # saving best UMPY and welfare scenarios and the parameters used
+        if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
+            os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
+        with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
+            json.dump({"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, "Tax Rate":umpy_tax, "UMPY":best_umpy, "Welfare":params[umpy_idx][5]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, "Tax Rate":welfare_tax, "UMPY":params[welfare_idx][4], "Welfare":best_welfare}, json_file, indent = 4) 
+
+        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed and a tax rate of " + str(umpy_tax) + " in " + str(umpy_scen) + " scenario. ")
+        print("Best UMPY Index: ", umpy_idx)
+        print("Welfare in Best UMPY Scenario: ", params[umpy_idx][4])
+        
+        print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed and a tax rate of " + str(welfare_tax) + " in " + str(welfare_scen) + " scenario. ")
+        print("Best Welfare Index: ", welfare_idx)
+        print("UMPY in Best Welfare Scenario: ", params[welfare_idx][3])
+        return self, solver.MOCAT, scenario_files, best_umpy
 
 def run_scenario(scenario_name, MOCAT_config, simulation_name):
     """
@@ -272,8 +396,9 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name):
 
 def process_scenario(scenario_name, MOCAT_config, simulation_name):
     iam_solver = IAMSolver()
+    # iam_solver.params = params
     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
-    return iam_solver.get_mocat()
+    return iam_solver.get_mocat(), iam_solver.adr_dict, iam_solver.welfare_dict
 
 if __name__ == "__main__":
     ####################
@@ -284,7 +409,30 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "adr_b",
+                    # "p_05",
+                    # "p_10",
+                    # "p_15",
+                    # "p_20",
+                    # "p_25",
+                    # "p_35",
+                    # "p_50",
+                    # "p_65",
+                    # "p_75",
+                    # "p_85",
+                    # "p_90",
+                    # "p_95",
+                    # "p_100"
+                    # "n_5",
+                    # "n_10",
+                    # "n_25",
+                    # "n_35",
+                    # "n_50",
+                    # "n_75",
+                    # "n_100",
+                    # "n_150",
+                    # "n_200",
+                    # "n_250"
+                    "adr_b",
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -303,7 +451,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "results_test"
+    simulation_name = "plot_test"
 
     iam_solver = IAMSolver()
 
@@ -314,10 +462,26 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+
+
+    # sammie addition: set up different parameter lists
+    ts = ["N_223kg", "B"]
+    # tp = np.linspace(0, 0.5, num=2)
+    tn = np.linspace(0, 30, num=3)
+    tax = [0.17, 0.32]
+    # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
+    # opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax)
+
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison = True)
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    # MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+
+    # normalize umpy and welfare over same value or something? take average??? 
+    # look into similar method for current optimization of just umpy
+    # create loop to run for each value in target_species, then go through all of the p_remove and save the stuff to a json grid before moving on to the next thing
+    # compare the umpy scores of them and save the best ones 

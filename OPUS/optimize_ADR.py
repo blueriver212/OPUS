@@ -98,6 +98,7 @@ class IAMSolver:
 
         # sammie addition
         adr_params.time = 0
+        removals = {}
         if self.params is None or (len(self.params) == 0):
             adr_params.adr_parameter_setup(scenario_name)
         else:
@@ -197,8 +198,9 @@ class IAMSolver:
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
             adr_params.time = time_idx
             if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
-                propagated_environment = implement_adr2(propagated_environment,self.MOCAT,adr_params)
+                propagated_environment, num_removed = implement_adr2(propagated_environment,self.MOCAT,adr_params)
                 counter = counter + 1
+                removals[str(time_idx)] = num_removed
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
 
@@ -277,6 +279,12 @@ class IAMSolver:
         self.umpy_score = var.umpy_score
         self.adr_dict = var.adr_dict
         self.welfare_dict[scenario_name] = welfare
+
+        save_path = f"./Results/{simulation_name}/{scenario_name}/objects_removed.json"
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+        with open(save_path, 'w') as json_file:
+            json.dump(removals, json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
@@ -365,8 +373,8 @@ class IAMSolver:
         if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
             os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
         with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
-            json.dump({"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, "Tax Rate":umpy_tax, "UMPY":best_umpy, "Welfare":params[umpy_idx][5]}, 
-                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, "Tax Rate":welfare_tax, "UMPY":params[welfare_idx][4], "Welfare":best_welfare}, json_file, indent = 4) 
+            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, "Tax Rate":umpy_tax, "UMPY":best_umpy, "Welfare":params[umpy_idx][5]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, "Tax Rate":welfare_tax, "UMPY":params[welfare_idx][4], "Welfare":best_welfare}], json_file, indent = 4) 
 
         print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed and a tax rate of " + str(umpy_tax) + " in " + str(umpy_scen) + " scenario. ")
         print("Best UMPY Index: ", umpy_idx)
@@ -375,6 +383,10 @@ class IAMSolver:
         print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed and a tax rate of " + str(welfare_tax) + " in " + str(welfare_scen) + " scenario. ")
         print("Best Welfare Index: ", welfare_idx)
         print("UMPY in Best Welfare Scenario: ", params[welfare_idx][3])
+
+        # potentially saving the names of only the best two scenarios for simulations
+        scenario_files = [welfare_scen, umpy_scen]
+
         return self, solver.MOCAT, scenario_files, best_umpy
 
 def run_scenario(scenario_name, MOCAT_config, simulation_name):
@@ -454,9 +466,10 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
+    # params = []
     # with ThreadPoolExecutor() as executor:
     #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
 
 
     # sammie addition: set up different parameter lists
@@ -467,7 +480,7 @@ if __name__ == "__main__":
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax)
 
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison = True)
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")

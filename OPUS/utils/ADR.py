@@ -1,5 +1,5 @@
 import numpy as np
-
+import os
 # loosely based on PMD function
 def implement_adr(state_matrix,MOCAT,adr_params):
     if len(adr_params.target_species) == 0:
@@ -92,6 +92,7 @@ def implement_adr_cont(state_matrix, MOCAT, adr_params):
     return state_matrix
 
 def implement_adr2(state_matrix, MOCAT, adr_params):
+    num_removed = {}
     if (len(adr_params.target_species) == 0) or (adr_params.target_species is None):
         state_matrix = state_matrix
     elif adr_params.target_species is not None:
@@ -101,6 +102,7 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                     start = i*MOCAT.scenario_properties.n_shells
                     end = (i+1)*MOCAT.scenario_properties.n_shells
                     old = state_matrix[start:end]
+                    num = []
                     # max_indices = [0] * adr_params.n_max
                     # # targeting the shells with the most of the target species:
                     # add a statement that says what shell is being targeted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -123,7 +125,9 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                         p_remove = adr_params.p_remove[idx]
                         # p_remove = adr_params.p_remove
                         for j in adr_params.target_shell:
+                            num.append(state_matrix[start:end][j-1]*p_remove)
                             state_matrix[start:end][j-1] *= (1-p_remove)
+                        
                     elif "n" in adr_params.remove_method:
                         idx = adr_params.target_species.index(sp)
                         n_remove = adr_params.n_remove[idx]
@@ -131,9 +135,13 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                             if adr_params.removals_left < n_remove:
                                 n_remove = adr_params.removals_left
                             if n_remove > state_matrix[start:end][j-1]:
+                                n = state_matrix[start:end][j-1] - n_remove
+                                n_remove += n
                                 state_matrix[start:end][j-1] = 0
                             else:
                                 state_matrix[start:end][j-1] -= n_remove
+                            num.append(n_remove)
+                    num_removed[sp] = {"num_removed":np.sum(num)}
                 else:
                     state_matrix = state_matrix
 
@@ -143,7 +151,7 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                     # print("This is what's up with the ADR state matrix bit: " + str(diff))
     # print(state_matrix)
 
-    return state_matrix
+    return state_matrix, num_removed
 
 def optimize_ADR_UMPY(results, UMPY, adr_params):
     test = "test"

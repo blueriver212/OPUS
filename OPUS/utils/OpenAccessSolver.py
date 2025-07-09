@@ -71,7 +71,7 @@ class OpenAccessSolver:
         # sammie addition
         # Implement ADR
         # print("state_next_path: "+str(len(state_next_path)))
-        state_next = implement_adr2(state_next,self.MOCAT,self.adr_params)
+        state_next, _ = implement_adr2(state_next,self.MOCAT,self.adr_params)
 
         # Gets the final output and update the current environment matrix
         self.current_environment = state_next
