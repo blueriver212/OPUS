@@ -751,7 +751,6 @@ class PlotHandler:
                 plt.savefig(out_path, dpi=300)
 
                 print(f"Comparison launch plot saved to {out_path}")
-                print("Counter: ", counter)
 
         def comparison_final_umpy_vs_total_count(self, plot_data_lists, other_data_lists):
                 """

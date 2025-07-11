@@ -83,15 +83,19 @@ class IAMSolver:
         if not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
             econ_params.modify_params_for_simulation(scenario_name)
         else: # needs to be a better way of doing this 
-            econ_params.bond = None
-            # sammie addition: seeing if a param grid is being used
+            # sammie addition: seeing if a param grid is being used and if the econ param is a bond or tax
             if self.params is not None and (len(self.params) != 0):
-                econ_params.tax = self.params[3]
+                if self.params[3] < 1:
+                    econ_params.tax = self.params[3]
+                    econ_params.bond = None
+                elif self.params[3] > 1:
+                    econ_params.tax = 0
+                    econ_params.bond = self.params[3]
             else:
                 econ_params.tax = 0
+                econ_params.bond = None
 
         econ_params.calculate_cost_fn_parameters()
-        
         
         adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         counter = 0
@@ -101,6 +105,10 @@ class IAMSolver:
         removals = {}
         if self.params is None or (len(self.params) == 0):
             adr_params.adr_parameter_setup(scenario_name)
+        elif scenario_name.startswith("Baseline"):
+            adr_params.target_species = []
+            adr_params.p_remove = 0
+            adr_params.remove_method = ["p"]
         else:
             # setting up params for optimization
             if self.params is not None or len(self.params != 0):
@@ -119,12 +127,17 @@ class IAMSolver:
 
             adr_params.adr_times = [3]
             
-            if "B" in adr_params.target_species or "N_0.00141372kg" in adr_params.target_species:
-                adr_params.target_shell = [7]
-            elif "N_223kg" in adr_params.target_species:
-                adr_params.target_shell = [5]
-            elif "N_0.567kg" in adr_params.target_species:
-                adr_params.target_shell = [7]
+            if adr_params.target_species is not None:
+                if "B" in adr_params.target_species or "N_0.00141372kg" in adr_params.target_species:
+                    adr_params.target_shell = [7]
+                elif "N_223kg" in adr_params.target_species:
+                    adr_params.target_shell = [5]
+                elif "N_0.567kg" in adr_params.target_species:
+                    adr_params.target_shell = [7]
+            elif adr_params.target_species is None or adr_params.target_species is "none":
+                adr_params.target_species = []
+                adr_params.p_remove = 0
+                adr_params.remove_method = ["p"]
         
         ############################
         ### CONSTELLATION PARAMETERS
@@ -272,7 +285,7 @@ class IAMSolver:
                 "tax_revenue_by_shell": shell_revenue,
                 "welfare": welfare,
             }
-        
+
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
         # sammie addition: storing the optimizable values and params
@@ -284,7 +297,7 @@ class IAMSolver:
         if not os.path.exists(os.path.dirname(save_path)):
             os.makedirs(os.path.dirname(save_path))
         with open(save_path, 'w') as json_file:
-            json.dump(removals, json_file, indent=4)
+            json.dump([removals], json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
@@ -301,15 +314,16 @@ class IAMSolver:
         #   scenario_files -- the list of scenarios used in the optimization
         #   best_umpy -- the lowest UMPY value achieved in the scenarios
 
-        params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate))
-        scenario_files = []
-        counter = 0
+        params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)+1)
+        scenario_files = ["Baseline"]
+        counter = 1
         save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
         adr_dict = {}
         welfare_dict = {}
         best_umpy = None
 
         # running through each parameter to set up configurations
+        params[0] = ["Baseline", "none", 0, 0, [], []]
         for i, sp in enumerate(target_species):
             for j, am in enumerate(amount_remove):
                 for ii, tax in enumerate(tax_rate):
@@ -318,6 +332,7 @@ class IAMSolver:
                     params[counter] = [scenario_name, sp, am, tax, [], []]
                     counter = counter + 1
 
+        # scenario_files.append("Baseline")
         # setting up solver and MOCAT configuration
         solver = IAMSolver()
         MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
@@ -358,6 +373,10 @@ class IAMSolver:
         umpy_species = params[umpy_idx][1]
         umpy_am = params[umpy_idx][2]
         umpy_tax = params[umpy_idx][3]
+        econ_str = f"tax rate"
+        if umpy_tax > 1:
+            umpy_bond = umpy_tax
+            econ_str = f"bond"
 
         welfare_species = params[welfare_idx][1]
         welfare_am = params[welfare_idx][2]
@@ -373,19 +392,22 @@ class IAMSolver:
         if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
             os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
         with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
-            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, "Tax Rate":umpy_tax, "UMPY":best_umpy, "Welfare":params[umpy_idx][5]}, 
-                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, "Tax Rate":welfare_tax, "UMPY":params[welfare_idx][4], "Welfare":best_welfare}], json_file, indent = 4) 
+            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, str(econ_str):umpy_tax, "UMPY":best_umpy, "Welfare":params[umpy_idx][5]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, str(econ_str):welfare_tax, "UMPY":params[welfare_idx][4], "Welfare":best_welfare}], json_file, indent = 4) 
 
-        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed and a tax rate of " + str(umpy_tax) + " in " + str(umpy_scen) + " scenario. ")
+        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed and a " + str(econ_str) + "of " + str(umpy_tax) + " in " + str(umpy_scen) + " scenario. ")
         print("Best UMPY Index: ", umpy_idx)
         print("Welfare in Best UMPY Scenario: ", params[umpy_idx][4])
         
-        print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed and a tax rate of " + str(welfare_tax) + " in " + str(welfare_scen) + " scenario. ")
+        print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed and a " + str(econ_str) + "of " + str(welfare_tax) + " in " + str(welfare_scen) + " scenario. ")
         print("Best Welfare Index: ", welfare_idx)
         print("UMPY in Best Welfare Scenario: ", params[welfare_idx][3])
 
         # potentially saving the names of only the best two scenarios for simulations
-        scenario_files = [welfare_scen, umpy_scen]
+        if umpy_scen == welfare_scen:
+            scenario_files = ["Baseline", umpy_scen]
+        elif umpy_scen != welfare_scen:
+            scenario_files = ["Baseline", welfare_scen, umpy_scen]
 
         return self, solver.MOCAT, scenario_files, best_umpy
 
@@ -455,7 +477,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "tax_rate_opt_test"
+    simulation_name = "baseline_opt_test"
 
     iam_solver = IAMSolver()
 
@@ -476,7 +498,7 @@ if __name__ == "__main__":
     ts = ["N_223kg", "B"]
     # tp = np.linspace(0, 0.5, num=2)
     tn = np.linspace(0, 30, num=3)
-    tax = [0.17, 0.32]
+    tax = np.linspace(0, 0.5, num=3)
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax)
 

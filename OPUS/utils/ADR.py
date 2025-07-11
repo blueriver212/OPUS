@@ -141,7 +141,7 @@ def implement_adr2(state_matrix, MOCAT, adr_params):
                             else:
                                 state_matrix[start:end][j-1] -= n_remove
                             num.append(n_remove)
-                    num_removed[sp] = {"num_removed":np.sum(num)}
+                    num_removed[sp] = {"num_removed":int(np.sum(num))}
                 else:
                     state_matrix = state_matrix
 
