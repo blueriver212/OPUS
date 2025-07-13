@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
 import time
+from itertools import repeat
 
 # sammie addition
 from utils.ADRParameters import ADRParameters
@@ -79,23 +80,30 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-        # if not scenario_name.startswith("Baseline") and not scenario_name.startswith("n"):
-        if not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
+
+        # J-Rewrote the below
+        # Check if a parameter grid is being used for the current scenario
+        current_params = None
+        if self.params is not None and len(self.params) > 0:
+            # Find the parameters for the current scenario_name
+            for p in self.params:
+                if p[0] == scenario_name:
+                    current_params = p
+                    break
+
+        if current_params:
+            # If parameters are found in the grid, apply them
+            econ_params.tax = float(current_params[3])
+            econ_params.bond = float(current_params[4]) if current_params[4] is not None else None
+            econ_params.ouf = float(current_params[5])
+        elif not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
+            # Fallback to reading from CSV if not in the parameter grid
             econ_params.modify_params_for_simulation(scenario_name)
         elif scenario_name.startswith("Baseline"):
+            # Handle the baseline case
             econ_params.bond = None
             econ_params.tax = 0
             econ_params.ouf = 0
-        else: # needs to be a better way of doing this 
-            # sammie addition: seeing if a param grid is being used and if the econ param is a bond or tax
-            if (self.params is not None) and (len(self.params) != 0):
-                econ_params.tax = self.params[3]
-                econ_params.bond = self.params[4]
-                econ_params.ouf = self.params[5]
-            else:
-                econ_params.tax = 0
-                econ_params.bond = None
-                econ_params.ouf = 0
 
         econ_params.calculate_cost_fn_parameters()
         
@@ -185,7 +193,7 @@ class IAMSolver:
 
         #J- Last year tax revenue and removal cost initialization
         tax_revenue_lastyr = 0.0
-        removal_cost = 625000
+        removal_cost = 5000000
         leftover_tax_revenue = 0.0
 
         for time_idx in tf:
@@ -214,6 +222,7 @@ class IAMSolver:
             if econ_params.tax == 0 and econ_params.bond == 0:
                 adr_params.removals_left = 20
             
+            before = propagated_environment.copy() 
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
             adr_params.time = time_idx
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
@@ -222,6 +231,9 @@ class IAMSolver:
                 removals[str(time_idx)] = num_removed
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+            
+            leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
@@ -234,10 +246,6 @@ class IAMSolver:
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
-
-            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-            total_tax_revenue = float(open_access.last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
 
             # Fringe Equilibrium Controller
             start_time = time.time()
@@ -260,6 +268,10 @@ class IAMSolver:
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
 
+            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
+            total_tax_revenue = float(open_access.last_total_revenue)
+            shell_revenue = open_access.last_tax_revenue.tolist()
+            
             # Update the initial conditions for the next period
             lam[fringe_start_slice:fringe_end_slice] = launch_rate
 
@@ -272,7 +284,7 @@ class IAMSolver:
             #J- Adding in Economic Welfare
             fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
             total_fringe_sat = np.sum(fringe_pop)
-            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2
+            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
 
             #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
             tax_revenue_lastyr = float(open_access._last_total_revenue)+leftover_tax_revenue
@@ -290,6 +302,7 @@ class IAMSolver:
                 "tax_revenue_total": total_tax_revenue,
                 "tax_revenue_by_shell": shell_revenue,
                 "welfare": welfare,
+                "bond_revenue":open_access.bond_revenue,
             }
 
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
@@ -346,7 +359,7 @@ class IAMSolver:
 
         with ThreadPoolExecutor() as executor:
             # Map process_scenario function over scenario_files
-            results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
+            results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), repeat(params)))
 
         # setting up dictionaries with the results from the solver
         for i, items in enumerate(results):
@@ -468,7 +481,7 @@ if __name__ == "__main__":
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
-                    # # "bond_300k",
+                    #"bond_300k",
                     # "bond_500k",
                     # "bond_800k",
                     # "bond_1600k",
@@ -483,7 +496,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "adding_bond_and_ouf"
+    simulation_name = "tax_rev_test"
 
     iam_solver = IAMSolver()
 
@@ -504,9 +517,9 @@ if __name__ == "__main__":
     ts = ["N_223kg", "B"]
     # tp = np.linspace(0, 0.5, num=2)
     tn = np.linspace(0, 30, num=3)
-    tax = np.linspace(0, 0.5, num=3)
-    bond = [0]
-    ouf = [0]
+    tax = [0] #np.linspace(0, 0.5, num=3)
+    bond = 300000
+    ouf = 0
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax, bond=bond, ouf=ouf)
 

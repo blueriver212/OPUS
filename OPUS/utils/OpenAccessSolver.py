@@ -89,21 +89,35 @@ class OpenAccessSolver:
         self._last_collision_probability = collision_probability
         self._last_excess_returns = excess_returns
 
-        #J- Calculating tax revenue for specified tax rate 
-        fringe_total = state_next[self.fringe_start_slice : self.fringe_end_slice]
-        Cp = collision_probability
-        cost_per_sat = np.array(self.econ_params.cost)
-        tax_rate = self.econ_params.tax
+        #J ─── Revenue collection ────────────────────────────────────────────────────
+        fringe_total = state_next[self.fringe_start_slice:self.fringe_end_slice]
 
-        #J- main calculation
-        tax_revenue = (tax_rate)*Cp*cost_per_sat*fringe_total
-        total_revenue = tax_revenue.sum()
+        if (self.econ_params.bond is not None) and (self.econ_params.bond != 0):
+            # vector already created inside fringe_rate_of_return()
+            revenue_by_shell = self.bond_revenue                      # bond
+            self._revenue_type = "bond"
 
-        self._last_tax_revenue = tax_revenue
-        self._last_total_revenue = total_revenue
-        self._dbg_tax_rate       = tax_rate 
-        self._dbg_Cp             = Cp  
-        self._dbg_cost_per_sat   = cost_per_sat
+        elif getattr(self.econ_params, "ouf", 0) != 0:
+            revenue_by_shell = self.econ_params.ouf * collision_probability * fringe_total    # OUF
+            self._revenue_type = "ouf"
+
+        elif self.econ_params.tax != 0: #tax
+            Cp            = collision_probability
+            cost_per_sat  = np.asarray(self.econ_params.cost)
+            revenue_by_shell = self.econ_params.tax * Cp * cost_per_sat * fringe_total
+            self._revenue_type = "tax"
+
+        else:                                                      # nothing levied
+            revenue_by_shell = np.zeros_like(fringe_total)
+            self._revenue_type = "none"
+
+        total_revenue = revenue_by_shell.sum()
+
+        self._last_tax_revenue   = revenue_by_shell
+        self._last_total_revenue = float(total_revenue)
+        self._dbg_tax_rate       = self.econ_params.tax
+        self._dbg_Cp             = collision_probability  
+        self._dbg_cost_per_sat   = np.asarray(self.econ_params.cost)
         self._dbg_fringe_total   = fringe_total
         return excess_returns
 
@@ -134,6 +148,9 @@ class OpenAccessSolver:
             # Equilibrium expression for rate of return.
             rev_cost = revenue / self.econ_params.cost
 
+            #J-Adding in Bond Revenue
+            self.bond_revenue=0.0
+
             if self.econ_params.bond is None:
                 rate_of_return = rev_cost - discount_rate - depreciation_rate  
             else:
@@ -141,6 +158,7 @@ class OpenAccessSolver:
                 bond_per_shell = np.ones_like(collision_risk) * self.econ_params.bond
                 bond = ((1-self.econ_params.comp_rate) * (bond_per_shell / self.econ_params.cost))
                 rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
+                self.bond_revenue=(1-self.econ_params.comp_rate)*bond_per_shell*fringe_total
         else:
             # Other revenue models can be implemented here
             rate_of_return = 0 
