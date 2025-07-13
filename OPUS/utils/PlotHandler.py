@@ -932,7 +932,7 @@ class PlotHandler:
                 print(f"Final UMPY vs. Count and Collision Probability scatter plots saved to {file_path}")
 
         # sammie addition:
-        def comparison_total_launch(self, plot_data_lists, other_data_lists):
+        def comparison_launch_totals(self, plot_data_lists, other_data_lists):
                 """
                 Creates a comparison plot of total species count over time.
                 Each species is plotted in its own subplot, comparing across all scenarios.
