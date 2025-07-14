@@ -320,23 +320,27 @@ class IAMSolver:
         #   scenario_files -- the list of scenarios used in the optimization
         #   best_umpy -- the lowest UMPY value achieved in the scenarios
 
-        params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)+1)
-        scenario_files = ["Baseline"]
-        counter = 1
+        # params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf)+1)
+        # scenario_files = ["Baseline"]
+        params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf))
+        scenario_files = []
+        counter = 0
         save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
         adr_dict = {}
         welfare_dict = {}
         best_umpy = None
 
         # running through each parameter to set up configurations
-        params[0] = ["Baseline", "none", 0, 0, 0, 0, [], []]
+        # params[0] = ["Baseline", "none", 0, 0, 0, 0, [], []]
         for i, sp in enumerate(target_species):
             for j, am in enumerate(amount_remove):
                 for ii, tax in enumerate(tax_rate):
-                    scenario_name = f"Scenario_{counter}_{sp}_{am}"
-                    scenario_files.append(scenario_name)
-                    params[counter] = [scenario_name, sp, am, tax, bond, ouf, [], []]
-                    counter = counter + 1
+                    for jj, bn in enumerate(bond):
+                        for fee in ouf:
+                            scenario_name = f"Scenario_{counter}_{sp}_{am}"
+                            scenario_files.append(scenario_name)
+                            params[counter] = [scenario_name, sp, am, tax, bn, fee, [], []]
+                            counter = counter + 1
 
         # scenario_files.append("Baseline")
         # setting up solver and MOCAT configuration
@@ -398,8 +402,8 @@ class IAMSolver:
         if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
             os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
         with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
-            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][5]}, 
-                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][4], "Welfare":best_welfare}], json_file, indent = 4) 
+            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Amount Removed":umpy_am, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][7]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Amount Removed":welfare_am, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][6], "Welfare":best_welfare}], json_file, indent = 4) 
 
         print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed in " + str(umpy_scen) + " scenario. ")
         print("Best UMPY Index: ", umpy_idx)
@@ -410,10 +414,11 @@ class IAMSolver:
         print("UMPY in Best Welfare Scenario: ", params[welfare_idx][6])
 
         # potentially saving the names of only the best two scenarios for simulations
-        if umpy_scen == welfare_scen:
-            scenario_files = ["Baseline", umpy_scen]
-        elif umpy_scen != welfare_scen:
-            scenario_files = ["Baseline", welfare_scen, umpy_scen]
+        # if umpy_scen == welfare_scen:
+        #     scenario_files = ["Baseline", umpy_scen]
+        # elif umpy_scen != welfare_scen:
+        #     scenario_files = ["Baseline", welfare_scen, umpy_scen]
+        scenario_files = [umpy_scen, welfare_scen]
 
         return self, solver.MOCAT, scenario_files, best_umpy
 
@@ -483,7 +488,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "adding_bond_and_ouf"
+    simulation_name = "adding_bond_and_ouf_2"
 
     iam_solver = IAMSolver()
 
@@ -503,10 +508,10 @@ if __name__ == "__main__":
     # sammie addition: set up different parameter lists
     ts = ["N_223kg", "B"]
     # tp = np.linspace(0, 0.5, num=2)
-    tn = np.linspace(0, 30, num=3)
-    tax = np.linspace(0, 0.5, num=3)
-    bond = [0]
-    ouf = [0]
+    tn = np.linspace(20, 30, num=2)
+    tax = np.linspace(0.25, 0.5, num=1)
+    bond = [0]*2
+    ouf = [0]*2
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax, bond=bond, ouf=ouf)
 
