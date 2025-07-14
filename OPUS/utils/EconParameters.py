@@ -56,7 +56,7 @@ class EconParameters:
         self.bond = params.get("bond", None)
 
         # sammie addition: OUF
-        self.ouf = params.get("ouf", None)
+        self.ouf = params.get("ouf", 0.0)
 
         # Post Mission Disposal Rate
         self.pmd_rate = 0.9
