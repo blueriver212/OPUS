@@ -421,8 +421,8 @@ class IAMSolver:
         if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
             os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
         with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
-            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Shell":umpy_shell, "Amount Removed":umpy_am, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][7]}, 
-                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Shell":welfare_shell, "Amount Removed":welfare_am, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][6], "Welfare":best_welfare},
+            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Shell":umpy_shell, "Amount Removed":umpy_am, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][8]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Shell":welfare_shell, "Amount Removed":welfare_am, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][7], "Welfare":best_welfare},
                       {"Baseline Scenario":"Baseline", "Index":0, "Species":"None", "Shell":"None", "Amount Removed":"None", "Tax":"None", "Bond":"None", "OUF":"None", "UMPY":params[0][7], "Welfare":params[0][8]}], json_file, indent = 4) 
 
         print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed in " + str(umpy_scen) + " scenario. ")
