@@ -636,7 +636,7 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(tax_values, final_welfare_values, marker='o')
+                plt.scatter(tax_values, final_welfare_values, marker='o', c=tax_values, cmap="tab20")
                 
                 # Annotate each point with its scenario label
                 for x, y, label in zip(tax_values, final_welfare_values, labels):
@@ -690,7 +690,7 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(tax_values, final_umpy_values, marker='o')
+                plt.scatter(tax_values, final_umpy_values, marker='o', c=tax_values, cmap="tab20")
                 
                 # Annotate each point with its scenario label
                 for x, y, label in zip(tax_values, final_umpy_values, labels):
@@ -744,11 +744,11 @@ class PlotHandler:
                 plt.title(f"Welfare Over Time")
                 plt.xlabel("Time Steps (Years)")
                 plt.ylabel("Welfare ($)")
-                plt.legend()
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                 plt.grid(True)
 
                 out_path = os.path.join(comparison_folder, "welfare_comparison.png")
-                plt.savefig(out_path, dpi=300)
+                plt.savefig(out_path, dpi=300, bbox_inches='tight')
 
                 print(f"Comparison launch plot saved to {out_path}")
 
@@ -797,7 +797,7 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(final_umpy_values, final_total_counts, marker='o')
+                plt.scatter(final_umpy_values, final_total_counts, marker='o', c=final_umpy_values, cmap="tab20")
                 
                 # Annotate each point with its scenario label
                 for x, y, label in zip(final_umpy_values, final_total_counts, labels):
@@ -839,7 +839,8 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(final_umpy_values, final_welfare_values, marker='o')
+                
+                plt.scatter(final_umpy_values, final_welfare_values, marker='o', c=final_umpy_values, cmap="tab20")
                 
                 # Annotate each point with its scenario label
                 for x, y, label in zip(final_umpy_values, final_welfare_values, labels):
@@ -975,11 +976,11 @@ class PlotHandler:
                 plt.title(f"Total Launches across all shells")
                 plt.xlabel("Time Steps (Years)")
                 plt.ylabel("Total Launches")
-                plt.legend()
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                 plt.grid(True)
 
                 out_path = os.path.join(comparison_folder, "total_launches_comparison.png")
-                plt.savefig(out_path, dpi=300)
+                plt.savefig(out_path, dpi=300, bbox_inches='tight')
                 plt.close()
 
                 print(f"Comparison launch plot saved to {out_path}")
@@ -1081,7 +1082,7 @@ class PlotHandler:
                 print(f"Comparison plot saved to {out_path}")
 
         # sammie addition
-        def comparison_umpy_over_time(self, plot_data_lists, other_data_lists):
+        def comparison_evolution_umpy_over_time(self, plot_data_lists, other_data_lists):
                 # Create a "comparisons" folder under the main simulation folder
                 comparison_folder = os.path.join(self.simulation_folder, "comparisons")
                 os.makedirs(comparison_folder, exist_ok=True)
@@ -1117,20 +1118,21 @@ class PlotHandler:
                                 plt.plot(x_axis, umpy, label=scenario_name, marker='>')
                 # 1) Sort the timesteps and prepare arrays
 
-                plt.figure(figsize=(8, 5))
+                plt.figure(figsize=(16, 6))
 
                 # 4) Labels and title
                 plt.xlabel("Year (timestep)")
                 plt.ylabel("UMPY (kg/year)")
-                plt.title("UMPY Evolution Over Time")
-                plt.legend()
+                plt.title(f"UMPY Evolution Over Time")
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                 plt.tight_layout()
 
                 # 5) Save the figure
-                save_path = os.path.join(plot_data.path, "umpy_comparison.png")
+                save_path = os.path.join(comparison_folder, "comparison_umpy_time_evolution.png")
                 plt.savefig(save_path, dpi=300, bbox_inches="tight")
                 plt.close()
 
+                print(f"Comparison plot saved to {save_path}")
         def UMPY(self, plot_data, other_data):
                  # 1) Sort the timesteps and prepare arrays
                 timesteps = sorted(other_data.keys(), key=int)  

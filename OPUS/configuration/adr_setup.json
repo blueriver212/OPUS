@@ -190,5 +190,133 @@
         "n_remove": [250],
         "target_shell": [5, 6],
         "n_max": 2
+    },
+    "25rule_N223kg_adr_10years_cont":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "5rule_N223kg_adr_10years_cont":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "25rule_B_adr_10years_cont":{
+        "target_species": ["B"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [12],
+        "n_max": 2
+    },
+    "5rule_B_adr_10years_cont":{
+        "target_species": ["B"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [12],
+        "n_max": 2
+    },
+    "25rule_N0.5670kg_adr_10years_cont":{
+        "target_species": ["N_0.5670kg"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "5rule_N0.5670kg_adr_10years_cont":{
+        "target_species": ["N_0.5670kg"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "25rule_N0.00141372kg_adr_10years_cont":{
+        "target_species": ["N_0.00141372kg"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [20],
+        "n_max": 2
+    },
+    "5rule_N0.00141372kg_adr_10years_cont":{
+        "target_species": ["N_0.00141372kg"],
+        "adr_times": [3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [20],
+        "n_max": 2
+    },
+    "25rule_N223kg_adr_10years_one":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "5rule_N223kg_adr_10years_one":{
+        "target_species": ["N_223kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "25rule_B_adr_10years_one":{
+        "target_species": ["B"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [12],
+        "n_max": 2
+    },
+    "5rule_B_adr_10years_one":{
+        "target_species": ["B"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [12],
+        "n_max": 2
+    },
+    "25rule_N0.5670kg_adr_10years_one":{
+        "target_species": ["N_0.5670kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "5rule_N0.5670kg_adr_10years_one":{
+        "target_species": ["N_0.5670kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [10],
+        "n_max": 2
+    },
+    "25rule_N0.00141372kg_adr_10years_one":{
+        "target_species": ["N_0.00141372kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [20],
+        "n_max": 2
+    },
+    "5rule_N0.00141372kg_adr_10years_one":{
+        "target_species": ["N_0.00141372kg"],
+        "adr_times": [3],
+        "remove_method": ["n"],
+        "n_remove": [20],
+        "target_shell": [20],
+        "n_max": 2
     }
 }

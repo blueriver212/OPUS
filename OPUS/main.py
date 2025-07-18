@@ -284,7 +284,7 @@ class IAMSolver:
         if not os.path.exists(os.path.dirname(save_path)):
             os.makedirs(os.path.dirname(save_path))
         with open(save_path, 'w') as json_file:
-            json.dump(removals, json_file, indent=4)
+            json.dump([removals], json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
@@ -409,30 +409,22 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "p_05",
-                    # "p_10",
-                    # "p_15",
-                    # "p_20",
-                    # "p_25",
-                    # "p_35",
-                    # "p_50",
-                    # "p_65",
-                    # "p_75",
-                    # "p_85",
-                    # "p_90",
-                    # "p_95",
-                    # "p_100"
-                    # "n_5",
-                    # "n_10",
-                    # "n_25",
-                    # "n_35",
-                    # "n_50",
-                    # "n_75",
-                    # "n_100",
-                    # "n_150",
-                    # "n_200",
-                    # "n_250"
-                    "adr_b",
+                    "25rule_N223kg_adr_10years_cont",
+                    "5rule_N223kg_adr_10years_cont",
+                    "25rule_B_adr_10years_cont",
+                    # "5rule_B_adr_10years_cont",
+                    # "25rule_N0.5670kg_adr_10years_cont",
+                    # "5rule_N0.5670kg_adr_10years_cont",
+                    # "25rule_N0.00141372kg_adr_10years_cont",
+                    # "5rule_N0.00141372kg_adr_10years_cont",
+                    # "25rule_N223kg_adr_10years_one",
+                    # "5rule_N223kg_adr_10years_one",
+                    # "25rule_B_adr_10years_one",
+                    # "5rule_B_adr_10years_one",
+                    # "25rule_N0.5670kg_adr_10years_one",
+                    # "5rule_N0.5670kg_adr_10years_one",
+                    # "25rule_N0.00141372kg_adr_10years_one",
+                    # "5rule_N0.00141372kg_adr_10years_one",
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -451,7 +443,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "plot_test"
+    simulation_name = "25_year_vs_5_year_rules"
 
     iam_solver = IAMSolver()
 
@@ -462,18 +454,18 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
-    # sammie addition: set up different parameter lists
-    ts = ["N_223kg", "B"]
-    # tp = np.linspace(0, 0.5, num=2)
-    tn = np.linspace(0, 30, num=3)
-    tax = [0.17, 0.32]
-    # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
-    # opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax)
+    # # sammie addition: set up different parameter lists
+    # ts = ["N_223kg", "B"]
+    # # tp = np.linspace(0, 0.5, num=2)
+    # tn = np.linspace(0, 30, num=3)
+    # tax = [0.17, 0.32]
+    # # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
+    # # opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, amount_remove=tn, tax_rate=tax)
 
     # PlotHandler(MOCAT, scenario_files, simulation_name, comparison = True)
 
