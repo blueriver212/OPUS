@@ -193,7 +193,7 @@
     },
     "25rule_N223kg_adr_10years_cont":{
         "target_species": ["N_223kg"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [10],
@@ -201,7 +201,7 @@
     },
     "5rule_N223kg_adr_10years_cont":{
         "target_species": ["N_223kg"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [10],
@@ -209,7 +209,7 @@
     },
     "25rule_B_adr_10years_cont":{
         "target_species": ["B"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [12],
@@ -217,7 +217,7 @@
     },
     "5rule_B_adr_10years_cont":{
         "target_species": ["B"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [12],
@@ -225,7 +225,7 @@
     },
     "25rule_N0.5670kg_adr_10years_cont":{
         "target_species": ["N_0.5670kg"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [10],
@@ -233,7 +233,7 @@
     },
     "5rule_N0.5670kg_adr_10years_cont":{
         "target_species": ["N_0.5670kg"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [10],
@@ -241,7 +241,7 @@
     },
     "25rule_N0.00141372kg_adr_10years_cont":{
         "target_species": ["N_0.00141372kg"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [20],
@@ -249,7 +249,7 @@
     },
     "5rule_N0.00141372kg_adr_10years_cont":{
         "target_species": ["N_0.00141372kg"],
-        "adr_times": [3,4,5,6,7,8,9,10],
+        "adr_times": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
         "remove_method": ["n"],
         "n_remove": [20],
         "target_shell": [20],
