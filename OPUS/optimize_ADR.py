@@ -96,6 +96,7 @@ class IAMSolver:
             econ_params.tax = float(current_params[4])
             econ_params.bond = float(current_params[5]) if current_params[5] is not None else None
             econ_params.ouf = float(current_params[6]) 
+
         elif not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
             # Fallback to reading from CSV if not in the parameter grid
             econ_params.modify_params_for_simulation(scenario_name)
@@ -141,14 +142,26 @@ class IAMSolver:
 
             adr_params.adr_times = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
             
-            if adr_params.target_species is not None:
-                if ("B" in adr_params.target_species) or ("N_0.00141372kg" in adr_params.target_species):
-                    adr_params.target_shell = [7]
-                elif "N_223kg" in adr_params.target_species:
-                    adr_params.target_shell = [5]
-                elif "N_0.567kg" in adr_params.target_species:
-                    adr_params.target_shell = [7]
-            elif (adr_params.target_species is None) or (adr_params.target_species == "none"):
+            if current_params:
+            # If parameters are found in the grid, apply them
+                adr_params.target_species = [current_params[1]]
+                adr_params.target_shell = [current_params[2]]
+                if current_params[3] > 1:
+                    adr_params.n_remove = [current_params[3]] 
+                    adr_params.remove_method = ["n"]
+                elif current_params[3] < 1:
+                    adr_params.p_remove = [current_params[3]]
+                    adr_params.remove_method = ["p"]
+
+
+            # if adr_params.target_species is not None:
+            #     if ("B" in adr_params.target_species) or ("N_0.00141372kg" in adr_params.target_species):
+            #         adr_params.target_shell = [7]
+            #     elif "N_223kg" in adr_params.target_species:
+            #         adr_params.target_shell = [5]
+            #     elif "N_0.567kg" in adr_params.target_species:
+            #         adr_params.target_shell = [7]
+            if (adr_params.target_species is None) or (adr_params.target_species == "none"):
                 adr_params.target_species = []
                 adr_params.p_remove = 0
                 adr_params.remove_method = ["p"]
@@ -520,7 +533,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "25 Year 5 Year Rule (OUF)"
+    simulation_name = "adr_test"
 
     iam_solver = IAMSolver()
 
