@@ -79,19 +79,34 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-        # if not scenario_name.startswith("Baseline") and not scenario_name.startswith("n"):
-        if not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
+
+        # J-Rewrote the below
+        # Check if a parameter grid is being used for the current scenario
+        current_params = None
+        if self.params is not None and len(self.params) > 0:
+            # Find the parameters for the current scenario_name
+            for p in self.params:
+                if p[0] == scenario_name:
+                    current_params = p
+                    break
+
+        if current_params:
+            # If parameters are found in the grid, apply them
+            econ_params.tax = float(current_params[4])
+            econ_params.bond = float(current_params[5]) if current_params[5] is not None else None
+            econ_params.ouf = float(current_params[6]) 
+        elif not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
+            # Fallback to reading from CSV if not in the parameter grid
             econ_params.modify_params_for_simulation(scenario_name)
-        else: # needs to be a better way of doing this 
+        elif scenario_name.startswith("Baseline"):
+            # Handle the baseline case
             econ_params.bond = None
-            # sammie addition: seeing if a param grid is being used
-            if self.params is not None and (len(self.params) != 0):
-                econ_params.tax = self.params[3]
-            else:
-                econ_params.tax = 0
+            econ_params.tax = 0
+            econ_params.ouf = 0
+
+
 
         econ_params.calculate_cost_fn_parameters()
-        
         
         adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         counter = 0
@@ -99,19 +114,25 @@ class IAMSolver:
         # sammie addition
         adr_params.time = 0
         removals = {}
-        if self.params is None or (len(self.params) == 0):
+        if (self.params is None) or (len(self.params) == 0):
             adr_params.adr_parameter_setup(scenario_name)
+        elif scenario_name.startswith("Baseline"):
+            adr_params.target_species = []
+            adr_params.p_remove = 0
+            adr_params.remove_method = ["p"]
+            adr_params.adr_times = []
         else:
             # setting up params for optimization
-            if self.params is not None or len(self.params != 0):
+            if (self.params is not None) or len(self.params != 0):
                 if scenario_name in self.params:
                     adr_params.target_species = [self.params[1]]
-                    if self.params[2] < 1:
-                        adr_params.p_remove = [self.params[2]]
+                    if self.params[3] < 1:
+                        adr_params.p_remove = [self.params[3]]
                         adr_params.remove_method = ["p"]
-                    elif self.params[2] > 1:
-                        adr_params.n_remove = [self.params[2]]
+                    elif self.params[3] > 1:
+                        adr_params.n_remove = [self.params[3]]
                         adr_params.remove_method = ["n"]
+                    adr_params.target_shell = [self.params[2]]
             else:
                 adr_params.target_species = []
                 adr_params.p_remove = 0
@@ -119,12 +140,17 @@ class IAMSolver:
 
             adr_params.adr_times = [3]
             
-            if "B" in adr_params.target_species or "N_0.00141372kg" in adr_params.target_species:
-                adr_params.target_shell = [7]
-            elif "N_223kg" in adr_params.target_species:
-                adr_params.target_shell = [5]
-            elif "N_0.567kg" in adr_params.target_species:
-                adr_params.target_shell = [7]
+            if adr_params.target_species is not None:
+                if ("B" in adr_params.target_species) or ("N_0.00141372kg" in adr_params.target_species):
+                    adr_params.target_shell = [7]
+                elif "N_223kg" in adr_params.target_species:
+                    adr_params.target_shell = [5]
+                elif "N_0.567kg" in adr_params.target_species:
+                    adr_params.target_shell = [7]
+            elif (adr_params.target_species is None) or (adr_params.target_species == "none"):
+                adr_params.target_species = []
+                adr_params.p_remove = 0
+                adr_params.remove_method = ["p"]
         
         ############################
         ### CONSTELLATION PARAMETERS
@@ -169,7 +195,7 @@ class IAMSolver:
 
         #J- Last year tax revenue and removal cost initialization
         tax_revenue_lastyr = 0.0
-        removal_cost = 625000
+        removal_cost = 5000000
         leftover_tax_revenue = 0.0
 
         for time_idx in tf:
@@ -194,15 +220,22 @@ class IAMSolver:
 
             # sammie addition: adding in removals left from econ-adr branch
             adr_params.removals_left  = int(tax_revenue_lastyr // removal_cost)
+
+            if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
+                adr_params.removals_left = 20
             
+            before = propagated_environment.copy() 
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
             adr_params.time = time_idx
-            if ((time_idx in adr_params.adr_times) and (adr_params.adr_times is not None) and (len(adr_params.adr_times) != 0)):
+            if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
                 propagated_environment, num_removed = implement_adr2(propagated_environment,self.MOCAT,adr_params)
                 counter = counter + 1
-                removals[time_idx] = num_removed
+                removals[str(time_idx)] = num_removed
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+            
+            # leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
@@ -215,10 +248,6 @@ class IAMSolver:
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
-
-            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-            total_tax_revenue = float(open_access.last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
 
             # Fringe Equilibrium Controller
             start_time = time.time()
@@ -241,6 +270,10 @@ class IAMSolver:
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
 
+            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
+            total_tax_revenue = float(open_access.last_total_revenue)
+            shell_revenue = open_access.last_tax_revenue.tolist()
+            
             # Update the initial conditions for the next period
             lam[fringe_start_slice:fringe_end_slice] = launch_rate
 
@@ -253,7 +286,7 @@ class IAMSolver:
             #J- Adding in Economic Welfare
             fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
             total_fringe_sat = np.sum(fringe_pop)
-            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2
+            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
 
             #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
             tax_revenue_lastyr = float(open_access._last_total_revenue)+leftover_tax_revenue
@@ -271,8 +304,9 @@ class IAMSolver:
                 "tax_revenue_total": total_tax_revenue,
                 "tax_revenue_by_shell": shell_revenue,
                 "welfare": welfare,
+                "bond_revenue":open_access.bond_revenue,
             }
-        
+
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
         # sammie addition: storing the optimizable values and params
@@ -412,19 +446,19 @@ if __name__ == "__main__":
                     "25rule_N223kg_adr_10years_cont",
                     "5rule_N223kg_adr_10years_cont",
                     "25rule_B_adr_10years_cont",
-                    # "5rule_B_adr_10years_cont",
-                    # "25rule_N0.5670kg_adr_10years_cont",
-                    # "5rule_N0.5670kg_adr_10years_cont",
-                    # "25rule_N0.00141372kg_adr_10years_cont",
-                    # "5rule_N0.00141372kg_adr_10years_cont",
-                    # "25rule_N223kg_adr_10years_one",
-                    # "5rule_N223kg_adr_10years_one",
-                    # "25rule_B_adr_10years_one",
-                    # "5rule_B_adr_10years_one",
-                    # "25rule_N0.5670kg_adr_10years_one",
-                    # "5rule_N0.5670kg_adr_10years_one",
-                    # "25rule_N0.00141372kg_adr_10years_one",
-                    # "5rule_N0.00141372kg_adr_10years_one",
+                    "5rule_B_adr_10years_cont",
+                    "25rule_N0.5670kg_adr_10years_cont",
+                    "5rule_N0.5670kg_adr_10years_cont",
+                    "25rule_N0.00141372kg_adr_10years_cont",
+                    "5rule_N0.00141372kg_adr_10years_cont",
+                    "25rule_N223kg_adr_10years_one",
+                    "5rule_N223kg_adr_10years_one",
+                    "25rule_B_adr_10years_one",
+                    "5rule_B_adr_10years_one",
+                    "25rule_N0.5670kg_adr_10years_one",
+                    "5rule_N0.5670kg_adr_10years_one",
+                    "25rule_N0.00141372kg_adr_10years_one",
+                    "5rule_N0.00141372kg_adr_10years_one",
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",

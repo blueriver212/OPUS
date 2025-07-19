@@ -749,6 +749,7 @@ class PlotHandler:
 
                 out_path = os.path.join(comparison_folder, "welfare_comparison.png")
                 plt.savefig(out_path, dpi=300, bbox_inches='tight')
+                plt.close()
 
                 print(f"Comparison launch plot saved to {out_path}")
 
@@ -933,7 +934,7 @@ class PlotHandler:
                 print(f"Final UMPY vs. Count and Collision Probability scatter plots saved to {file_path}")
 
         # sammie addition:
-        def comparison_launch_totals(self, plot_data_lists, other_data_lists):
+        def comparison_launches_over_time(self, plot_data_lists, other_data_lists):
                 """
                 Creates a comparison plot of total species count over time.
                 Each species is plotted in its own subplot, comparing across all scenarios.
@@ -955,7 +956,6 @@ class PlotHandler:
 
                         # Retrieve the dictionary of species -> data arrays
                         # e.g., {species: np.array(time, shells), ...
-
                         
                         for j, year in enumerate(other_data):
                                 launches = other_data[year]['launch_rate']
@@ -1118,7 +1118,7 @@ class PlotHandler:
                                 plt.plot(x_axis, umpy, label=scenario_name, marker='>')
                 # 1) Sort the timesteps and prepare arrays
 
-                plt.figure(figsize=(16, 6))
+                # plt.figure(figsize=(16, 6))
 
                 # 4) Labels and title
                 plt.xlabel("Year (timestep)")
@@ -1131,8 +1131,8 @@ class PlotHandler:
                 save_path = os.path.join(comparison_folder, "comparison_umpy_time_evolution.png")
                 plt.savefig(save_path, dpi=300, bbox_inches="tight")
                 plt.close()
-
                 print(f"Comparison plot saved to {save_path}")
+
         def UMPY(self, plot_data, other_data):
                  # 1) Sort the timesteps and prepare arrays
                 timesteps = sorted(other_data.keys(), key=int)  
