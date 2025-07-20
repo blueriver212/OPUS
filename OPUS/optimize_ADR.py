@@ -259,7 +259,9 @@ class IAMSolver:
                 leftover_tax_revenue = 0
                 money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
+            print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
             print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+            print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
             print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.
@@ -556,7 +558,7 @@ if __name__ == "__main__":
     tn = [250]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
     bond = [None] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    ouf = [500000]*1
+    ouf = [50000]*1
     target_shell = range(10,11) # last number should be the number of shells + 1
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, tax_rate=tax, bond=bond, ouf=ouf)
