@@ -492,7 +492,7 @@ if __name__ == "__main__":
     # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
-                    "Baseline",
+                    #"Baseline",
                     # "p_05",
                     # "p_10",
                     # "p_15",
@@ -535,7 +535,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "adr_test"
+    simulation_name = "ADR Fees 25 Year 25-Year"
 
     iam_solver = IAMSolver()
 
@@ -551,15 +551,15 @@ if __name__ == "__main__":
          # Map process_scenario function over scenario_files
          #results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
 
-
+       
     # sammie addition: set up different parameter lists
     ts = ["N_223kg"]
     # tp = np.linspace(0, 0.5, num=2)
     tn = [250]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
     bond = [None] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    ouf = [50000]*1
-    target_shell = range(10,11) # last number should be the number of shells + 1
+    ouf = [25000,50000,75000,100000] #[50000]*1
+    target_shell = range(10,11) # last number should be the number of shells + 1 
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, tax_rate=tax, bond=bond, ouf=ouf)
 
