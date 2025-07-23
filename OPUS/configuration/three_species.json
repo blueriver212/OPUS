@@ -12,7 +12,7 @@
         "max_altitude": 1200,
         "min_altitude": 200,
         "n_shells": 20,
-        "simulation_duration": 25,
+        "simulation_duration": 50,
         "start_date": "01/02/2024",
         "steps": 10,
         "v_imp": 10, 

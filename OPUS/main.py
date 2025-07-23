@@ -197,6 +197,8 @@ class IAMSolver:
         tax_revenue_lastyr = 0.0
         removal_cost = 5000000
         leftover_tax_revenue = 0.0
+        money_bucket_2 = 0.0
+        money_bucket_1 = 0.0
 
         for time_idx in tf:
 
@@ -235,7 +237,16 @@ class IAMSolver:
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
             
             # leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+
+            # if leftover_tax_revenue >= 0:
+            #     leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            #     money_bucket_1 = money_bucket_2 + leftover_tax_revenue
+            # else: 
+            #     leftover_tax_revenue = 0
+            #     money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+
             # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+            # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
@@ -289,7 +300,8 @@ class IAMSolver:
             welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
 
             #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
-            tax_revenue_lastyr = float(open_access._last_total_revenue)+leftover_tax_revenue
+            money_bucket_2 = money_bucket_1
+            tax_revenue_lastyr = float(open_access._last_total_revenue)
 
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
@@ -443,22 +455,23 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "25rule_N223kg_adr_10years_cont",
-                    "5rule_N223kg_adr_10years_cont",
-                    "25rule_B_adr_10years_cont",
-                    "5rule_B_adr_10years_cont",
-                    "25rule_N0.5670kg_adr_10years_cont",
-                    "5rule_N0.5670kg_adr_10years_cont",
-                    "25rule_N0.00141372kg_adr_10years_cont",
-                    "5rule_N0.00141372kg_adr_10years_cont",
-                    "25rule_N223kg_adr_10years_one",
-                    "5rule_N223kg_adr_10years_one",
-                    "25rule_B_adr_10years_one",
-                    "5rule_B_adr_10years_one",
-                    "25rule_N0.5670kg_adr_10years_one",
-                    "5rule_N0.5670kg_adr_10years_one",
-                    "25rule_N0.00141372kg_adr_10years_one",
-                    "5rule_N0.00141372kg_adr_10years_one",
+                    "25rule_Baseline",
+                    "25rule_N223kg_cont",
+                    "5rule_N223kg_cont",
+                    "25rule_B_cont",
+                    "5rule_B_cont",
+                    "25rule_N0.5670kg_cont",
+                    "5rule_N0.5670kg_cont",
+                    "25rule_N0.00141372kg_cont",
+                    "5rule_N0.00141372kg_cont",
+                    "25rule_N223kg_one",
+                    "5rule_N223kg_one",
+                    "25rule_B_one",
+                    "5rule_B_one",
+                    "25rule_N0.5670kg_one",
+                    "5rule_N0.5670kg_one",
+                    "25rule_N0.00141372kg_one",
+                    "5rule_N0.00141372kg_one",
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -477,7 +490,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "25_year_vs_5_year_rules"
+    simulation_name = "25_year_vs_5_year_rules_50"
 
     iam_solver = IAMSolver()
 
