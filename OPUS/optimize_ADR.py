@@ -259,7 +259,9 @@ class IAMSolver:
                 leftover_tax_revenue = 0
                 money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
+            print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
             print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+            print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
             print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.

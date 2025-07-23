@@ -151,14 +151,21 @@ class OpenAccessSolver:
             #J-Adding in Bond Revenue
             self.bond_revenue=0.0
 
-            if self.econ_params.bond is None:
+             
+            if self.econ_params.bond is None and self.econ_params.ouf == 0:
                 rate_of_return = rev_cost - discount_rate - depreciation_rate  
+
+            elif self.econ_params.bond is None and self.econ_params.ouf != 0:
+                ouf_per_shell = np.ones_like(collision_risk)*self.econ_params.ouf
+                rate_of_return = rev_cost - discount_rate - depreciation_rate - ((ouf_per_shell/self.econ_params.cost))
+
             else:
                 # bond_per_shell = self.econ_params.bond + (self.econ_params.bond * collision_risk)
                 bond_per_shell = np.ones_like(collision_risk) * self.econ_params.bond
                 bond = ((1-self.econ_params.comp_rate) * (bond_per_shell / self.econ_params.cost))
                 rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
                 self.bond_revenue=(1-self.econ_params.comp_rate)*bond_per_shell*fringe_total
+        
         else:
             # Other revenue models can be implemented here
             rate_of_return = 0 
