@@ -83,7 +83,8 @@ class OpenAccessSolver:
         rate_of_return = self.fringe_rate_of_return(state_next, collision_probability)
 
         # Calculate the excess rate of return
-        excess_returns = (rate_of_return - collision_probability*(1 + self.econ_params.tax)) * 100
+        ouf_per_shell = collision_probability*self.econ_params.ouf
+        excess_returns = (rate_of_return - collision_probability*(1 + self.econ_params.tax) - ((ouf_per_shell/self.econ_params.cost))) * 100
 
         # Save the collision_probability for all species
         self._last_collision_probability = collision_probability
@@ -150,14 +151,9 @@ class OpenAccessSolver:
 
             #J-Adding in Bond Revenue
             self.bond_revenue=0.0
-
              
-            if self.econ_params.bond is None and self.econ_params.ouf == 0:
+            if self.econ_params.bond is None:
                 rate_of_return = rev_cost - discount_rate - depreciation_rate  
-
-            elif self.econ_params.bond is None and self.econ_params.ouf != 0:
-                ouf_per_shell = np.ones_like(collision_risk)*self.econ_params.ouf
-                rate_of_return = rev_cost - discount_rate - depreciation_rate - ((ouf_per_shell/self.econ_params.cost))
 
             else:
                 # bond_per_shell = self.econ_params.bond + (self.econ_params.bond * collision_risk)

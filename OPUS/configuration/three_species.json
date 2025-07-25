@@ -31,7 +31,7 @@
     "simulation_name": "Indigo",
     "OPUS" :{
         "sat_lifetime" : 5,
-        "disposal_time" : 5,
+        "disposal_time" : 25,
         "discount_rate" : 0.05,
         "intercept" : 7.5e5,
         "coef" : 1.0e2,

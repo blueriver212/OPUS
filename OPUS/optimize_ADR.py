@@ -498,7 +498,7 @@ if __name__ == "__main__":
     # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
-                    "Baseline",
+                    #"Baseline",
                     # "p_05",
                     # "p_10",
                     # "p_15",
@@ -541,7 +541,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "20_shell_opt_test_n_0.00141372kg_full"
+    simulation_name = "ADR Fees 25 Year 25-Year"
 
     iam_solver = IAMSolver()
 
@@ -557,7 +557,7 @@ if __name__ == "__main__":
          # Map process_scenario function over scenario_files
          #results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
 
-
+       
     # sammie addition: set up different parameter lists
     ts = ["N_0.00141372kg"]
     # tp = np.linspace(0, 0.5, num=2)
