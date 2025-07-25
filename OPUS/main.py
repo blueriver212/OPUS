@@ -455,7 +455,7 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    "25rule_Baseline",
+                    # "25rule_Baseline",
                     "25rule_N223kg_cont",
                     "5rule_N223kg_cont",
                     "25rule_B_cont",
@@ -490,7 +490,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "25_year_vs_5_year_rules_50"
+    simulation_name = "25_year_vs_5_year_rules_with_baseline"
 
     iam_solver = IAMSolver()
 

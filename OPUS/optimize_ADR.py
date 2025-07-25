@@ -93,9 +93,10 @@ class IAMSolver:
 
         if current_params:
             # If parameters are found in the grid, apply them
-            econ_params.tax = float(current_params[4])
-            econ_params.bond = float(current_params[5]) if current_params[5] is not None else None
-            econ_params.ouf = float(current_params[6]) 
+            econ_params.removal_cost = float(current_params[4])
+            econ_params.tax = float(current_params[5])
+            econ_params.bond = float(current_params[6]) if current_params[6] is not None else None
+            econ_params.ouf = float(current_params[7]) 
 
         elif not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
             # Fallback to reading from CSV if not in the parameter grid
@@ -105,6 +106,7 @@ class IAMSolver:
             econ_params.bond = None
             econ_params.tax = 0
             econ_params.ouf = 0
+            econ_params.removal_cost = 5000000
 
 
 
@@ -114,6 +116,7 @@ class IAMSolver:
         counter = 0
 
         # sammie addition
+        # note: need to fix this and remove the unnecessary redundancies
         adr_params.time = 0
         removals = {}
         if (self.params is None) or (len(self.params) == 0):
@@ -351,7 +354,7 @@ class IAMSolver:
     def get_mocat(self):
         return self.MOCAT
 
-    def fit(self, target_species, target_shell, amount_remove, tax_rate, bond, ouf):
+    def fit(self, target_species, target_shell, amount_remove, removal_cost, tax_rate, bond, ouf):
         # sammie addition:
         # function to create a "grid" of the specified parameters and plug those into the IAMSolver
         # Inputs:
@@ -374,17 +377,18 @@ class IAMSolver:
         best_umpy = None
 
         # running through each parameter to set up configurations
-        params[0] = ["Baseline", "none", 1, 0, 0, 0, 0, [], []]
+        params[0] = ["Baseline", "none", 1, 0, 5000000, 0, 0, 0, [], []]
         for i, sp in enumerate(target_species):
             for k, shell in enumerate(target_shell):
                 for j, am in enumerate(amount_remove):
-                    for ii, tax in enumerate(tax_rate):
-                        for jj, bn in enumerate(bond):
-                            for fee in ouf:
-                                scenario_name = f"Scenario_{counter}"
-                                scenario_files.append(scenario_name)
-                                params[counter] = [scenario_name, sp, shell, am, tax, bn, fee, [], []]
-                                counter = counter + 1
+                    for ii, rc in enumerate(removal_cost):
+                        for jj, tax in enumerate(tax_rate):
+                            for kk, bn in enumerate(bond):
+                                for fee in ouf:
+                                    scenario_name = f"Scenario_{counter}"
+                                    scenario_files.append(scenario_name)
+                                    params[counter] = [scenario_name, sp, shell, am, rc, tax, bn, fee, [], []]
+                                    counter = counter + 1
 
         # scenario_files.append("Baseline")
         # setting up solver and MOCAT configuration
@@ -392,80 +396,82 @@ class IAMSolver:
         MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
         solver.params = params
 
-        # with ThreadPoolExecutor() as executor:
-        #     # Map process_scenario function over scenario_files
-        #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), repeat(params)))
+        with ThreadPoolExecutor() as executor:
+            # Map process_scenario function over scenario_files
+            results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), repeat(params)))
 
-        # # setting up dictionaries with the results from the solver
-        # for i, items in enumerate(results):
-        #     adr_dict.update(results[i][1])
-        #     welfare_dict.update(results[i][2])
+        # setting up dictionaries with the results from the solver
+        for i, items in enumerate(results):
+            adr_dict.update(results[i][1])
+            welfare_dict.update(results[i][2])
 
-        # # finding maximum welfare value and minimum UMPY value
-        # best_welfare = max(welfare_dict.values())            
-        # best_umpy = min(adr_dict.values())
+        # finding maximum welfare value and minimum UMPY value
+        best_welfare = max(welfare_dict.values())            
+        best_umpy = min(adr_dict.values())
 
-        # # updating the parameter grid with UMPY and welfare values in each scenario, then saving the indices of the
-        # # minimum UMPY and maximum welfare within the parameter grid
-        # for k, v in adr_dict.items():
-        #     for i, rows in enumerate(params):
-        #         if k in rows:
-        #             params[i][7] = v
-        #             if v == best_umpy and k == params[i][0]:
-        #                 umpy_scen = params[i][0]
-        #                 umpy_idx = i
+        # updating the parameter grid with UMPY and welfare values in each scenario, then saving the indices of the
+        # minimum UMPY and maximum welfare within the parameter grid
+        for k, v in adr_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][7] = v
+                    if v == best_umpy and k == params[i][0]:
+                        umpy_scen = params[i][0]
+                        umpy_idx = i
 
-        # for k, v in welfare_dict.items():
-        #     for i, rows in enumerate(params):
-        #         if k in rows:
-        #             params[i][8] = v
-        #             if v == best_welfare and k == params[i][0]:
-        #                 welfare_scen = params[i][0]
-        #                 welfare_idx = i
+        for k, v in welfare_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][8] = v
+                    if v == best_welfare and k == params[i][0]:
+                        welfare_scen = params[i][0]
+                        welfare_idx = i
 
-        # # finding the parameters for the best UMPY and welfare scenarios
-        # umpy_species = params[umpy_idx][1]
-        # umpy_shell = params[umpy_idx][2]
-        # umpy_am = params[umpy_idx][3]
-        # umpy_tax = params[umpy_idx][4]
-        # umpy_bond = params[umpy_idx][5]
-        # umpy_ouf = params[umpy_idx][6]
+        # finding the parameters for the best UMPY and welfare scenarios
+        umpy_species = params[umpy_idx][1]
+        umpy_shell = params[umpy_idx][2]
+        umpy_am = params[umpy_idx][3]
+        umpy_rc = params[umpy_idx][4]
+        umpy_tax = params[umpy_idx][5]
+        umpy_bond = params[umpy_idx][6]
+        umpy_ouf = params[umpy_idx][7]
 
-        # welfare_species = params[welfare_idx][1]
-        # welfare_shell = params[welfare_idx][2]
-        # welfare_am = params[welfare_idx][3]
-        # welfare_tax = params[welfare_idx][4]
-        # welfare_bond = params[welfare_idx][5]
-        # welfare_ouf = params[welfare_idx][6]
+        welfare_species = params[welfare_idx][1]
+        welfare_shell = params[welfare_idx][2]
+        welfare_am = params[welfare_idx][3]
+        welfare_rc = params[welfare_idx][4]
+        welfare_tax = params[welfare_idx][5]
+        welfare_bond = params[welfare_idx][6]
+        welfare_ouf = params[welfare_idx][7]
 
-        # # saving parameter grid
-        # if not os.path.exists(os.path.dirname(save_path)):
-        #     os.makedirs(os.path.dirname(save_path))
-        # with open(save_path, 'w') as json_file:
-        #     json.dump(params, json_file, indent=4)
+        # saving parameter grid
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+        with open(save_path, 'w') as json_file:
+            json.dump(params, json_file, indent=4)
 
-        # # saving best UMPY and welfare scenarios and the parameters used
-        # if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
-        #     os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
-        # with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
-        #     json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Shell":umpy_shell, "Amount Removed":umpy_am, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][8]}, 
-        #               {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Shell":welfare_shell, "Amount Removed":welfare_am, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][7], "Welfare":best_welfare},
-        #               {"Baseline Scenario":"Baseline", "Index":0, "Species":"None", "Shell":"None", "Amount Removed":"None", "Tax":"None", "Bond":"None", "OUF":"None", "UMPY":params[0][7], "Welfare":params[0][8]}], json_file, indent = 4) 
+        # saving best UMPY and welfare scenarios and the parameters used
+        if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
+            os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
+        with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
+            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Shell":umpy_shell, "Amount Removed":umpy_am, "Removal Cost":umpy_rc, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][9]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Shell":welfare_shell, "Amount Removed":welfare_am, "Removal Cost":welfare_rc, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][8], "Welfare":best_welfare},
+                      {"Baseline Scenario":"Baseline", "Index":0, "Species":"None", "Shell":"None", "Amount Removed":"None", "Tax":"None", "Bond":"None", "OUF":"None", "UMPY":params[0][8], "Welfare":params[0][9]}], json_file, indent = 4) 
 
-        # print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed in " + str(umpy_scen) + " scenario. ")
-        # print("Best UMPY Index: ", umpy_idx)
-        # print("Welfare in Best UMPY Scenario: ", params[umpy_idx][8])
+        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed in " + str(umpy_scen) + " scenario. ")
+        print("Best UMPY Index: ", umpy_idx)
+        print("Welfare in Best UMPY Scenario: ", params[umpy_idx][8])
         
-        # print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed in " + str(welfare_scen) + " scenario. ")
-        # print("Best Welfare Index: ", welfare_idx)
-        # print("UMPY in Best Welfare Scenario: ", params[welfare_idx][7])
+        print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed in " + str(welfare_scen) + " scenario. ")
+        print("Best Welfare Index: ", welfare_idx)
+        print("UMPY in Best Welfare Scenario: ", params[welfare_idx][7])
 
-        # # potentially saving the names of only the best two scenarios for simulations
-        # if umpy_scen == welfare_scen:
-        #     scenario_files = ["Baseline", umpy_scen]
-        # elif umpy_scen != welfare_scen:
-        #     scenario_files = ["Baseline", welfare_scen, umpy_scen]
-        # scenario_files = [umpy_scen, welfare_scen]
+        # potentially saving the names of only the best two scenarios for simulations
+        if umpy_scen == welfare_scen:
+            scenario_files = ["Baseline", umpy_scen]
+        elif umpy_scen != welfare_scen:
+            scenario_files = ["Baseline", welfare_scen, umpy_scen]
+        scenario_files = [umpy_scen, welfare_scen]
 
         return self, solver.MOCAT, scenario_files, best_umpy
 
@@ -560,8 +566,10 @@ if __name__ == "__main__":
     bond = [None] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
     target_shell = range(1,21) # last number should be the number of shells + 1
+    rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
+
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
-    opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, tax_rate=tax, bond=bond, ouf=ouf)
+    opt, MOCAT, scenario_files, best_umpy = IAMSolver.fit(iam_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
 
     # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
 
