@@ -318,5 +318,13 @@
         "n_remove": [20],
         "target_shell": [20],
         "n_max": 2
+    },
+    "adr_lnt":{
+        "target_species":["N_0.00141372kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10],
+        "remove_method": ["n"],
+        "n_remove": [5],
+        "target_shell": [20],
+        "n_max": 2
     }
 }

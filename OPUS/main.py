@@ -455,23 +455,33 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    "Baseline_2",
+                    "Baseline_3",
+                    "Baseline_4",
+                    "Baseline_5",
+                    "Baseline_6",
+                    "Baseline_7",
+                    "Baseline_8",
+                    "Baseline_9",
+                    "Baseline_10",
+                    "adr_lnt",
                     # "25rule_Baseline",
-                    "25rule_N223kg_cont",
-                    "5rule_N223kg_cont",
-                    "25rule_B_cont",
-                    "5rule_B_cont",
-                    "25rule_N0.5670kg_cont",
-                    "5rule_N0.5670kg_cont",
-                    "25rule_N0.00141372kg_cont",
-                    "5rule_N0.00141372kg_cont",
-                    "25rule_N223kg_one",
-                    "5rule_N223kg_one",
-                    "25rule_B_one",
-                    "5rule_B_one",
-                    "25rule_N0.5670kg_one",
-                    "5rule_N0.5670kg_one",
-                    "25rule_N0.00141372kg_one",
-                    "5rule_N0.00141372kg_one",
+                    # "25rule_N223kg_cont",
+                    # "5rule_N223kg_cont",
+                    # "25rule_B_cont",
+                    # "5rule_B_cont",
+                    # "25rule_N0.5670kg_cont",
+                    # "5rule_N0.5670kg_cont",
+                    # "25rule_N0.00141372kg_cont",
+                    # "5rule_N0.00141372kg_cont",
+                    # "25rule_N223kg_one",
+                    # "5rule_N223kg_one",
+                    # "25rule_B_one",
+                    # "5rule_B_one",
+                    # "25rule_N0.5670kg_one",
+                    # "5rule_N0.5670kg_one",
+                    # "25rule_N0.00141372kg_one",
+                    # "5rule_N0.00141372kg_one",
                     # "bond_0k_25yr",
                     # "bond_100k",
                     # # "bond_200k",
@@ -490,7 +500,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "25_year_vs_5_year_rules_with_baseline"
+    simulation_name = "checking_initial_umpy_n_welfare"
 
     iam_solver = IAMSolver()
 

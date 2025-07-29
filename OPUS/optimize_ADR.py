@@ -96,6 +96,8 @@ class IAMSolver:
             econ_params.removal_cost = float(current_params[4])
             econ_params.tax = float(current_params[5])
             econ_params.bond = float(current_params[6]) if current_params[6] is not None else None
+            if econ_params.bond == 0:
+                econ_params.bond = None
             econ_params.ouf = float(current_params[7]) 
 
         elif not scenario_name.startswith("Baseline") and os.path.exists(f"./OPUS/configuration/{scenario_name}.csv"):
@@ -253,19 +255,19 @@ class IAMSolver:
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
             
-            leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            # leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            if leftover_tax_revenue >= 0:
-                leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-                money_bucket_1 = money_bucket_2 + leftover_tax_revenue
-            else: 
-                leftover_tax_revenue = 0
-                money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            # if leftover_tax_revenue >= 0:
+            #     leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            #     money_bucket_1 = money_bucket_2 + leftover_tax_revenue
+            # else: 
+            #     leftover_tax_revenue = 0
+            #     money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
-            print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
-            print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
-            print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
+            # print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
+            # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+            # print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
+            # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
@@ -367,7 +369,7 @@ class IAMSolver:
         #   best_umpy -- the lowest UMPY value achieved in the scenarios
 
         params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf)*len(target_shell)+1)
-        scenario_files = ["Baseline"]
+        scenario_files = ["Scenario_0"]
         # params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf))
         # scenario_files = []
         counter = 1
@@ -377,7 +379,7 @@ class IAMSolver:
         best_umpy = None
 
         # running through each parameter to set up configurations
-        params[0] = ["Baseline", "none", 1, 0, 5000000, 0, 0, 0, [], []]
+        params[0] = ["Scenario_0", "none", 1, 0, 5000000, 0, 0, 0, [], []]
         for i, sp in enumerate(target_species):
             for k, shell in enumerate(target_shell):
                 for j, am in enumerate(amount_remove):
@@ -466,12 +468,12 @@ class IAMSolver:
         print("Best Welfare Index: ", welfare_idx)
         print("UMPY in Best Welfare Scenario: ", params[welfare_idx][7])
 
-        # potentially saving the names of only the best two scenarios for simulations
-        if umpy_scen == welfare_scen:
-            scenario_files = ["Baseline", umpy_scen]
-        elif umpy_scen != welfare_scen:
-            scenario_files = ["Baseline", welfare_scen, umpy_scen]
-        scenario_files = [umpy_scen, welfare_scen]
+        # # potentially saving the names of only the best two scenarios for simulations
+        # if umpy_scen == welfare_scen:
+        #     scenario_files = ["Baseline", umpy_scen]
+        # elif umpy_scen != welfare_scen:
+        #     scenario_files = ["Baseline", welfare_scen, umpy_scen]
+        # scenario_files = [umpy_scen, welfare_scen]
 
         return self, solver.MOCAT, scenario_files, best_umpy
 
@@ -498,7 +500,7 @@ if __name__ == "__main__":
     # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
-                    #"Baseline",
+                    # "Baseline",
                     # "p_05",
                     # "p_10",
                     # "p_15",
@@ -541,7 +543,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "ADR Fees 25 Year 25-Year"
+    simulation_name = "scatter_plot_test"
 
     iam_solver = IAMSolver()
 
@@ -552,20 +554,20 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    #params = []
+    # params = []
     #with ThreadPoolExecutor() as executor:
          # Map process_scenario function over scenario_files
          #results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), params))
 
        
     # sammie addition: set up different parameter lists
-    ts = ["N_0.00141372kg"]
+    ts = ["N_223kg"]
     # tp = np.linspace(0, 0.5, num=2)
     tn = [20]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
     bond = [None] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
-    target_shell = range(1,21) # last number should be the number of shells + 1
+    target_shell = range(10,16) # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values

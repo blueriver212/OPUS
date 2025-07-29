@@ -919,12 +919,22 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
+                for idx, scenario in enumerate(labels):
+                        if (idx < 11):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 10) and (idx < 21):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 20) and (idx < 31):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        else:
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
                 
-                plt.scatter(final_umpy_values, final_welfare_values, marker='o', c=final_umpy_values, cmap="tab20")
-                
-                # Annotate each point with its scenario label
-                for x, y, label in zip(final_umpy_values, final_welfare_values, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
+                # # Annotate each point with its scenario label
+                # for x, y, label in zip(final_umpy_values, final_welfare_values, labels):
+                #         plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
                         
                 plt.xlabel("Final UMPY (kg/year)")
                 plt.ylabel("Final Welfare ($)")
