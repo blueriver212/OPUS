@@ -636,15 +636,22 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(tax_values, final_welfare_values, marker='o', c=tax_values, cmap="tab20")
-                
-                # Annotate each point with its scenario label
-                for x, y, label in zip(tax_values, final_welfare_values, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
-                        
+
+                for idx, scenario in enumerate(labels):
+                        if (idx < 11):
+                                plt.scatter(tax_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 10) and (idx < 21):
+                                plt.scatter(tax_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 20) and (idx < 31):
+                                plt.scatter(tax_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        else:
+                                plt.scatter(tax_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
                 plt.xlabel("Tax Rate")
                 plt.ylabel("Final Welfare ($)")
-                plt.title("Tax Rate vs Final Welfare by Scenario")
+                # plt.title("Tax Rate vs Final Welfare by Scenario")
                 plt.grid(True)
                 plt.tight_layout()
                 plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
@@ -690,15 +697,22 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(tax_values, final_umpy_values, marker='o', c=tax_values, cmap="tab20")
-                
-                # Annotate each point with its scenario label
-                for x, y, label in zip(tax_values, final_umpy_values, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
+                for idx, scenario in enumerate(labels):
+                        if (idx < 11):
+                                plt.scatter(tax_values[idx], final_umpy_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 10) and (idx < 21):
+                                plt.scatter(tax_values[idx], final_umpy_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 20) and (idx < 31):
+                                plt.scatter(tax_values[idx], final_umpy_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        else:
+                                plt.scatter(tax_values[idx], final_umpy_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
                         
                 plt.xlabel("Tax Rate")
                 plt.ylabel("Final UMPY (kg/year)")
-                plt.title("Tax Rate vs Final UMPY by Scenario")
+                # plt.title("Tax Rate vs Final UMPY by Scenario")
                 plt.grid(True)
                 plt.tight_layout()
                 plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
@@ -820,7 +834,7 @@ class PlotHandler:
                                 plt.plot(x_axis, welfare_list, label=scenario_name, marker='>')
                         labels.append(scenario_name)
                         
-                plt.title(f"Welfare Over Time")
+                # plt.title(f"Welfare Over Time")
                 plt.xlabel("Time Steps (Years)")
                 plt.ylabel("Welfare ($)")
                 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -877,15 +891,21 @@ class PlotHandler:
                 
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
-                plt.scatter(final_umpy_values, final_total_counts, marker='o', c=final_umpy_values, cmap="tab20")
-                
-                # Annotate each point with its scenario label
-                for x, y, label in zip(final_umpy_values, final_total_counts, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
-                        
+                for idx, scenario in enumerate(labels):
+                        if (idx < 11):
+                                plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 10) and (idx < 21):
+                                plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 20) and (idx < 31):
+                                plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        else:
+                                plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
                 plt.xlabel("Final UMPY (kg/year)")
                 plt.ylabel("Final Total Count of Objects")
-                plt.title("Final UMPY vs Final Total Count by Scenario")
+                # plt.title("Final UMPY vs Final Total Count by Scenario")
                 plt.grid(True)
                 plt.tight_layout()
                 plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
@@ -938,7 +958,7 @@ class PlotHandler:
                         
                 plt.xlabel("Final UMPY (kg/year)")
                 plt.ylabel("Final Welfare ($)")
-                plt.title("Final UMPY vs Final Welfare by Scenario")
+                # plt.title("Final UMPY vs Final Welfare by Scenario")
                 plt.grid(True)
                 plt.tight_layout()
                 plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
@@ -1005,7 +1025,7 @@ class PlotHandler:
                         axes[0].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
                 axes[0].set_xlabel("Final UMPY (kg/year)")
                 axes[0].set_ylabel("Final Total Count of Objects")
-                axes[0].set_title("Final UMPY vs. Total Count")
+                # axes[0].set_title("Final UMPY vs. Total Count")
                 axes[0].grid(True, zorder=0)
                 
                 # Right subplot: Final UMPY vs. Final Collision Probability
@@ -1014,7 +1034,7 @@ class PlotHandler:
                         axes[1].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
                 axes[1].set_xlabel("Final UMPY (kg/year)")
                 axes[1].set_ylabel("Final Collision Probability")
-                axes[1].set_title("Final UMPY vs. Collision Probability")
+                # axes[1].set_title("Final UMPY vs. Collision Probability")
                 axes[1].grid(True, zorder=0)
                 
                 plt.tight_layout()
@@ -1062,7 +1082,7 @@ class PlotHandler:
                         else:
                                 plt.plot(x_axis, launches, label=scenario_name, marker='>')
                         
-                plt.title(f"Total Launches across all shells")
+                # plt.title(f"Total Launches across all shells")
                 plt.xlabel("Time Steps (Years)")
                 plt.ylabel("Total Launches")
                 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -1151,7 +1171,8 @@ class PlotHandler:
                                 else:
                                         ax.plot(x_axis, counts, label=scenario_name, marker='>')
 
-                        ax.set_title(f"Change in Total Count across all shells: {species}")
+                        # ax.set_title(f"Change in Total Count across all shells: {species}")
+                        ax.set_title({species})
                         ax.set_xlabel("Time Steps (or Years)")
                         ax.set_ylabel("Change in Total Count")
                         ax.grid(True)
