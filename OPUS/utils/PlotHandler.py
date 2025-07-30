@@ -638,11 +638,11 @@ class PlotHandler:
                 plt.figure(figsize=(8, 6))
 
                 for idx, scenario in enumerate(labels):
-                        if (idx < 11):
+                        if (idx < 10):
                                 plt.scatter(tax_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 10) and (idx < 21):
+                        elif (idx > 9) and (idx < 21):
                                 plt.scatter(tax_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 20) and (idx < 31):
+                        elif (idx > 19) and (idx < 31):
                                 plt.scatter(tax_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
                         else:
                                 plt.scatter(tax_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
@@ -698,11 +698,11 @@ class PlotHandler:
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
                 for idx, scenario in enumerate(labels):
-                        if (idx < 11):
+                        if (idx < 10):
                                 plt.scatter(tax_values[idx], final_umpy_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 10) and (idx < 21):
+                        elif (idx > 9) and (idx < 21):
                                 plt.scatter(tax_values[idx], final_umpy_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 20) and (idx < 31):
+                        elif (idx > 19) and (idx < 31):
                                 plt.scatter(tax_values[idx], final_umpy_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
                         else:
                                 plt.scatter(tax_values[idx], final_umpy_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
@@ -892,11 +892,11 @@ class PlotHandler:
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
                 for idx, scenario in enumerate(labels):
-                        if (idx < 11):
+                        if (idx < 10):
                                 plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 10) and (idx < 21):
+                        elif (idx > 9) and (idx < 21):
                                 plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 20) and (idx < 31):
+                        elif (idx > 19) and (idx < 31):
                                 plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
                         else:
                                 plt.scatter(final_umpy_values[idx], final_total_counts[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
@@ -940,11 +940,11 @@ class PlotHandler:
                 # --- Create scatter plot ---
                 plt.figure(figsize=(8, 6))
                 for idx, scenario in enumerate(labels):
-                        if (idx < 11):
+                        if (idx < 10):
                                 plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 10) and (idx < 21):
+                        elif (idx > 9) and (idx < 21):
                                 plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 20) and (idx < 31):
+                        elif (idx > 19) and (idx < 31):
                                 plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
                         else:
                                 plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
@@ -1232,7 +1232,7 @@ class PlotHandler:
                 # 4) Labels and title
                 plt.xlabel("Year (timestep)")
                 plt.ylabel("UMPY (kg/year)")
-                plt.title(f"UMPY Evolution Over Time")
+                # plt.title(f"UMPY Evolution Over Time")
                 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                 plt.tight_layout()
                 plt.grid(True)
@@ -1261,7 +1261,7 @@ class PlotHandler:
                 # 4) Labels and title
                 plt.xlabel("Year (timestep)")
                 plt.ylabel("UMPY (kg/year)")
-                plt.title("UMPY Evolution Over Time")
+                # plt.title("UMPY Evolution Over Time")
                 plt.legend()
                 plt.tight_layout()
 
