@@ -255,26 +255,26 @@ class IAMSolver:
                 print("ADR Counter: " + str(counter))
                 print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
             
-            # leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            # if leftover_tax_revenue >= 0:
-            #     leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-            #     money_bucket_1 = money_bucket_2 + leftover_tax_revenue
-            # else: 
-            #     leftover_tax_revenue = 0
-            #     money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+            if leftover_tax_revenue >= 0:
+                leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                money_bucket_1 = money_bucket_2 + leftover_tax_revenue
+            else: 
+                leftover_tax_revenue = 0
+                money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            # print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
-            # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
-            # print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
-            # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
+            print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
+            print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+            print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
+            print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
 
             # Update the constellation satellites for the next period - should only be 5%.
             for i in range(constellation_start_slice, constellation_end_slice):
                 if lam[i] is not None:
                     lam[i] = lam[i] * 0.05
 
-            #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
+            lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
         
             # Record propagated environment data
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
@@ -501,29 +501,6 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     # "Baseline",
-                    # "p_05",
-                    # "p_10",
-                    # "p_15",
-                    # "p_20",
-                    # "p_25",
-                    # "p_35",
-                    # "p_50",
-                    # "p_65",
-                    # "p_75",
-                    # "p_85",
-                    # "p_90",
-                    # "p_95",
-                    # "p_100"
-                    # "n_5",
-                    # "n_10",
-                    # "n_25",
-                    # "n_35",
-                    # "n_50",
-                    # "n_75",
-                    # "n_100",
-                    # "n_150",
-                    # "n_200",
-                    # "n_250"
                     # "adr_b",
                     # "bond_0k_25yr",
                     # "bond_100k",
@@ -543,7 +520,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "20_shell_opt_test_b_full"
+    simulation_name = "shell_switching_test"
 
     iam_solver = IAMSolver()
 
@@ -561,7 +538,7 @@ if __name__ == "__main__":
 
        
     # sammie addition: set up different parameter lists
-    ts = ["B"]
+    ts = ["N_223kg"]
     # tp = np.linspace(0, 0.5, num=2)
     tn = [20]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]

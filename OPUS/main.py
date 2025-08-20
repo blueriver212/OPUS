@@ -511,9 +511,9 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # # sammie addition: set up different parameter lists
