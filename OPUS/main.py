@@ -193,130 +193,103 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
-        #J- Last year tax revenue and removal cost initialization
-        tax_revenue_lastyr = 0.0
-        removal_cost = 5000000
-        leftover_tax_revenue = 0.0
-        money_bucket_2 = 0.0
-        money_bucket_1 = 0.0
+        # J- Initialize the economic calculator once
+        econ_calculator = EconCalculations(econ_params, initial_removal_cost=5000000)
 
         for time_idx in tf:
 
             print("Starting year ", time_idx)
             
-            #J- Tax Revenue read in
-            total_tax_revenue = float(open_access._last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
+            # MOVED: These are now calculated and stored later
+            # total_tax_revenue = float(open_access._last_total_revenue)
+            # shell_revenue = open_access.last_tax_revenue.tolist()
 
-            # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
             tspan = np.linspace(0, 1, 2)
-            
-            # State of the environment during a simulation loop
             fringe_initial_guess = None
 
-            # Propagate the model and take the final state of the environment
+            # Propagate the model
             propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam)
             propagated_environment = propagated_environment[-1, :] 
             propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
-                                                    fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
+                                                fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
-            # sammie addition: adding in removals left from econ-adr branch
-            adr_params.removals_left  = int(tax_revenue_lastyr // removal_cost)
+            # --- ADR Section ---
+            # J- Get the number of removals from our new econ calculations class class
+            adr_params.removals_left = econ_calculator.get_removals_for_current_period()
 
-            if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
+            if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond is None and econ_params.tax == 0 and econ_params.ouf == 0):
                 adr_params.removals_left = 20
             
             before = propagated_environment.copy() 
-            # sammie addition: runs the ADR function if the current year is one of the specified removal years
+            num_removed_this_period = 0 # Initialize counter for removed objects
             adr_params.time = time_idx
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
-                propagated_environment, num_removed = implement_adr2(propagated_environment,self.MOCAT,adr_params)
+                propagated_environment, num_removed_this_period = implement_adr2(propagated_environment, self.MOCAT, adr_params)
                 counter = counter + 1
-                removals[str(time_idx)] = num_removed
+                removals[str(time_idx)] = num_removed_this_period
                 print("ADR Counter: " + str(counter))
-                print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
-            
-            # leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            # if leftover_tax_revenue >= 0:
-            #     leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-            #     money_bucket_1 = money_bucket_2 + leftover_tax_revenue
-            # else: 
-            #     leftover_tax_revenue = 0
-            #     money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-
-            # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
-            # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
-
-            # Update the constellation satellites for the next period - should only be 5%.
+            # Update the constellation satellites for the next period
             for i in range(constellation_start_slice, constellation_end_slice):
                 if lam[i] is not None:
-                    lam[i] = lam[i] * 0.05
+                    lam[i] *= 0.05
 
-            #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
-        
             # Record propagated environment data
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
-                # 0 based index 
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
-            # Fringe Equilibrium Controller
+            # --- Fringe Equilibrium Controller Section ---
             start_time = time.time()
             print(f"Now starting period {time_idx}...")
-
+            
             open_access = OpenAccessSolver(
                 self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
+                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
             
             collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
             ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
-
-            # Calculate solver_guess
             solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
 
             open_access = OpenAccessSolver(
                 self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
                 econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
 
-            # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
-
-            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-            total_tax_revenue = float(open_access.last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
             
-            # Update the initial conditions for the next period
             lam[fringe_start_slice:fringe_end_slice] = launch_rate
-
             elapsed_time = time.time() - start_time
             print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
-
-            # Update the current environment
+            
             current_environment = propagated_environment
 
-            #J- Adding in Economic Welfare
-            fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
-            total_fringe_sat = np.sum(fringe_pop)
-            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
+            # --- Process Economics using the new class ---
+            new_total_tax_revenue = float(open_access._last_total_revenue)
+            
+            welfare, leftover_revenue = econ_calculator.process_period_economics(
+                num_actually_removed=num_removed_this_period,
+                current_environment=current_environment,
+                fringe_slices=(fringe_start_slice, fringe_end_slice),
+                new_tax_revenue=new_total_tax_revenue
+            )
 
-            #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
-            money_bucket_2 = money_bucket_1
-            tax_revenue_lastyr = float(open_access._last_total_revenue)
+            # --- Save Results ---
+            # Read revenues for storage
+            shell_revenue = open_access.last_tax_revenue.tolist()
+            total_tax_revenue_for_storage = float(open_access._last_total_revenue)
 
-            # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
                 "ror": ror,
                 "collision_probability": collision_probability,
-                "launch_rate" : launch_rate, 
+                "launch_rate": launch_rate,
                 "collision_probability_all_species": col_probability_all_species,
-                "umpy": umpy, 
+                "umpy": umpy,
                 "excess_returns": excess_returns,
-                "ICs": x0, # sammie addition
-                "excess_returns": excess_returns,
-                "tax_revenue_total": total_tax_revenue,
+                "ICs": x0,
+                "tax_revenue_total": total_tax_revenue_for_storage, # Storing this period's generated tax
                 "tax_revenue_by_shell": shell_revenue,
-                "welfare": welfare,
-                "bond_revenue":open_access.bond_revenue,
+                "welfare": welfare, # Using the welfare calculated by our new class
+                "bond_revenue": open_access.bond_revenue,
+                "leftover_revenue": leftover_revenue # You can optionally store this too
             }
 
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
@@ -528,7 +501,7 @@ if __name__ == "__main__":
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    #PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
 
     # normalize umpy and welfare over same value or something? take average??? 
     # look into similar method for current optimization of just umpy
