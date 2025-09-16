@@ -214,7 +214,7 @@ class IAMSolver:
                                                 fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
             # --- ADR Section ---
-            # J- Get the number of removals from our new econ calculations class class
+            # J- Get the number of removals from our new econ calculations class
             adr_params.removals_left = econ_calculator.get_removals_for_current_period()
 
             if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond is None and econ_params.tax == 0 and econ_params.ouf == 0):
@@ -289,7 +289,7 @@ class IAMSolver:
                 "tax_revenue_by_shell": shell_revenue,
                 "welfare": welfare, # Using the welfare calculated by our new class
                 "bond_revenue": open_access.bond_revenue,
-                "leftover_revenue": leftover_revenue # You can optionally store this too
+                "leftover_revenue": leftover_revenue
             }
 
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)

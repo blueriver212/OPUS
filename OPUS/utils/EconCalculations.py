@@ -5,7 +5,6 @@ class EconCalculations:
     A class to encapsulate and manage economic calculations within the simulation loop.
     
     This class holds the state of economic variables that persist between time periods.
-    It now correctly handles the rollover of unused funds for future ADR.
     """
     def __init__(self, econ_params, initial_removal_cost=5000000.0):
         """
@@ -20,7 +19,6 @@ class EconCalculations:
         self.removal_cost = initial_removal_cost
 
         # --- State Variable ---
-        # CORRECTED: This single variable now represents the entire pool of money
         # available for removals at the start of a period (previous revenue + all rollovers).
         self.total_funds_for_removals = 0.0
 
@@ -32,7 +30,6 @@ class EconCalculations:
         Returns:
             int: The number of affordable removals.
         """
-        # CORRECTED: The calculation is now based on the total cumulative funds.
         if self.removal_cost > 0:
             return int(self.total_funds_for_removals // self.removal_cost)
         return 0
