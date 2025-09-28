@@ -15,6 +15,7 @@ from itertools import repeat
 from utils.ADRParameters import ADRParameters
 from utils.ADR import implement_adr
 from utils.ADR import implement_adr2
+from utils.ADR import optimize_ADR_removal
 import os
 
 
@@ -140,17 +141,20 @@ class IAMSolver:
                         adr_params.n_remove = [self.params[3]]
                         adr_params.remove_method = ["n"]
                     adr_params.target_shell = [self.params[2]]
+                    adr_params.shell_order = [12, 14, 13, 15, 17, 11, 18, 16, 19, 20, 10, 9, 8, 5, 6, 7, 4, 3, 2, 1]
             else:
                 adr_params.target_species = []
                 adr_params.p_remove = 0
                 adr_params.remove_method = ["p"]
 
-            adr_params.adr_times = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
+            adr_params.adr_times = np.arange(2, self.MOCAT.scenario_properties.simulation_duration+1)
+            
             
             if current_params:
             # If parameters are found in the grid, apply them
                 adr_params.target_species = [current_params[1]]
                 adr_params.target_shell = [current_params[2]]
+                adr_params.shell_order = [12, 14, 13, 15, 17, 11, 18, 16, 19, 20, 10, 9, 8, 5, 6, 7, 4, 3, 2, 1]
                 if current_params[3] > 1:
                     adr_params.n_remove = [current_params[3]] 
                     adr_params.remove_method = ["n"]
@@ -219,6 +223,11 @@ class IAMSolver:
         money_bucket_2 = 0.0
         money_bucket_1 = 0.0
 
+        shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
+        opt_path = {}
+        temp_simulation_results = {}
+        opt_comp = {}
+
         for time_idx in tf:
 
             print("Starting year ", time_idx)
@@ -240,105 +249,250 @@ class IAMSolver:
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
             # sammie addition: adding in removals left from econ-adr branch
-            # adr_params.removals_left  = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
+            adr_params.removals_left  = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
+            if adr_params.removals_left < 0:
+                print('I know whats going on here. I know whats going on here. Okay? I do. And if you want me to wander backstage to spill the beans... Im the only one out of the loop, it would seem... and if we check my point total here— I dont NEED to walk to the front, because I know what it is. Its a big ol GOOSE EGG, GANG. Its a FAT ZERO. HELLO!! A little LATE ADDITION to the numerical symbol chart brought to us from our friends in Arabia, a little bit of trivia that I happen to know about the history of numbers. That kind of little tidbit would serve me well in most trivia games, unless it had been RIGGED FROM THE BEGINNING! Oh, Ive only just BEGUN to pull the thread on this sweater, friends. You would THINK in a game where there are only TWO possible correct choices, that one would STUMBLE INTO the right answer every so often, wouldnt you? In fact, the probability of NEVER guessing right in the full game is a STATISTICAL WONDER, and yet, HERE WE ARE. Introduced at the top of the game as a champion, what do you think that means? Icarus, flying too close to the sun. But it seems Daedalus, our little master crafter over here, had some wax wings of his own, didnt he? Wanted to see his son fall. Fall from the sky. Oh, how CLOSE TO THE SUN he flew! Well Im NOT HAVING IT. I solved your labyrinth, puzzle master! The minotaurs escaped and youre gonna get the horns, buddy! I CANNOT WIN!')
+                removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove),'n':int(n),'counter':int(counter),'status':'found a problem'}
+                indicator = 1
+            removals_left_copy = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
 
             if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
                 adr_params.removals_left = 20
             
             before = propagated_environment.copy() 
+            opt_comp[str(time_idx)] = {}
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
             adr_params.time = time_idx
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
-                propagated_environment, num_removed = implement_adr2(propagated_environment,self.MOCAT,adr_params)
-                counter = counter + 1
-                removals[str(time_idx)] = num_removed
-                print("ADR Counter: " + str(counter))
-                print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
-            
-            leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                for cs in shells:
+                    adr_params.target_shell = [cs]
+                    if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
+                        propagated_environment, removal_dict = optimize_ADR_removal(propagated_environment,self.MOCAT,adr_params)
+                        counter = counter + 1
+                        removals[str(time_idx)] = removal_dict
+                        print("ADR Counter: " + str(counter))
+                        print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+                    
+                    leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            if leftover_tax_revenue >= 0:
-                leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-                money_bucket_1 = money_bucket_2 + leftover_tax_revenue
+                    if leftover_tax_revenue >= 0:
+                        leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                        money_bucket_1 = money_bucket_2 + leftover_tax_revenue
+                    else: 
+                        leftover_tax_revenue = 0
+                        money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+
+                    # print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
+                    # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+                    # print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
+                    # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
+
+                    # Update the constellation satellites for the next period - should only be 5%.
+                    for i in range(constellation_start_slice, constellation_end_slice):
+                        if lam[i] is not None:
+                            lam[i] = lam[i] * 0.05
+
+                    # lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
+                
+                    # Record propagated environment data
+                    for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+                        # 0 based index 
+                        species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+
+                    # Fringe Equilibrium Controller
+                    start_time = time.time()
+                    print(f"Now starting period {time_idx}...")
+
+                    open_access = OpenAccessSolver(
+                        self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
+                        econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
+                    
+                    collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
+                    ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
+
+                    # Calculate solver_guess
+                    solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
+
+                    open_access = OpenAccessSolver(
+                        self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
+                        econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
+
+                    # Solve for equilibrium launch rates
+                    launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
+
+                    #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
+                    total_tax_revenue = float(open_access.last_total_revenue)
+                    shell_revenue = open_access.last_tax_revenue.tolist()
+                    
+                    # Update the initial conditions for the next period
+                    lam[fringe_start_slice:fringe_end_slice] = launch_rate
+
+                    elapsed_time = time.time() - start_time
+                    print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
+
+                    # Update the current environment
+                    current_environment = propagated_environment
+
+                    #J- Adding in Economic Welfare
+                    fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
+                    total_fringe_sat = np.sum(fringe_pop)
+                    welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
+
+                    opt_comp[str(time_idx)][str(cs)] = {'Welfare':welfare, 'UMPY':umpy}
+
+                    #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
+                    money_bucket_2 = money_bucket_1
+                    tax_revenue_lastyr = float(open_access._last_total_revenue)
+
+                    if not scenario_name.startswith("Baseline"):
+
+                        if (time_idx != 1) and (cs != 1):
+                            if (opt_comp[str(time_idx)][str(cs)]['Welfare'] > opt_comp[str(time_idx)][str(cs - 1)]['Welfare']):
+                                opt_path[str(time_idx)] = removals[str(time_idx)]
+                                opt_env = propagated_environment
+                                opt_removals_left = adr_params.removals_left
+                                opt_shell = cs
+                            propagated_environment = before
+                            adr_params.removals_left = removals_left_copy
+                            # Save the results that will be used for plotting later
+                            temp_simulation_results[cs] = {
+                                "ror": ror,
+                                "collision_probability": collision_probability,
+                                "launch_rate" : launch_rate, 
+                                "collision_probability_all_species": col_probability_all_species,
+                                "umpy": umpy, 
+                                "excess_returns": excess_returns,
+                                "ICs": x0, # sammie addition
+                                "excess_returns": excess_returns,
+                                "tax_revenue_total": total_tax_revenue,
+                                "tax_revenue_by_shell": shell_revenue,
+                                "welfare": welfare,
+                                "bond_revenue":open_access.bond_revenue,
+                            }
+                        # elif time_idx == 2:
+                        #     opt_path[str(time_idx)] = removals[str(time_idx)]
+                        #     opt_env = propagated_environment
+                        #     opt_removals_left = adr_params.removals_left
+                        #     # Save the results that will be used for plotting later
+                        #     simulation_results[time_idx] = {
+                        #         "ror": ror,
+                        #         "collision_probability": collision_probability,
+                        #         "launch_rate" : launch_rate, 
+                        #         "collision_probability_all_species": col_probability_all_species,
+                        #         "umpy": umpy, 
+                        #         "excess_returns": excess_returns,
+                        #         "ICs": x0, # sammie addition
+                        #         "excess_returns": excess_returns,
+                        #         "tax_revenue_total": total_tax_revenue,
+                        #         "tax_revenue_by_shell": shell_revenue,
+                        #         "welfare": welfare,
+                        #         "bond_revenue":open_access.bond_revenue,
+                        #     }
+                        else: 
+                            opt_path['1'] = {'Shell 0':{'n_remove':0, 'Order':1} }
+                            simulation_results[time_idx] = {
+                                "ror": ror,
+                                "collision_probability": collision_probability,
+                                "launch_rate" : launch_rate, 
+                                "collision_probability_all_species": col_probability_all_species,
+                                "umpy": umpy, 
+                                "excess_returns": excess_returns,
+                                "ICs": x0, # sammie addition
+                                "excess_returns": excess_returns,
+                                "tax_revenue_total": total_tax_revenue,
+                                "tax_revenue_by_shell": shell_revenue,
+                                "welfare": welfare,
+                                "bond_revenue":open_access.bond_revenue,
+                            }
+                current_environment = opt_env
+                adr_params.removals_left = opt_removals_left
+                simulation_results[time_idx] = temp_simulation_results[opt_shell]
             else: 
-                leftover_tax_revenue = 0
-                money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                if leftover_tax_revenue >= 0:
+                    leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
+                    money_bucket_1 = money_bucket_2 + leftover_tax_revenue
+                else: 
+                    leftover_tax_revenue = 0
+                    money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
 
-            print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
-            print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
-            print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
-            print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
+                # print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
+                # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
+                # print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
+                # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
 
-            # Update the constellation satellites for the next period - should only be 5%.
-            for i in range(constellation_start_slice, constellation_end_slice):
-                if lam[i] is not None:
-                    lam[i] = lam[i] * 0.05
+                # Update the constellation satellites for the next period - should only be 5%.
+                for i in range(constellation_start_slice, constellation_end_slice):
+                    if lam[i] is not None:
+                        lam[i] = lam[i] * 0.05
 
-            lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
-        
-            # Record propagated environment data
-            for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
-                # 0 based index 
-                species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
-
-            # Fringe Equilibrium Controller
-            start_time = time.time()
-            print(f"Now starting period {time_idx}...")
-
-            open_access = OpenAccessSolver(
-                self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
+                # lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
             
-            collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
-            ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
+                # Record propagated environment data
+                for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+                    # 0 based index 
+                    species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
-            # Calculate solver_guess
-            solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
+                # Fringe Equilibrium Controller
+                start_time = time.time()
+                print(f"Now starting period {time_idx}...")
 
-            open_access = OpenAccessSolver(
-                self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
-                econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
+                open_access = OpenAccessSolver(
+                    self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
+                    econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
+                
+                collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
+                ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
 
-            # Solve for equilibrium launch rates
-            launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
+                # Calculate solver_guess
+                solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
 
-            #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-            total_tax_revenue = float(open_access.last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
-            
-            # Update the initial conditions for the next period
-            lam[fringe_start_slice:fringe_end_slice] = launch_rate
+                open_access = OpenAccessSolver(
+                    self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
+                    econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
 
-            elapsed_time = time.time() - start_time
-            print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
+                # Solve for equilibrium launch rates
+                launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
 
-            # Update the current environment
-            current_environment = propagated_environment
+                #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
+                total_tax_revenue = float(open_access.last_total_revenue)
+                shell_revenue = open_access.last_tax_revenue.tolist()
+                
+                # Update the initial conditions for the next period
+                lam[fringe_start_slice:fringe_end_slice] = launch_rate
 
-            #J- Adding in Economic Welfare
-            fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
-            total_fringe_sat = np.sum(fringe_pop)
-            welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
+                elapsed_time = time.time() - start_time
+                print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
 
-            #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
-            money_bucket_2 = money_bucket_1
-            tax_revenue_lastyr = float(open_access._last_total_revenue)
+                # Update the current environment
+                current_environment = propagated_environment
 
-            # Save the results that will be used for plotting later
-            simulation_results[time_idx] = {
-                "ror": ror,
-                "collision_probability": collision_probability,
-                "launch_rate" : launch_rate, 
-                "collision_probability_all_species": col_probability_all_species,
-                "umpy": umpy, 
-                "excess_returns": excess_returns,
-                "ICs": x0, # sammie addition
-                "excess_returns": excess_returns,
-                "tax_revenue_total": total_tax_revenue,
-                "tax_revenue_by_shell": shell_revenue,
-                "welfare": welfare,
-                "bond_revenue":open_access.bond_revenue,
-            }
+                #J- Adding in Economic Welfare
+                fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
+                total_fringe_sat = np.sum(fringe_pop)
+                welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
+
+                opt_comp[str(time_idx)] = {'0':{'Welfare':welfare, 'UMPY':umpy}}
+                # opt_comp[time_idx]['0']['UMPY'] = umpy
+
+                #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
+                money_bucket_2 = money_bucket_1
+                tax_revenue_lastyr = float(open_access._last_total_revenue)
+                opt_path[str(time_idx)] = {'Shell 0':{'n_remove':0, 'Order':1} }
+                simulation_results[time_idx] = {
+                    "ror": ror,
+                    "collision_probability": collision_probability,
+                    "launch_rate" : launch_rate, 
+                    "collision_probability_all_species": col_probability_all_species,
+                    "umpy": umpy, 
+                    "excess_returns": excess_returns,
+                    "ICs": x0, # sammie addition
+                    "excess_returns": excess_returns,
+                    "tax_revenue_total": total_tax_revenue,
+                    "tax_revenue_by_shell": shell_revenue,
+                    "welfare": welfare,
+                    "bond_revenue":open_access.bond_revenue,
+                }
 
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
@@ -347,11 +501,17 @@ class IAMSolver:
         self.adr_dict = var.adr_dict
         self.welfare_dict[scenario_name] = welfare
 
-        save_path = f"./Results/{simulation_name}/{scenario_name}/objects_removed.json"
-        if not os.path.exists(os.path.dirname(save_path)):
-            os.makedirs(os.path.dirname(save_path))
-        with open(save_path, 'w') as json_file:
-            json.dump([removals], json_file, indent=4)
+        removal_save_path = f"./Results/{simulation_name}/{scenario_name}/removal_path.json"
+        if not os.path.exists(os.path.dirname(removal_save_path)):
+            os.makedirs(os.path.dirname(removal_save_path))
+        with open(removal_save_path, 'w') as json_file:
+            json.dump(opt_path, json_file, indent=4)
+
+        opt_save_path = f"./Results/{simulation_name}/{scenario_name}/opt_comparison_values.json"
+        if not os.path.exists(os.path.dirname(opt_save_path)):
+            os.makedirs(os.path.dirname(opt_save_path))
+        with open(opt_save_path, 'w') as json_file:
+            json.dump(opt_comp, json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
@@ -398,82 +558,82 @@ class IAMSolver:
         MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
         solver.params = params
 
-        # with ThreadPoolExecutor() as executor:
-        #     # Map process_scenario function over scenario_files
-        #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), repeat(params)))
+        with ThreadPoolExecutor() as executor:
+            # Map process_scenario function over scenario_files
+            results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), repeat(params)))
 
-        # # setting up dictionaries with the results from the solver
-        # for i, items in enumerate(results):
-        #     adr_dict.update(results[i][1])
-        #     welfare_dict.update(results[i][2])
+        # setting up dictionaries with the results from the solver
+        for i, items in enumerate(results):
+            adr_dict.update(results[i][1])
+            welfare_dict.update(results[i][2])
 
-        # # finding maximum welfare value and minimum UMPY value
-        # best_welfare = max(welfare_dict.values())            
-        # best_umpy = min(adr_dict.values())
+        # finding maximum welfare value and minimum UMPY value
+        best_welfare = max(welfare_dict.values())            
+        best_umpy = min(adr_dict.values())
 
-        # # updating the parameter grid with UMPY and welfare values in each scenario, then saving the indices of the
-        # # minimum UMPY and maximum welfare within the parameter grid
-        # for k, v in adr_dict.items():
-        #     for i, rows in enumerate(params):
-        #         if k in rows:
-        #             params[i][7] = v
-        #             if v == best_umpy and k == params[i][0]:
-        #                 umpy_scen = params[i][0]
-        #                 umpy_idx = i
+        # updating the parameter grid with UMPY and welfare values in each scenario, then saving the indices of the
+        # minimum UMPY and maximum welfare within the parameter grid
+        for k, v in adr_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][7] = v
+                    if v == best_umpy and k == params[i][0]:
+                        umpy_scen = params[i][0]
+                        umpy_idx = i
 
-        # for k, v in welfare_dict.items():
-        #     for i, rows in enumerate(params):
-        #         if k in rows:
-        #             params[i][8] = v
-        #             if v == best_welfare and k == params[i][0]:
-        #                 welfare_scen = params[i][0]
-        #                 welfare_idx = i
+        for k, v in welfare_dict.items():
+            for i, rows in enumerate(params):
+                if k in rows:
+                    params[i][8] = v
+                    if v == best_welfare and k == params[i][0]:
+                        welfare_scen = params[i][0]
+                        welfare_idx = i
 
-        # # finding the parameters for the best UMPY and welfare scenarios
-        # umpy_species = params[umpy_idx][1]
-        # umpy_shell = params[umpy_idx][2]
-        # umpy_am = params[umpy_idx][3]
-        # umpy_rc = params[umpy_idx][4]
-        # umpy_tax = params[umpy_idx][5]
-        # umpy_bond = params[umpy_idx][6]
-        # umpy_ouf = params[umpy_idx][7]
+        # finding the parameters for the best UMPY and welfare scenarios
+        umpy_species = params[umpy_idx][1]
+        umpy_shell = params[umpy_idx][2]
+        umpy_am = params[umpy_idx][3]
+        umpy_rc = params[umpy_idx][4]
+        umpy_tax = params[umpy_idx][5]
+        umpy_bond = params[umpy_idx][6]
+        umpy_ouf = params[umpy_idx][7]
 
-        # welfare_species = params[welfare_idx][1]
-        # welfare_shell = params[welfare_idx][2]
-        # welfare_am = params[welfare_idx][3]
-        # welfare_rc = params[welfare_idx][4]
-        # welfare_tax = params[welfare_idx][5]
-        # welfare_bond = params[welfare_idx][6]
-        # welfare_ouf = params[welfare_idx][7]
+        welfare_species = params[welfare_idx][1]
+        welfare_shell = params[welfare_idx][2]
+        welfare_am = params[welfare_idx][3]
+        welfare_rc = params[welfare_idx][4]
+        welfare_tax = params[welfare_idx][5]
+        welfare_bond = params[welfare_idx][6]
+        welfare_ouf = params[welfare_idx][7]
 
-        # # saving parameter grid
-        # if not os.path.exists(os.path.dirname(save_path)):
-        #     os.makedirs(os.path.dirname(save_path))
-        # with open(save_path, 'w') as json_file:
-        #     json.dump(params, json_file, indent=4)
+        # saving parameter grid
+        if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+        with open(save_path, 'w') as json_file:
+            json.dump(params, json_file, indent=4)
 
-        # # saving best UMPY and welfare scenarios and the parameters used
-        # if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
-        #     os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
-        # with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
-        #     json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Shell":umpy_shell, "Amount Removed":umpy_am, "Removal Cost":umpy_rc, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][9]}, 
-        #               {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Shell":welfare_shell, "Amount Removed":welfare_am, "Removal Cost":welfare_rc, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][8], "Welfare":best_welfare},
-        #               {"Baseline Scenario":"Baseline", "Index":0, "Species":"None", "Shell":"None", "Amount Removed":"None", "Tax":"None", "Bond":"None", "OUF":"None", "UMPY":params[0][8], "Welfare":params[0][9]}], json_file, indent = 4) 
+        # saving best UMPY and welfare scenarios and the parameters used
+        if not os.path.exists(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json")):
+            os.makedirs(os.path.dirname(f"./Results/{simulation_name}/comparisons/best_params.json"))
+        with open(f"./Results/{simulation_name}/comparisons/best_params.json", 'w') as json_file:
+            json.dump([{"Best UMPY Scenario":umpy_scen, "Index":umpy_idx, "Species":umpy_species, "Shell":umpy_shell, "Amount Removed":umpy_am, "Removal Cost":umpy_rc, "Tax":umpy_tax, "Bond":umpy_bond, "OUF":umpy_ouf, "UMPY":best_umpy, "Welfare":params[umpy_idx][9]}, 
+                      {"Best Welfare Scenario":welfare_scen, "Index":welfare_idx, "Species":welfare_species, "Shell":welfare_shell, "Amount Removed":welfare_am, "Removal Cost":welfare_rc, "Tax":welfare_tax, "Bond":welfare_bond, "OUF":welfare_ouf, "UMPY":params[welfare_idx][8], "Welfare":best_welfare},
+                      {"Baseline Scenario":"Baseline", "Index":0, "Species":"None", "Shell":"None", "Amount Removed":"None", "Tax":"None", "Bond":"None", "OUF":"None", "UMPY":params[0][8], "Welfare":params[0][9]}], json_file, indent = 4) 
 
-        # print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed in " + str(umpy_scen) + " scenario. ")
-        # print("Best UMPY Index: ", umpy_idx)
-        # print("Welfare in Best UMPY Scenario: ", params[umpy_idx][8])
+        print("Best UMPY Achieved: " + str(best_umpy) + " with target species " + str(umpy_species) + " and " + str(umpy_am)+" removed in " + str(umpy_scen) + " scenario. ")
+        print("Best UMPY Index: ", umpy_idx)
+        print("Welfare in Best UMPY Scenario: ", params[umpy_idx][8])
         
-        # print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed in " + str(welfare_scen) + " scenario. ")
-        # print("Best Welfare Index: ", welfare_idx)
-        # print("UMPY in Best Welfare Scenario: ", params[welfare_idx][7])
+        print("Best Welfare Achieved: " + str(best_welfare) + " with target species " + str(welfare_species) + " and " + str(welfare_am) + " removed in " + str(welfare_scen) + " scenario. ")
+        print("Best Welfare Index: ", welfare_idx)
+        print("UMPY in Best Welfare Scenario: ", params[welfare_idx][7])
 
-        # # potentially saving the names of only the best two scenarios for simulations
-        # if umpy_scen == welfare_scen:
-        #     scenario_files = ["Baseline", umpy_scen]
-        # elif umpy_scen != welfare_scen:
-        #     scenario_files = ["Baseline", welfare_scen, umpy_scen]
-        # scenario_files = [umpy_scen, welfare_scen]
+        # potentially saving the names of only the best two scenarios for simulations
+        if umpy_scen == welfare_scen:
+            scenario_files = ["Baseline", umpy_scen]
+        elif umpy_scen != welfare_scen:
+            scenario_files = ["Baseline", welfare_scen, umpy_scen]
+        scenario_files = [umpy_scen, welfare_scen]
 
         return self, solver.MOCAT, scenario_files, best_umpy
 
@@ -520,7 +680,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "shell_switching_test"
+    simulation_name = "shell_switching_test_take3"
 
     iam_solver = IAMSolver()
 
@@ -542,9 +702,9 @@ if __name__ == "__main__":
     # tp = np.linspace(0, 0.5, num=2)
     tn = [20]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [None] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    bond = [1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
-    target_shell = range(1,21) # last number should be the number of shells + 1
+    target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
     # sammie addition: running the "fit" function for "optimization" based on lower UMPY values

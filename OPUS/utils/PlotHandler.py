@@ -48,16 +48,18 @@ class PlotData:
                 
                 # Loop through the files and assign them based on content
                 for file in json_files:
+
                         file_path = os.path.join(path, file)
-                        with open(file_path, "r") as f:
-                                file_content = json.load(f)
-                                
-                                if "species_data" in file_path:
-                                        data = file_content  # First, assign the species data
-                                elif "other_results" in file_path:
-                                        other_data = file_content  # Then, assign the other results data
-                                elif "econ_params" in file_path:
-                                        econ_params = file_content
+                        if ('objects_removed' not in file_path) and ('opt_comparison' not in file_path) and ('removal_path' not in file_path):
+                                with open(file_path, "r") as f:
+                                        file_content = json.load(f)
+                                        
+                                        if "species_data" in file_path:
+                                                data = file_content  # First, assign the species data
+                                        elif "other_results" in file_path:
+                                                other_data = file_content  # Then, assign the other results data
+                                        elif "econ_params" in file_path:
+                                                econ_params = file_content
 
                 if data is None:
                         print(f"Error: No file containing 'species_data' found in {path}.")

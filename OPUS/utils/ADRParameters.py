@@ -30,6 +30,7 @@ class ADRParameters:
         self.remove_method = None
         self.time = None
         self.removals_left = None
+        self.shell_order = None
         
     def find_adr_stuff(self, configuration, baseline=False):
         """
@@ -87,6 +88,10 @@ class ADRParameters:
 
                 self.target_shell = params["target_shell"]
                 self.n_max = params["n_max"]
+
+                # shell removal order/precedence (temp)
+                self.shell_order = [12, 14, 13, 15, 17, 11, 18, 16, 19, 20, 10, 9, 8, 5, 6, 7, 4, 3, 2, 1]
+
             elif configuration not in adr:
                 print("No ADR implemented. ")
                 self.target_species = []
