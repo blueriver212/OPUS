@@ -16,6 +16,7 @@ from utils.ADR import implement_adr
 from utils.ADR import implement_adr2
 from utils.ADR import optimize_ADR_removal
 import os
+from utils.EconCalculations import EconCalculations
 
 
 class IAMSolver:
@@ -302,10 +303,13 @@ class IAMSolver:
         self.welfare_dict[scenario_name] = welfare
 
         save_path = f"./Results/{simulation_name}/{scenario_name}/objects_removed.json"
-        if not os.path.exists(os.path.dirname(save_path)):
-            os.makedirs(os.path.dirname(save_path))
-        with open(save_path, 'w') as json_file:
-            json.dump(removal_dict, json_file, indent=4)
+        # if not os.path.exists(os.path.dirname(save_path)):
+        #     os.makedirs(os.path.dirname(save_path))
+        if ('removal_dict' in globals()) or ('removal_dict' in locals()):
+            if not os.path.exists(os.path.dirname(save_path)):
+                os.makedirs(os.path.dirname(save_path))
+            with open(save_path, 'w') as json_file:
+                json.dump(removal_dict, json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
@@ -430,6 +434,8 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    "bond_1mil",
+                    "Scenario_1",
                     # "Baseline_2",
                     # "Baseline_3",
                     # "Baseline_4",
@@ -442,7 +448,7 @@ if __name__ == "__main__":
                     # "adr_lnt",
                     # "25rule_Baseline",
                     # "25rule_N223kg_cont",
-                    "5rule_N223kg_cont",
+                    # "5rule_N223kg_cont",
                     # "25rule_B_cont",
                     # "5rule_B_cont",
                     # "25rule_N0.5670kg_cont",
@@ -475,7 +481,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "shell_switching_test_1"
+    simulation_name = "shell_switching_test_take3"
 
     iam_solver = IAMSolver()
 
@@ -486,9 +492,9 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # # sammie addition: set up different parameter lists
@@ -503,7 +509,7 @@ if __name__ == "__main__":
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
-    #PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
 
     # normalize umpy and welfare over same value or something? take average??? 
     # look into similar method for current optimization of just umpy

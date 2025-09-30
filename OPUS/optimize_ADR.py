@@ -17,6 +17,7 @@ from utils.ADR import implement_adr
 from utils.ADR import implement_adr2
 from utils.ADR import optimize_ADR_removal
 import os
+from utils.EconCalculations import EconCalculations
 
 
 class IAMSolver:
@@ -250,10 +251,10 @@ class IAMSolver:
 
             # sammie addition: adding in removals left from econ-adr branch
             adr_params.removals_left  = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
-            if adr_params.removals_left < 0:
-                print('I know whats going on here. I know whats going on here. Okay? I do. And if you want me to wander backstage to spill the beans... Im the only one out of the loop, it would seem... and if we check my point total here— I dont NEED to walk to the front, because I know what it is. Its a big ol GOOSE EGG, GANG. Its a FAT ZERO. HELLO!! A little LATE ADDITION to the numerical symbol chart brought to us from our friends in Arabia, a little bit of trivia that I happen to know about the history of numbers. That kind of little tidbit would serve me well in most trivia games, unless it had been RIGGED FROM THE BEGINNING! Oh, Ive only just BEGUN to pull the thread on this sweater, friends. You would THINK in a game where there are only TWO possible correct choices, that one would STUMBLE INTO the right answer every so often, wouldnt you? In fact, the probability of NEVER guessing right in the full game is a STATISTICAL WONDER, and yet, HERE WE ARE. Introduced at the top of the game as a champion, what do you think that means? Icarus, flying too close to the sun. But it seems Daedalus, our little master crafter over here, had some wax wings of his own, didnt he? Wanted to see his son fall. Fall from the sky. Oh, how CLOSE TO THE SUN he flew! Well Im NOT HAVING IT. I solved your labyrinth, puzzle master! The minotaurs escaped and youre gonna get the horns, buddy! I CANNOT WIN!')
-                removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove),'n':int(n),'counter':int(counter),'status':'found a problem'}
-                indicator = 1
+            # if adr_params.removals_left < 0:
+            #     print('I know whats going on here. I know whats going on here. Okay? I do. And if you want me to wander backstage to spill the beans... Im the only one out of the loop, it would seem... and if we check my point total here— I dont NEED to walk to the front, because I know what it is. Its a big ol GOOSE EGG, GANG. Its a FAT ZERO. HELLO!! A little LATE ADDITION to the numerical symbol chart brought to us from our friends in Arabia, a little bit of trivia that I happen to know about the history of numbers. That kind of little tidbit would serve me well in most trivia games, unless it had been RIGGED FROM THE BEGINNING! Oh, Ive only just BEGUN to pull the thread on this sweater, friends. You would THINK in a game where there are only TWO possible correct choices, that one would STUMBLE INTO the right answer every so often, wouldnt you? In fact, the probability of NEVER guessing right in the full game is a STATISTICAL WONDER, and yet, HERE WE ARE. Introduced at the top of the game as a champion, what do you think that means? Icarus, flying too close to the sun. But it seems Daedalus, our little master crafter over here, had some wax wings of his own, didnt he? Wanted to see his son fall. Fall from the sky. Oh, how CLOSE TO THE SUN he flew! Well Im NOT HAVING IT. I solved your labyrinth, puzzle master! The minotaurs escaped and youre gonna get the horns, buddy! I CANNOT WIN!')
+            #     removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove),'n':int(n),'counter':int(counter),'status':'found a problem'}
+            #     indicator = 1
             removals_left_copy = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
 
             if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
