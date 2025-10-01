@@ -368,6 +368,24 @@ class IAMSolver:
                                 opt_path[str(time_idx)] = removals[str(time_idx)]
                                 opt_shell = cs
                                 year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
+                                temp_simulation_results[cs] = {
+                                    "ror": ror,
+                                    "collision_probability": collision_probability,
+                                    "launch_rate" : launch_rate, 
+                                    "collision_probability_all_species": col_probability_all_species,
+                                    "umpy": umpy, 
+                                    "excess_returns": excess_returns,
+                                    "ICs": x0, # sammie addition
+                                    "excess_returns": excess_returns,
+                                    "tax_revenue_total": total_tax_revenue,
+                                    "tax_revenue_by_shell": shell_revenue,
+                                    "welfare": welfare,
+                                    "bond_revenue":open_access.bond_revenue,
+                                }
+                        elif cs == 1:
+                            opt_path[str(time_idx)] = removals[str(time_idx)]
+                            opt_shell = cs
+                            year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
 
 
                             # propagated_environment = before
@@ -705,7 +723,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "shell_switching_test_take3"
+    simulation_name = "shell_switching_test_take4"
 
     iam_solver = IAMSolver()
 
