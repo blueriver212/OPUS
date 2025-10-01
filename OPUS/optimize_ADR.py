@@ -18,6 +18,7 @@ from utils.ADR import implement_adr2
 from utils.ADR import optimize_ADR_removal
 import os
 from utils.EconCalculations import EconCalculations
+from utils.YearDTO import YearDTO
 
 
 class IAMSolver:
@@ -32,6 +33,7 @@ class IAMSolver:
         self.params = params
         self.umpy_score = None
         self.welfare_dict = {}
+        self.year_dto_setup = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
@@ -224,6 +226,8 @@ class IAMSolver:
         money_bucket_2 = 0.0
         money_bucket_1 = 0.0
 
+        year_dto = YearDTO(self.year_dto_setup)
+
         shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
         opt_path = {}
         temp_simulation_results = {}
@@ -234,8 +238,12 @@ class IAMSolver:
             print("Starting year ", time_idx)
             
             #J- Tax Revenue read in
-            total_tax_revenue = float(open_access._last_total_revenue)
-            shell_revenue = open_access.last_tax_revenue.tolist()
+            # total_tax_revenue = float(open_access._last_total_revenue)
+            # shell_revenue = open_access.last_tax_revenue.tolist()
+            total_tax_revenue = year_dto.opt_tax_revenue
+            shell_revenue = year_dto.opt_shell_revenue
+            money_bucket_2 = year_dto.opt_money_2
+            money_bucket_1 = year_dto.opt_money_1
 
             # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
             tspan = np.linspace(0, 1, 2)
@@ -260,12 +268,20 @@ class IAMSolver:
             if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
                 adr_params.removals_left = 20
             
+            year_dto.store_year_data(total_tax_revenue, shell_revenue, adr_params.removals_left, propagated_environment.copy(), money_bucket_1, money_bucket_2)
             before = propagated_environment.copy() 
             opt_comp[str(time_idx)] = {}
+
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
             adr_params.time = time_idx
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
                 for cs in shells:
+                    tax_revenue_lastyr = year_dto.tax_revenue_lastyr
+                    adr_params.removals_left = year_dto.removals_left
+                    money_bucket_1 = year_dto.money_bucket_1
+                    money_bucket_2 = year_dto.money_bucket_2
+                    propagated_environment = year_dto.old_environment
+
                     adr_params.target_shell = [cs]
                     if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
                         propagated_environment, removal_dict = optimize_ADR_removal(propagated_environment,self.MOCAT,adr_params)
@@ -350,11 +366,12 @@ class IAMSolver:
                         if (time_idx != 1) and (cs != 1):
                             if (opt_comp[str(time_idx)][str(cs)]['Welfare'] > opt_comp[str(time_idx)][str(cs - 1)]['Welfare']):
                                 opt_path[str(time_idx)] = removals[str(time_idx)]
-                                opt_env = propagated_environment
-                                opt_removals_left = adr_params.removals_left
                                 opt_shell = cs
-                            propagated_environment = before
-                            adr_params.removals_left = removals_left_copy
+                                year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
+
+
+                            # propagated_environment = before
+                            # adr_params.removals_left = removals_left_copy
                             # Save the results that will be used for plotting later
                             temp_simulation_results[cs] = {
                                 "ror": ror,
@@ -405,9 +422,14 @@ class IAMSolver:
                                 "welfare": welfare,
                                 "bond_revenue":open_access.bond_revenue,
                             }
-                current_environment = opt_env
-                adr_params.removals_left = opt_removals_left
-                simulation_results[time_idx] = temp_simulation_results[opt_shell]
+                            opt_shell = None
+                            
+                            year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
+                current_environment = year_dto.opt_environment
+                adr_params.removals_left = year_dto.opt_removals
+                if (opt_shell is not None):
+                    simulation_results[time_idx] = temp_simulation_results[opt_shell]
+                
             else: 
                 leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
                 if leftover_tax_revenue >= 0:
@@ -494,6 +516,8 @@ class IAMSolver:
                     "welfare": welfare,
                     "bond_revenue":open_access.bond_revenue,
                 }
+                year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
+
 
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
 
