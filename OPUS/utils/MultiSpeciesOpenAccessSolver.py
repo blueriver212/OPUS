@@ -6,11 +6,11 @@ from pyssem.model import Model
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
 from tqdm import tqdm
-from .PostMissionDisposal import evaluate_pmd
+from .PostMissionDisposal import evaluate_pmd, evaluate_pmd_elliptical
 from .Helpers import insert_launches_into_lam
 
 class MultiSpeciesOpenAccessSolver:
-    def __init__(self, MOCAT: Model, solver_guess, launch_mask, x0, revenue_model, 
+    def __init__(self, MOCAT: Model, solver_guess, x0, revenue_model, 
                  lam, multi_species):
         """
         Initialize the MultiSpeciesOpenAccessSolver.
@@ -25,12 +25,11 @@ class MultiSpeciesOpenAccessSolver:
         """
         self.MOCAT = MOCAT
         self.solver_guess = solver_guess
-        self.launch_mask = launch_mask
         self.x0 = x0
         self.revenue_model = revenue_model
         self.lam = lam
         self.multi_species = multi_species
-
+        self.elliptical = MOCAT.scenario_properties.elliptical
         self.tspan = np.linspace(0, 1, 2)
         self.time_idx = 0
 
@@ -48,33 +47,64 @@ class MultiSpeciesOpenAccessSolver:
 
             Launches: Open-access launch rates. This is just the fringe satellites. 1 x n_shells. 
         """
+
+        print(f"Launches: {launches}")
         # Add the fringe satellites to the lambda vector (this could also include constellation launches)
         # As the launches are only for the fringe, we need to add the launches to the correct slice of the lambda vector.
-        
-        self.lam = insert_launches_into_lam(self.lam, launches, self.multi_species)
+        self.lam = insert_launches_into_lam(self.lam, launches, self.multi_species, self.elliptical) # circ = 92, elp = 92
+
+        # Print total of self.lam, ignoring None values
+        if self.elliptical:
+            # For elliptical mode, lam is 3D: [n_sma_bins, n_species, n_ecc_bins]
+            lam_total = np.sum(self.lam[self.lam != None])
+        else:
+            # For non-elliptical mode, lam is 1D
+            lam_total = np.sum(self.lam[self.lam != None])
+        print(f"Total lam (ignoring None): {lam_total}")
 
         # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
-        state_next_path = self.MOCAT.propagate(self.tspan, self.x0, self.lam)
-        state_next = state_next_path[-1, :]
+        if self.elliptical:
+            state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical)
+        else:
+            state_next_path, _ = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical) # state_next_path: circ = 12077 elp = alt = 17763, self.x0: circ = 17914, elp = 17914
+            if len(state_next_path) > 1:
+                state_next_alt = state_next_path[-1, :]
+            else:
+                state_next_alt = state_next_path 
 
         # Evaluate pmd
-        state_next, multi_species = evaluate_pmd(state_next, self.multi_species)
+        if self.elliptical:
+            state_next_sma, multi_species = evaluate_pmd_elliptical(state_next_sma, self.multi_species)
+        else:
+            state_next_alt, multi_species = evaluate_pmd(state_next_alt, self.multi_species)
+        # 12077, elp = 18076
 
         # Gets the final output and update the current environment matrix
-        self.current_environment = state_next
+        if self.elliptical:
+            self.current_environment = state_next_sma
+            self.current_environment_alt = state_next_alt
+        else:
+            self.current_environment = state_next_alt
 
         # As excess returns is calculated on a per species basis, the launch array will need to be built.
         excess_returns = np.array([])
+
+        # For collision calculations and fringe rate of return, we are able to use the effective state matrix for elliptical orbits. 
         for species in multi_species.species:
             # Calculate the probability of collision based on the new position
-            collision_probability = self.calculate_probability_of_collision(state_next, species.name)
+            collision_probability = self.calculate_probability_of_collision(state_next_alt, species.name)
+            # 2.1216498825008983e-05
+            # 2.54775920739587e-05
 
             # Rate of Return
-            rate_of_return = self.fringe_rate_of_return(state_next, collision_probability, species)
+            rate_of_return = self.fringe_rate_of_return(self.current_environment, collision_probability, species)
+            # array([0.074947  , 0.05510007, 0.0372975 , 0.02245892])
+            # array([-0.60438682, -0.58274178, -0.56332631, -0.54714337])
 
             # Calculate the excess rate of return
             species_excess_returns= np.array((rate_of_return - collision_probability*(1 + species.econ_params.tax)) * 100)
             excess_returns = np.append(excess_returns, species_excess_returns)
+            # array([7.49470045, 5.51000707, 3.72974955, 2.24377018])
 
         # Save the collision_probability for all species
         self._last_collision_probability = collision_probability
@@ -87,7 +117,7 @@ class MultiSpeciesOpenAccessSolver:
 
         self._last_non_compliance = non_compliance_dict
 
-        return excess_returns
+        return excess_returns # circ: 362.016, elp = 426
 
     def calculate_probability_of_collision(self, state_matrix, opus_species_name):
         """
@@ -97,6 +127,8 @@ class MultiSpeciesOpenAccessSolver:
             Return: 
                 - Active Loss per shell. This can be used to infer collision probability.  
         """
+        if self.elliptical:
+            state_matrix = state_matrix.flatten()
         evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss[opus_species_name](*state_matrix)
         evaluated_value_flat = [float(value[0]) for value in evaluated_value]
         return np.array(evaluated_value_flat)
@@ -106,17 +138,27 @@ class MultiSpeciesOpenAccessSolver:
          Calcualtes the fringe rate of return. It can be only used by one species at once. 
          Currently it assumes a linear revenue model, although other models can be used in the future. 
         """
-        fringe_total = state_matrix[opus_species.start_slice:opus_species.end_slice]
+        if self.elliptical:
+            fringe_total = state_matrix[:, opus_species.species_idx, 0]
+        else:
+            fringe_total = state_matrix[opus_species.start_slice:opus_species.end_slice]
+        # 1.59
+        # 0.87
 
         revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * np.sum(fringe_total)
+        # 849840
+        # 849912.5
         # revenue = revenue * opus_species.launch_mask
 
         discount_rate = opus_species.econ_params.discount_rate
+        # 0.05
 
         depreciation_rate = 1 / opus_species.econ_params.sat_lifetime
+        # 0.2
 
         # Equilibrium expression for rate of return.
         rev_cost = revenue / opus_species.econ_params.cost
+        # 1.189
 
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate  
@@ -126,7 +168,7 @@ class MultiSpeciesOpenAccessSolver:
             bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost))
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
-        return rate_of_return
+        return rate_of_return # 0.189
     
     def solver(self):
         """
@@ -141,11 +183,24 @@ class MultiSpeciesOpenAccessSolver:
         """
         # Make the launch rate only the length of the fringe satellites.
         launch_rate_init = np.array([])
-        for species in self.multi_species.species:
-            launch_rate_init = np.append(launch_rate_init, self.solver_guess[species.start_slice:species.end_slice])
 
-        print(sum(launch_rate_init))
+        if self.elliptical:
+            total_sats = {}
+            for species in self.multi_species.species:
+                sats_per_sma_bin = self.solver_guess[:, species.species_idx, 0]
+                launch_rate_init = np.append(launch_rate_init, sats_per_sma_bin)
+                total_sats[species.name] = np.sum(sats_per_sma_bin)
 
+            print('Sats at start of elliptical solver: Total Sats', total_sats)
+        else:
+            for species in self.multi_species.species:
+                launch_rate_init = np.append(launch_rate_init, self.solver_guess[species.start_slice:species.end_slice])
+            print('Sats at start of circular solver: Total Sats', np.sum(launch_rate_init))
+        
+        # check that length of launch_rate_init is the same as the number of shells * number of species in multi_species
+        if len(launch_rate_init) != self.MOCAT.scenario_properties.n_shells * len(self.multi_species.species):
+            raise ValueError('Length of launch_rate_init is not the same as the number of shells * number of species in multi_species')
+        
         # Define bounds for the solver
         lower_bound = np.zeros_like(launch_rate_init)  # Lower bound is zero
 
@@ -170,6 +225,10 @@ class MultiSpeciesOpenAccessSolver:
         launch_rate[launch_rate < 1] = 0
 
         # Calculate the UMPY value
-        umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()
+        if self.elliptical:
+            # it will need to use the alt matrix. 
+            umpy = self.MOCAT.opus_umpy_calculation(self.current_environment_alt).flatten().tolist() # 106789
+        else:      
+            umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()  # 120765
 
         return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns, self._last_non_compliance
