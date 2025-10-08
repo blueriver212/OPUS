@@ -48,8 +48,8 @@ class MultiSpecies:
                 if obj.pmd_linked_species not in species_names:
                     raise ValueError(f"PMD-linked species '{obj.pmd_linked_species}' not found in MOCAT scenario properties.")
                 
-                derelict_idx = species_names.index(obj.pmd_linked_species)
-                obj.derelict_start_slice = derelict_idx * n_shells
+                obj.derelict_idx = species_names.index(obj.pmd_linked_species)
+                obj.derelict_start_slice = obj.derelict_idx * n_shells
                 obj.derelict_end_slice = obj.derelict_start_slice + n_shells
 
     def get_mocat_species_parameters(self, MOCAT: Model):

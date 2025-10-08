@@ -35,6 +35,8 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None) -> M
         indicator_variables=scenario_props.get("indicator_variables", None),
         launch_scenario=scenario_props["launch_scenario"],
         SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None,
+        elliptical=scenario_props.get("elliptical", False),
+        eccentricity_bins=scenario_props.get("eccentricity_bins", None)
     )
 
     species = MOCAT_config["species"]
@@ -45,8 +47,10 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None) -> M
         for species in multi_species.species:
             MOCAT.opus_active_loss_setup(species.name)
 
-    MOCAT.initial_population() 
-    MOCAT.build_model()
+    if MOCAT.scenario_properties.elliptical:
+        MOCAT.build_model(elliptical=True)
+    else:
+        MOCAT.build_model(elliptical=False)
 
     print("You have these species in the model: ", MOCAT.scenario_properties.species_names)
 
