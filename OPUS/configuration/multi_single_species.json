@@ -12,7 +12,7 @@
         "min_altitude": 300,
         "n_shells": 10,
         "simulation_duration": 10,
-        "start_date": "01/01/2015",
+        "start_date": "01/01/2025",
         "steps": 10,
         "v_imp": 10, 
         "baseline": true,
@@ -63,13 +63,12 @@
                 "sat_lifetime" : 5,
                 "disposal_time" : 5,
                 "discount_rate" : 0.05,
-                "intercept" : 850000.0,
+                "intercept" : 7.5e5,
                 "coef" : 1.0e2,
                 "tax": 0,
                 "delta_v_cost": 1000,
                 "lift_price": 5000,
-                "prob_of_non_compliance": 0, 
-                "mass": 500
+                "prob_of_non_compliance": 0
             },
             "launch_func": "launch_func_null"
         },
@@ -96,13 +95,12 @@
                 "sat_lifetime" : 5,
                 "disposal_time" : 5,
                 "discount_rate" : 0.05,
-                "intercept" : 694444,
+                "intercept" : 7.5e5,
                 "coef" : 1.0e2,
                 "tax": 0,
                 "delta_v_cost": 1000,
                 "lift_price": 5000,
-                "prob_of_non_compliance": 0,
-                "mass": 223
+                "prob_of_non_compliance": 0
             }
         },
         {
@@ -127,13 +125,12 @@
                 "sat_lifetime" : 3,
                 "disposal_time" : 5,
                 "discount_rate" : 0.05,
-                "intercept" : 40333.33333333333,
+                "intercept" : 7.5e5,
                 "coef" : 1.0e2,
                 "tax": 0,
                 "delta_v_cost": 0,
                 "lift_price": 5000,
-                "prob_of_non_compliance": 0,
-                "mass": 6
+                "prob_of_non_compliance": 0
             }
         },
         {

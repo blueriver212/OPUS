@@ -3,7 +3,7 @@ import json
 import numpy as np
 
 class PostProcessing:
-    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params, grid_search=False):
+    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params):
         self.MOCAT = MOCAT
         self.scenario_name = scenario_name # this is the breadkdown of the scenario
         self.simulation_name = simulation_name # this is the overall name of the simulation
@@ -19,14 +19,10 @@ class PostProcessing:
         #         "launch_rate" : launch_rate
         #     }
         self.other_results = other_results
-        
-        if not grid_search:
-            self.create_folder_structure()
-            self.post_process_data()
-            self.post_process_economic_data(self.econ_params)
-        else:
-            self.create_folder_structure()
-            self.post_process_data()
+
+        self.create_folder_structure()
+        self.post_process_data()
+        self.post_process_economic_data(self.econ_params)
 
     def create_folder_structure(self):
         """
