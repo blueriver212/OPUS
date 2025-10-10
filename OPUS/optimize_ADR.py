@@ -80,19 +80,6 @@ class IAMSolver:
         x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
         constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats, self.pmd_linked_species)
         
-        # sammie addition:
-        shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
-        if MOCAT_config['OPUS']['disposal_time'] == 5:
-            mids = self.MOCAT.scenario_properties.HMid
-            mids = [abs(x - 400) for x in mids]
-            natrually_compliant_idx = mids.index(min(mids))
-            not_naturally_compliant_shells = shells[(natrually_compliant_idx+1):-1]
-        elif MOCAT_config['OPUS']['disposal_time'] == 25:
-            mids = self.MOCAT.scenario_properties.HMid
-            mids = [abs(x - 520) for x in mids]
-            natrually_compliant_idx = mids.index(min(mids))
-            not_naturally_compliant_shells = shells[(natrually_compliant_idx+1):-1]
-
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
@@ -241,7 +228,7 @@ class IAMSolver:
 
         year_dto = YearDTO(self.year_dto_setup)
 
-        
+        shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
         opt_path = {}
         temp_simulation_results = {}
         opt_comp = {}
@@ -279,7 +266,7 @@ class IAMSolver:
             removals_left_copy = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
 
             if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
-                adr_params.removals_left = 7
+                adr_params.removals_left = 20
             
             year_dto.store_year_data(total_tax_revenue, shell_revenue, adr_params.removals_left, propagated_environment.copy(), money_bucket_1, money_bucket_2)
             before = propagated_environment.copy() 
@@ -288,7 +275,6 @@ class IAMSolver:
             # sammie addition: runs the ADR function if the current year is one of the specified removal years
             adr_params.time = time_idx
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
-                # for cs in not_naturally_compliant_shells:
                 for cs in shells:
                     tax_revenue_lastyr = year_dto.tax_revenue_lastyr
                     adr_params.removals_left = year_dto.removals_left
@@ -369,7 +355,7 @@ class IAMSolver:
                     total_fringe_sat = np.sum(fringe_pop)
                     welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
 
-                    opt_comp[str(time_idx)][str(cs)] = {'Welfare':welfare, 'UMPY':np.sum(umpy)}
+                    opt_comp[str(time_idx)][str(cs)] = {'Welfare':welfare, 'UMPY':umpy}
 
                     #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
                     money_bucket_2 = money_bucket_1
@@ -737,7 +723,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
 
-    simulation_name = "shell_switching_test_take6"
+    simulation_name = "shell_switching_test_take4"
 
     iam_solver = IAMSolver()
 
@@ -757,9 +743,9 @@ if __name__ == "__main__":
     # sammie addition: set up different parameter lists
     ts = ["N_223kg"]
     # tp = np.linspace(0, 0.5, num=2)
-    tn = [1000]
+    tn = [20]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [0, 1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    bond = [1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
     target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell

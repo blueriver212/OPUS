@@ -242,7 +242,7 @@ class IAMSolver:
             adr_params.removals_left = econ_calculator.get_removals_for_current_period()
 
             if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond is None and econ_params.tax == 0 and econ_params.ouf == 0):
-                adr_params.removals_left = 7
+                adr_params.removals_left = 20
             
             before = propagated_environment.copy() 
             num_removed_this_period = 0 # Initialize counter for removed objects
@@ -356,7 +356,7 @@ class IAMSolver:
             if not os.path.exists(os.path.dirname(save_path)):
                 os.makedirs(os.path.dirname(save_path))
             with open(save_path, 'w') as json_file:
-                json.dump(removals, json_file, indent=4)
+                json.dump(removal_dict, json_file, indent=4)
 
     def get_mocat(self):
         return self.MOCAT
@@ -481,10 +481,8 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
-                    # "bond_1mil",
-                    "1milbond_shell_12",
-                    # "Scenario_1",
-                    # "Scenario_2",
+                    "bond_1mil",
+                    "Scenario_1",
                     # "Baseline_2",
                     # "Baseline_3",
                     # "Baseline_4",
@@ -536,7 +534,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "shell_switching_test_take7"
+    simulation_name = "shell_switching_test_take3"
 
     iam_solver = IAMSolver()
 
@@ -557,9 +555,9 @@ if __name__ == "__main__":
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
 
 
     # # sammie addition: set up different parameter lists

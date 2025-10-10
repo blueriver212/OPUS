@@ -57,7 +57,6 @@
             "RBflag" : 0, 
             "slotting_effectiveness": 1.0,
             "drag_effected": false,
-            "launch_func": "launch_func_constant",
             "pmd_func": "pmd_func_sat",
             "drag_func": "drag_func_exp"
         },
