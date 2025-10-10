@@ -128,7 +128,7 @@
                 "intercept" : 7.5e5,
                 "coef" : 1.0e2,
                 "tax": 0,
-                "delta_v_cost": 0,
+                "delta_v_cost": 1000,
                 "lift_price": 5000,
                 "prob_of_non_compliance": 0
             }
