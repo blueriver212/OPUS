@@ -3,7 +3,7 @@ import json
 import numpy as np
 
 class PostProcessing:
-    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params):
+    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params, grid_search=False):
         self.MOCAT = MOCAT
         self.scenario_name = scenario_name # this is the breadkdown of the scenario
         self.simulation_name = simulation_name # this is the overall name of the simulation
@@ -19,10 +19,14 @@ class PostProcessing:
         #         "launch_rate" : launch_rate
         #     }
         self.other_results = other_results
-
-        self.create_folder_structure()
-        self.post_process_data()
-        self.post_process_economic_data(self.econ_params)
+        
+        if not grid_search:
+            self.create_folder_structure()
+            self.post_process_data()
+            self.post_process_economic_data(self.econ_params)
+        else:
+            self.create_folder_structure()
+            self.post_process_data()
 
     def create_folder_structure(self):
         """
@@ -60,6 +64,10 @@ class PostProcessing:
                 "tax_revenue_total": data["tax_revenue_total"],
                 "tax_revenue_by_shell": data["tax_revenue_by_shell"].tolist() if isinstance(data["tax_revenue_by_shell"], np.ndarray) else data["tax_revenue_by_shell"],
                 "welfare": data.get("welfare",0),
+                "non_compliance": {
+                    sp: val.tolist() if isinstance(val, (list, np.ndarray)) else val
+                    for sp, val in data["non_compliance"].items()
+                } if isinstance(data["non_compliance"], dict) else data["non_compliance"]
             }
             for time_idx, data in self.other_results.items()
         }
