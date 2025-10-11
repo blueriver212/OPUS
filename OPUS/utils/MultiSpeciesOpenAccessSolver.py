@@ -8,7 +8,6 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd, evaluate_pmd_elliptical
 from .Helpers import insert_launches_into_lam
-
 class MultiSpeciesOpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, x0, revenue_model, 
                  lam, multi_species):
@@ -48,7 +47,7 @@ class MultiSpeciesOpenAccessSolver:
             Launches: Open-access launch rates. This is just the fringe satellites. 1 x n_shells. 
         """
 
-        print(f"Launches: {launches}")
+        # print(f"Launches: {launches}")
         # Add the fringe satellites to the lambda vector (this could also include constellation launches)
         # As the launches are only for the fringe, we need to add the launches to the correct slice of the lambda vector.
         self.lam = insert_launches_into_lam(self.lam, launches, self.multi_species, self.elliptical) # circ = 92, elp = 92
@@ -64,17 +63,18 @@ class MultiSpeciesOpenAccessSolver:
 
         # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
         if self.elliptical:
-            state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical)
+            state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05)
         else:
-            state_next_path, _ = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical) # state_next_path: circ = 12077 elp = alt = 17763, self.x0: circ = 17914, elp = 17914
+            state_next_path, _ = self.MOCAT.propagate(self.tspan, self.x0, self.lam, elliptical=self.elliptical) # state_next_path: circ = 12077 elp = alt = 17763, self.x0: circ = 17914, elp = 17914
             if len(state_next_path) > 1:
                 state_next_alt = state_next_path[-1, :]
             else:
                 state_next_alt = state_next_path 
+            # print(f"state_next_alt: {np.sum(state_next_alt)}")
 
         # Evaluate pmd
         if self.elliptical:
-            state_next_sma, multi_species = evaluate_pmd_elliptical(state_next_sma, self.multi_species)
+            state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, self.multi_species)
         else:
             state_next_alt, multi_species = evaluate_pmd(state_next_alt, self.multi_species)
         # 12077, elp = 18076
@@ -117,7 +117,15 @@ class MultiSpeciesOpenAccessSolver:
 
         self._last_non_compliance = non_compliance_dict
 
-        return excess_returns # circ: 362.016, elp = 426
+        return excess_returns 
+        # circ: array([  7.42215529,   7.60501665,   6.6453673 ,   5.73031984,
+        #      4.8622846 ,  28.42671294,  29.87327598,  26.4674035 ,
+        #     22.68498412,  19.55166743, -43.66517506, -43.67581944,
+        #    -43.72272862, -43.77695933, -43.95676902])
+        # ellip: array([  7.500798  ,   7.68455259,   6.72716597,   5.84561885,
+        #      5.01025917,  28.52251213,  29.9731395 ,  26.67021196,
+        #     23.78536816,  21.27589047, -37.91651136, -37.61854428,
+        #    -37.58261531, -37.50351418, -37.5294675 ])
 
     def calculate_probability_of_collision(self, state_matrix, opus_species_name):
         """
@@ -128,7 +136,10 @@ class MultiSpeciesOpenAccessSolver:
                 - Active Loss per shell. This can be used to infer collision probability.  
         """
         if self.elliptical:
+            # For elliptical orbits, state_matrix is already a 2D altitude matrix
+            # We need to convert it to the format expected by fringe_active_loss
             state_matrix = state_matrix.flatten()
+
         evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss[opus_species_name](*state_matrix)
         evaluated_value_flat = [float(value[0]) for value in evaluated_value]
         return np.array(evaluated_value_flat)
@@ -168,7 +179,7 @@ class MultiSpeciesOpenAccessSolver:
             bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost))
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
-        return rate_of_return # 0.189
+        return rate_of_return # 0.189 
     
     def solver(self):
         """
@@ -203,14 +214,21 @@ class MultiSpeciesOpenAccessSolver:
         
         # Define bounds for the solver
         lower_bound = np.zeros_like(launch_rate_init)  # Lower bound is zero
+        # upper_bound = 100000 * np.ones_like(launch_rate_init)  # Upper bound is 100,000 satellites
 
         # Define solver options
         solver_options = {
             'method': 'trf',  # Trust Region Reflective algorithm = trf
-            'verbose': 0  # Show output if not parallelized
+            'verbose': 0,
+            'ftol': 5e-3,   # residual improvement threshold
+            'xtol': 10.0,   # stop when launch updates < 10 satellites
+            'gtol': 1e-3,   # gradient norm threshold
+            'max_nfev': 150 # optional evaluation cap
         }
 
         # Solve the system of equations
+        # circ = ([ 5.,  5.,  5.,  5.,  5.,  0.,  0.,  5.,  6.,  4.,  0.,  2.,  5., 8., 13.])
+        # array([ 5.,  5.,  5.,  5.,  5.,  0.,  0.,  5.,  6.,  4.,  0.,  2.,  5., 8., 13.])
         result = least_squares(
             fun=lambda launches: self.excess_return_calculator(launches),
             x0=launch_rate_init,
@@ -221,13 +239,15 @@ class MultiSpeciesOpenAccessSolver:
         # Extract the launch rate from the solver result, this will just be for the species
         launch_rate = result.x
 
+        print(f"Launch rate: {launch_rate}")
+
         # if below 1, then change to 0 
         launch_rate[launch_rate < 1] = 0
 
         # Calculate the UMPY value
         if self.elliptical:
-            # it will need to use the alt matrix. 
-            umpy = self.MOCAT.opus_umpy_calculation(self.current_environment_alt).flatten().tolist() # 106789
+            state_for_umpy = self.current_environment_alt.flatten()
+            umpy = self.MOCAT.opus_umpy_calculation(state_for_umpy).flatten().tolist()
         else:      
             umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()  # 120765
 

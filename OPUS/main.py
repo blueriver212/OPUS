@@ -43,6 +43,39 @@ class IAMSolver:
 
         return constellation_start_slice, constellation_end_slice
 
+    def _apply_replacement_floor(self, solver_guess_array, environment_array, multi_species):
+        """
+            Ensure each species starts the solve with at least the replacement launches
+            implied by the active population removed via PMD.
+        """
+        replacement_caps = {"Sns": 1000}
+
+        for species in multi_species.species:
+            if self.elliptical:
+                active_population = environment_array[:, species.species_idx, 0]
+                replacement_floor = active_population / species.deltat
+                cap = replacement_caps.get(species.name)
+                if cap is not None:
+                    total_floor = np.sum(replacement_floor)
+                    if total_floor > cap and total_floor > 0:
+                        replacement_floor = replacement_floor * (cap / total_floor)
+                solver_guess_array[:, species.species_idx, 0] = np.maximum(
+                    solver_guess_array[:, species.species_idx, 0], replacement_floor
+                )
+            else:
+                active_population = environment_array[species.start_slice:species.end_slice]
+                replacement_floor = active_population / species.deltat
+                cap = replacement_caps.get(species.name)
+                if cap is not None:
+                    total_floor = np.sum(replacement_floor)
+                    if total_floor > cap and total_floor > 0:
+                        replacement_floor = replacement_floor * (cap / total_floor)
+                solver_guess_array[species.start_slice:species.end_slice] = np.maximum(
+                    solver_guess_array[species.start_slice:species.end_slice], replacement_floor
+                )
+
+        return solver_guess_array
+
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name, grid_search=False):
         """
             The main function that runs the IAM solver.
@@ -60,7 +93,7 @@ class IAMSolver:
         #########################
         # if self.MOCAT is None:
         self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
-        self.elliptical = self.MOCAT.scenario_properties.elliptical
+        self.elliptical = self.MOCAT.scenario_properties.elliptical # elp, x0 = 12517
 
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
@@ -91,32 +124,41 @@ class IAMSolver:
 
         # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
         # Lam should be the same shape as x0 and is full of None values for objects that are not launched. 
-        solver_guess = self.MOCAT.scenario_properties.x0
+        solver_guess = self.MOCAT.scenario_properties.x0.copy()
         lam = np.full_like(self.MOCAT.scenario_properties.x0, None, dtype=object)
         if self.elliptical:
             for species in multi_species.species:
                 # lam will be n_sma_bins x n_ecc_bins x n_alt_shells
-                initial_guess = 0.05 * self.MOCAT.scenario_properties.x0[:, species.species_idx, :]
+                initial_guess = 0.05 * self.MOCAT.scenario_properties.x0[:, species.species_idx, 0]
                 # if sum of initial guess is 0, multiply each element by 10
                 if np.sum(initial_guess) == 0:
                     initial_guess[:] = 5
-                lam[:, species.species_idx, :] = initial_guess
-                solver_guess[:, species.species_idx, :] = initial_guess
+                lam[:, species.species_idx, 0] = initial_guess
+                solver_guess[:, species.species_idx, 0] = initial_guess
         else:
             for species in multi_species.species:
                 # if species.name == constellation_sat:
                 #     continue
                 # else:
-                inital_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
+                inital_guess = 0.05 * n.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
                 # if sum of initial guess is 0, muliply each element by 10
                 if sum(inital_guess) == 0:
                     inital_guess[:] = 5
                 solver_guess[species.start_slice:species.end_slice] = inital_guess
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
+        # solver_guess = self._apply_replacement_floor(solver_guess, self.MOCAT.scenario_properties.x0, multi_species)
+        if self.elliptical:
+            for species in multi_species.species:
+                lam[:, species.species_idx, 0] = solver_guess[:, species.species_idx, 0]
+        else:
+            for species in multi_species.species:
+                lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
+
         ############################
         ### SOLVE FOR THE FIRST YEAR
-        ############################
+        # elp: 
+        ############################c
         open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
@@ -124,7 +166,7 @@ class IAMSolver:
         # launch rate is 92
         # launch rate is 6075
 
-        lam = insert_launches_into_lam(lam, launch_rate, multi_species)
+        lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
              
         ####################
         ### SIMULATION LOOP
@@ -148,60 +190,84 @@ class IAMSolver:
             # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
             tspan = np.linspace(0, 1, 2)
             
-            # State of the environment during a simulation loop
-            fringe_initial_guess = None
-
             # Propagate the model and take the final state of the environment
-            propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam, time_idx)
-            propagated_environment = propagated_environment[-1, :] 
-            
             if self.elliptical:
-                propagated_environment, multi_species = evaluate_pmd_elliptical(propagated_environment, multi_species)
+                state_next_sma, state_next_alt = self.MOCAT.propagate(tspan, current_environment, lam, elliptical=self.elliptical, use_euler=True, step_size=0.01)
             else:
-                propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
+                state_next_path, _ = self.MOCAT.propagate(tspan, current_environment, lam, elliptical=self.elliptical) # state_next_path: circ = 12077 elp = alt = 17763, self.x0: circ = 17914, elp = 17914
+                if len(state_next_path) > 1:
+                    state_next_alt = state_next_path[-1, :]
+                else:
+                    state_next_alt = state_next_path 
 
-            # Update the constellation satellites for the next period - should only be 5%.
-            # for i in range(constellation_start_slice, constellation_end_slice):
-            #     if lam[i] is not None:
-            #         lam[i] = lam[i] * 0.05
+            # Apply PMD (Post Mission Disposal) evaluation to remove satellites
+            print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
+            if self.elliptical:
+                state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species)
+            else:
+                state_next_alt, multi_species = evaluate_pmd(state_next_alt, multi_species)
+            print(f"After PMD - Total environment: {np.sum(state_next_alt)}")
 
-            #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
-        
-            # Record propagated environment data
+            environment_for_solver = state_next_sma if self.elliptical else state_next_alt
+
+            # Record propagated environment data 
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
-                species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                if self.elliptical:
+                    # For elliptical orbits, propagated_environment is a 2D array (n_shells, n_species)
+                    species_data[sp][time_idx - 1] = state_next_alt[:, i]
+                else:
+                    # For circular orbits, propagated_environment is a 1D array
+                    species_data[sp][time_idx - 1] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
             start_time = time.time()
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, fringe_initial_guess, propagated_environment, "linear", lam, multi_species)
+            # solver guess will be lam
+            solver_guess = None
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species)
 
             # Calculate solver_guess
-            solver_guess = lam
+            solver_guess = lam.copy()
             for species in multi_species.species:
                 # Calculate the probability of collision based on the new position
-                collision_probability = open_access.calculate_probability_of_collision(propagated_environment, species.name)
+                if self.elliptical:
+                    # For elliptical orbits, we need to use the 3D SMA matrix for collision probability
+                    collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
+                    # Rate of Return - use the 3D SMA matrix
+                    rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species)
+                else:
+                    # For circular orbits, use the 2D matrix
+                    collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
+                    # Rate of Return
+                    rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species)
                 
-                # Rate of Return
-                rate_of_return = open_access.fringe_rate_of_return(propagated_environment, collision_probability, species)
-                solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability)
+                if self.elliptical:
+                    # For elliptical orbits, solver_guess is 3D, so we need to handle it differently
+                    # We'll update the first eccentricity bin (index 0) for this species
+                    solver_guess[:, species.species_idx, 0] = solver_guess[:, species.species_idx, 0] - solver_guess[:, species.species_idx, 0] * (rate_of_return - collision_probability)
+                else:
+                    solver_guess[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability)
 
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
-            multi_species.increase_demand()
+            # multi_species.increase_demand()
 
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, propagated_environment, "linear", lam, multi_species)
+            solver_guess = self._apply_replacement_floor(solver_guess, environment_for_solver, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species)
 
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
 
             # Update the initial conditions for the next period
-            lam = insert_launches_into_lam(lam, launch_rate, multi_species)
+            lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
 
             elapsed_time = time.time() - start_time
             print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
 
             # Update the current environment
-            current_environment = propagated_environment
+            if self.elliptical:
+                current_environment = state_next_sma
+            else:
+                current_environment = state_next_alt
 
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
@@ -268,7 +334,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "Single-Species-S"
+    simulation_name = "test-2"
 
     iam_solver = IAMSolver()
 
@@ -279,13 +345,13 @@ if __name__ == "__main__":
                 totals[species] = np.sum(data_array[-1])
         return totals
 
-    # # # no parallel processing
+    # # no parallel processing
     for scenario_name in scenario_files:
         # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=True)
+        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
         # Get the total species from the output
-        total_species = get_total_species_from_output(output)
-        print(f"Total species for scenario {scenario_name}: {total_species}")
+        # total_species = get_total_species_from_output(output)
+        # print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
     # with ThreadPoolExecutor() as executor:
@@ -297,4 +363,6 @@ if __name__ == "__main__":
     # multi_species_names = ["Sns"]
     # multi_species = MultiSpecies(multi_species_names)
     # MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
-    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=True)    # run through the adr values, take the output from iam_solver.iam_solver, store it, then use it for the next iteration 
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+
+    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
