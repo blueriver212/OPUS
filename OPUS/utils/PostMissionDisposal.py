@@ -75,30 +75,26 @@ def evaluate_pmd(state_matrix, multi_species):
 
         if species_name == 'S':
             # 97% removed from sim, 3% fail PMD and get dropped randomly into compliant shells
-            successful_pmd = 0.97 * (1 / species.deltat) * num_items_fringe
-            failed_pmd = 0.03 * (1 / species.deltat) * num_items_fringe
+            successful_pmd = species.econ_params.pmd_rate * (1 / species.deltat) * num_items_fringe
+            failed_pmd = (1 - species.econ_params.pmd_rate) * (1 / species.deltat) * num_items_fringe
 
-            # Remove all satellites at end of life
+             # Remove all satellites at end of life
             state_matrix[start:end] -= (1 / species.deltat) * num_items_fringe
 
             # Get naturally compliant shell indices
             compliant_indices = np.where(species.econ_params.naturally_compliant_vector == 1)[0]
 
-            # Distribute failed PMD randomly across compliant shells
+            # Distribute failed PMD to highest compliant shell only
             derelict_addition = np.zeros_like(num_items_fringe)
 
             total_failed = np.sum(failed_pmd)
-            n_compliant = len(compliant_indices)
-
-            # add all failed satellites to the last compliant shell
-            derelict_addition[compliant_indices[-1]] = total_failed
-
-            # if n_compliant > 0:
-            #     # Generate a multinomial draw to split total_failed across compliant shells
-            #     proportions = np.random.multinomial(int(round(total_failed)), [1/n_compliant] * n_compliant)
-
-            #     for idx, shell_idx in enumerate(compliant_indices):
-            #         derelict_addition[shell_idx] += proportions[idx]
+            
+            if len(compliant_indices) > 0:
+                # Find the highest compliant shell (assuming higher index = higher altitude)
+                highest_compliant_shell = np.max(compliant_indices)
+                
+                # Place all failed PMD satellites in the highest compliant shell
+                derelict_addition[highest_compliant_shell] = total_failed
 
             state_matrix[derelict_start:derelict_end] += derelict_addition
 
@@ -110,15 +106,19 @@ def evaluate_pmd(state_matrix, multi_species):
             last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
             non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
 
+            # calculate compliant and non-compliant derelicts - just for reporting
             compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.pmd_rate
             non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1 - species.econ_params.pmd_rate)
 
+            # remove all satellites at end of life
             state_matrix[start:end] -= (1 / species.deltat) * num_items_fringe
 
+            # add compliant derelicts to last compliant shell
             sum_non_compliant = np.sum(compliant_derelicts[non_compliant_mask])
             compliant_derelicts[last_compliant_shell] += sum_non_compliant
             compliant_derelicts[non_compliant_mask] = 0
 
+            # add compliant and non-compliant derelicts to derelict slice
             state_matrix[derelict_start:derelict_end] += compliant_derelicts
             state_matrix[derelict_start:derelict_end] += non_compliant_derelicts
 
@@ -141,7 +141,7 @@ def evaluate_pmd(state_matrix, multi_species):
     return state_matrix, multi_species
  
 
-def evaluate_pmd_elliptical(state_matrix, multi_species):
+def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species):
     """
     PMD logic applied per species type:
     - 'S': 97% removed, 3% go to top compliant shell
@@ -154,89 +154,79 @@ def evaluate_pmd_elliptical(state_matrix, multi_species):
         
         if species_name == 'S':
             # get S matrix
-            S_matrix = state_matrix[:, species.species_idx, 0]
+            num_items_fringe = state_matrix[:, species.species_idx, 0]
 
             # 97% removed from sim, 3% fail PMD and get dropped randomly into compliant shells
-            successful_pmd = 0.97 * (1 / species.deltat) * S_matrix
-            failed_pmd = 0.03 * (1 / species.deltat) * S_matrix
+            successful_pmd = species.econ_params.pmd_rate * (1 / species.deltat) * num_items_fringe
+            failed_pmd = (1 - species.econ_params.pmd_rate) * (1 / species.deltat) * num_items_fringe
 
-            # Remove all satellites at end of life
-            state_matrix[:, species.species_idx, 0] -= (1 / species.deltat) * S_matrix
+             # Remove all satellites at end of life - from both sma and alt bins
+            state_matrix[:, species.species_idx, 0] -= (1 / species.deltat) * num_items_fringe
+            state_matrix_alt[:, species.species_idx] -= (1 / species.deltat) * num_items_fringe
 
             # Get naturally compliant shell indices
             compliant_indices = np.where(species.econ_params.naturally_compliant_vector == 1)[0]
 
-            # Distribute failed PMD randomly across compliant shells
-            derelict_addition = np.zeros_like(S_matrix)
+            # Distribute failed PMD to highest compliant shell only
+            derelict_addition = np.zeros_like(num_items_fringe)
 
             total_failed = np.sum(failed_pmd)
-            n_compliant = len(compliant_indices)
             
-            # Debug information
-            # print(f"Species {species_name}: total_failed={total_failed:.6f}, n_compliant={n_compliant}")
-            # print(f"  compliant_indices: {compliant_indices}")
-            # print(f"  naturally_compliant_vector: {species.econ_params.naturally_compliant_vector}")
-
-            # if n_compliant > 0:
-            #     if n_compliant == 1:
-            #         # If only one compliant shell, assign all failed satellites to it directly
-            #         derelict_addition[compliant_indices[0]] = total_failed
-            #     else:
-            #         # Generate a multinomial draw to split total_failed across compliant shells
-            #         proportions = np.random.multinomial(int(round(total_failed)), [1/n_compliant] * n_compliant)
-
-            #         for idx, shell_idx in enumerate(compliant_indices):
-            #             derelict_addition[shell_idx] += proportions[idx]
+            if len(compliant_indices) > 0:
+                # Find the highest compliant shell (assuming higher index = higher altitude)
+                highest_compliant_shell = np.max(compliant_indices)
                 
-            #     # Check if sum of derelict_addition equals total_failed
-            #     derelict_sum = np.sum(derelict_addition)
-            #     if abs(derelict_sum - total_failed) > 1e-10:  # Allow for small floating point differences
-            #         print(f"WARNING: derelict_addition sum ({derelict_sum}) != total_failed ({total_failed})")
-            #         print(f"  n_compliant: {n_compliant}, compliant_indices: {compliant_indices}")
-            #         print(f"  proportions: {proportions}")
-            #         print(f"  derelict_addition: {derelict_addition}")
-
-            # add all failed satellites to the last compliant shell
-            derelict_addition[compliant_indices[-1]] = total_failed
+                # Place all failed PMD satellites in the highest compliant shell
+                derelict_addition[highest_compliant_shell] = total_failed
 
             state_matrix[:, species.derelict_idx, 0] += derelict_addition
-
+            state_matrix_alt[:, species.derelict_idx] += derelict_addition
+            
             species.sum_compliant = np.sum(successful_pmd)
             species.sum_non_compliant = np.sum(failed_pmd)
 
         elif species_name == 'Su':
             # get Su matrix
-            Su_matrix = state_matrix[:, species.species_idx, 0]
+            num_items_fringe = state_matrix[:, species.species_idx, 0]
             
-            # All compliant PMD are dropped at the highest naturally compliant vector
+            # All compliant PMD are dropped at the highest naturall compliant vector. 
             last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
             non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
 
-            compliant_derelicts = (1 / species.deltat) * Su_matrix * species.econ_params.pmd_rate
-            non_compliant_derelicts = (1 / species.deltat) * Su_matrix * (1 - species.econ_params.pmd_rate)
+            # Number of compliant and non compiant satellites in each cell 
+            compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.pmd_rate
+            non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1 - species.econ_params.pmd_rate)
 
-            # Remove all satellites at end of life
-            state_matrix[:, species.species_idx, 0] -= (1 / species.deltat) * Su_matrix
+            # remove all satellites at end of life
+            state_matrix[:, species.species_idx, 0] -= (1 / species.deltat) * num_items_fringe
+            state_matrix_alt[:, species.species_idx] -= (1 / species.deltat) * num_items_fringe
 
+            # add compliant derelicts to last compliant shell
             sum_non_compliant = np.sum(compliant_derelicts[non_compliant_mask])
             compliant_derelicts[last_compliant_shell] += sum_non_compliant
             compliant_derelicts[non_compliant_mask] = 0
 
-            state_matrix[:, species.derelict_idx, 0] += compliant_derelicts
-            state_matrix[:, species.derelict_idx, 0] += non_compliant_derelicts
+            # this should be the compliant going to the top of the PMD lifetime shell and the non compliant remaining in the same shell
+            derelict_addition = non_compliant_derelicts + compliant_derelicts
+
+            # add derelicts back to both sma and altitude matrices
+            state_matrix[:, species.derelict_idx, 0] += derelict_addition
+            state_matrix_alt[:, species.derelict_idx] += derelict_addition
 
             species.sum_compliant = np.sum(compliant_derelicts)
             species.sum_non_compliant = np.sum(non_compliant_derelicts)
 
         elif species_name == 'Sns':
             # get Sns matrix
-            Sns_matrix = state_matrix[:, species.species_idx, 0]
-            
-            # No PMD; everything goes to derelict in place
-            derelicts = (1 / species.deltat) * Sns_matrix
+            num_items_fringe = state_matrix[:, species.species_idx, 0]
+
+            derelicts = (1 / species.deltat) * num_items_fringe
 
             state_matrix[:, species.species_idx, 0] -= derelicts
             state_matrix[:, species.derelict_idx, 0] += derelicts
+
+            state_matrix_alt[:, species.species_idx] -= derelicts
+            state_matrix_alt[:, species.derelict_idx] += derelicts
 
             species.sum_compliant = 0
             species.sum_non_compliant = np.sum(derelicts)
@@ -244,6 +234,6 @@ def evaluate_pmd_elliptical(state_matrix, multi_species):
         else:
             raise ValueError(f"Unhandled species type: {species_name}")
 
-    return state_matrix, multi_species
+    return state_matrix, state_matrix_alt, multi_species
 
 

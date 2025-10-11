@@ -81,8 +81,12 @@ class PlotHandler:
                 self.scenario_files = scenario_files # This will be a list of each sub-scenario run name
                 self.simulation_name = simulation_name # This is the overall name of the simualtion 
                 self.plot_types = plot_types # This will be a list of the types of plots to be generated
-                self.HMid = self.MOCAT.scenario_properties.HMid
-                self.n_shells = self.MOCAT.scenario_properties.n_shells
+                try:
+                        self.HMid = self.MOCAT.scenario_properties.HMid
+                        self.n_shells = self.MOCAT.scenario_properties.n_shells
+                except:
+                        self.HMid = self.MOCAT.HMid
+                        self.n_shells = self.MOCAT.n_shells
 
                 # This will rely on the fact that there is a file available under the simulation name in the Results folder. 
                 self.simulation_folder = os.path.join("Results", self.simulation_name)
@@ -100,7 +104,9 @@ class PlotHandler:
                 for scenario in self.scenario_files:
                         scenario_folder = os.path.join(self.simulation_folder, scenario)
                         if not os.path.exists(scenario_folder):
-                                print(f"Error: {scenario_folder} folder does not exist. Skipping scenario...")
+                                # create the folder
+                                os.makedirs(scenario_folder, exist_ok=True)
+                                # print(f"Error: {scenario_folder} folder does not exist. Skipping scenario...")
                                 continue
                         else: 
                                 print("Generating plots for scenario: ", scenario)
@@ -1070,7 +1076,18 @@ class PlotHandler:
                         plt.xlabel('Year')
                         plt.ylabel('Shell Mid Altitude (km)')
                         plt.xticks(ticks=range(data.shape[0]), labels=range(1, data.shape[0] + 1))
-                        plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
+                        # Ensure the number of labels matches the number of ticks
+                        if len(self.HMid) == data.shape[1]:
+                            plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
+                        else:
+                            # If HMid length doesn't match, use a subset or create appropriate labels
+                            if len(self.HMid) < data.shape[1]:
+                                # Pad with additional values or use the available ones
+                                labels = list(self.HMid) + [f"Shell {i}" for i in range(len(self.HMid), data.shape[1])]
+                                plt.yticks(ticks=range(data.shape[1]), labels=labels[:data.shape[1]])
+                            else:
+                                # Use only the first data.shape[1] elements
+                                plt.yticks(ticks=range(data.shape[1]), labels=self.HMid[:data.shape[1]])
 
                         # Save the plot to the designated folder
                         file_path = os.path.join(plot_data.path, f"count_over_time_{sp}.png")
@@ -1102,7 +1119,18 @@ class PlotHandler:
                         ax.set_xticks(range(data.shape[0]))
                         ax.set_xticklabels(range(1, data.shape[0] + 1))
                         ax.set_yticks(range(data.shape[1]))
-                        ax.set_yticklabels(self.HMid)
+                        # Ensure the number of labels matches the number of ticks
+                        if len(self.HMid) == data.shape[1]:
+                            ax.set_yticklabels(self.HMid)
+                        else:
+                            # If HMid length doesn't match, use a subset or create appropriate labels
+                            if len(self.HMid) < data.shape[1]:
+                                # Pad with additional values or use the available ones
+                                labels = list(self.HMid) + [f"Shell {i}" for i in range(len(self.HMid), data.shape[1])]
+                                ax.set_yticklabels(labels[:data.shape[1]])
+                            else:
+                                # Use only the first data.shape[1] elements
+                                ax.set_yticklabels(self.HMid[:data.shape[1]])
                         fig.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04)
 
                 # Turn off unused subplots
