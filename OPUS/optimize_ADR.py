@@ -1,3 +1,4 @@
+# Econ_Calculations_Integration/optimize_ADR.py
 from utils.ConstellationParameters import ConstellationParameters
 from utils.EconParameters import EconParameters
 from utils.MocatParameters import configure_mocat   
@@ -17,8 +18,8 @@ from utils.ADR import implement_adr
 from utils.ADR import implement_adr2
 from utils.ADR import optimize_ADR_removal
 import os
+# Replaced the import for the old YearDTO with the new EconCalculations class.
 from utils.EconCalculations import EconCalculations
-from utils.YearDTO import YearDTO
 
 
 class IAMSolver:
@@ -33,7 +34,6 @@ class IAMSolver:
         self.params = params
         self.umpy_score = None
         self.welfare_dict = {}
-        self.year_dto_setup = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
@@ -117,6 +117,12 @@ class IAMSolver:
 
 
         econ_params.calculate_cost_fn_parameters()
+
+        #################################
+        ### CONFIGURE ECONOMIC CALCULATOR
+        #################################
+        # Instantiated EconCalculations to manage economic state, replacing the YearDTO object.
+        econ_calculator = EconCalculations(econ_params, initial_removal_cost=econ_params.removal_cost)
         
         adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         counter = 0
@@ -166,13 +172,6 @@ class IAMSolver:
                     adr_params.remove_method = ["p"]
 
 
-            # if adr_params.target_species is not None:
-            #     if ("B" in adr_params.target_species) or ("N_0.00141372kg" in adr_params.target_species):
-            #         adr_params.target_shell = [7]
-            #     elif "N_223kg" in adr_params.target_species:
-            #         adr_params.target_shell = [5]
-            #     elif "N_0.567kg" in adr_params.target_species:
-            #         adr_params.target_shell = [7]
             if (adr_params.target_species is None) or (adr_params.target_species == "none"):
                 adr_params.target_species = []
                 adr_params.p_remove = 0
@@ -201,8 +200,16 @@ class IAMSolver:
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
 
+        # Initialized the economic state for the simulation loop. This call populates the
+        # funds available for removals in the next period using the first year's tax revenue.
+        econ_calculator.process_period_economics(
+            num_actually_removed=0,
+            current_environment=x0,
+            fringe_slices=(fringe_start_slice, fringe_end_slice),
+            new_tax_revenue=float(open_access.last_total_revenue)
+        )
+
         lam[fringe_start_slice:fringe_end_slice] = launch_rate
-        
         
         ####################
         ### SIMULATION LOOP
@@ -219,33 +226,14 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
-        #J- Last year tax revenue and removal cost initialization
-        tax_revenue_lastyr = 0.0
-        removal_cost = 5000000
-        leftover_tax_revenue = 0.0
-        money_bucket_2 = 0.0
-        money_bucket_1 = 0.0
-
-        year_dto = YearDTO(self.year_dto_setup)
-
         shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
         opt_path = {}
-        temp_simulation_results = {}
         opt_comp = {}
 
         for time_idx in tf:
 
             print("Starting year ", time_idx)
-            
-            #J- Tax Revenue read in
-            # total_tax_revenue = float(open_access._last_total_revenue)
-            # shell_revenue = open_access.last_tax_revenue.tolist()
-            total_tax_revenue = year_dto.opt_tax_revenue
-            shell_revenue = year_dto.opt_shell_revenue
-            money_bucket_2 = year_dto.opt_money_2
-            money_bucket_1 = year_dto.opt_money_1
 
-            # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
             tspan = np.linspace(0, 1, 2)
             
             # State of the environment during a simulation loop
@@ -257,247 +245,121 @@ class IAMSolver:
             propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
                                                     fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
 
-            # sammie addition: adding in removals left from econ-adr branch
-            adr_params.removals_left  = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
-            # if adr_params.removals_left < 0:
-            #     print('I know whats going on here. I know whats going on here. Okay? I do. And if you want me to wander backstage to spill the beans... Im the only one out of the loop, it would seem... and if we check my point total here— I dont NEED to walk to the front, because I know what it is. Its a big ol GOOSE EGG, GANG. Its a FAT ZERO. HELLO!! A little LATE ADDITION to the numerical symbol chart brought to us from our friends in Arabia, a little bit of trivia that I happen to know about the history of numbers. That kind of little tidbit would serve me well in most trivia games, unless it had been RIGGED FROM THE BEGINNING! Oh, Ive only just BEGUN to pull the thread on this sweater, friends. You would THINK in a game where there are only TWO possible correct choices, that one would STUMBLE INTO the right answer every so often, wouldnt you? In fact, the probability of NEVER guessing right in the full game is a STATISTICAL WONDER, and yet, HERE WE ARE. Introduced at the top of the game as a champion, what do you think that means? Icarus, flying too close to the sun. But it seems Daedalus, our little master crafter over here, had some wax wings of his own, didnt he? Wanted to see his son fall. Fall from the sky. Oh, how CLOSE TO THE SUN he flew! Well Im NOT HAVING IT. I solved your labyrinth, puzzle master! The minotaurs escaped and youre gonna get the horns, buddy! I CANNOT WIN!')
-            #     removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove),'n':int(n),'counter':int(counter),'status':'found a problem'}
-            #     indicator = 1
-            removals_left_copy = int((money_bucket_2 + tax_revenue_lastyr)// removal_cost)
 
-            if (econ_params.tax == 0 and econ_params.bond == 0 and econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
-                adr_params.removals_left = 20
-            
-            year_dto.store_year_data(total_tax_revenue, shell_revenue, adr_params.removals_left, propagated_environment.copy(), money_bucket_1, money_bucket_2)
-            before = propagated_environment.copy() 
-            opt_comp[str(time_idx)] = {}
-
-            # sammie addition: runs the ADR function if the current year is one of the specified removal years
+            # Runs the ADR optimization if the current year is one of the specified removal years
             adr_params.time = time_idx
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
+                
+                # Get the number of affordable removals from the econ_calculator's state.
+                removals_possible = econ_calculator.get_removals_for_current_period()
+                adr_params.removals_left = removals_possible 
+
+                # Store the environment state before trying different ADR strategies
+                before_adr_env = propagated_environment.copy()
+                optimization_trials = {}
+
                 for cs in shells:
-                    tax_revenue_lastyr = year_dto.tax_revenue_lastyr
-                    adr_params.removals_left = year_dto.removals_left
-                    money_bucket_1 = year_dto.money_bucket_1
-                    money_bucket_2 = year_dto.money_bucket_2
-                    propagated_environment = year_dto.old_environment
-
+                    # Reset environment for this trial
+                    trial_env = before_adr_env.copy()
                     adr_params.target_shell = [cs]
-                    if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
-                        propagated_environment, removal_dict = optimize_ADR_removal(propagated_environment,self.MOCAT,adr_params)
-                        counter = counter + 1
-                        removals[str(time_idx)] = removal_dict
-                        print("ADR Counter: " + str(counter))
-                        print("Did you ever hear the tragedy of Darth Plagueis the Wise?")
+
+                    # Perform the ADR for this trial
+                    trial_env_after_adr, removal_dict = optimize_ADR_removal(trial_env,self.MOCAT,adr_params)
+                    num_removed_trial = (before_adr_env - trial_env_after_adr).sum()
                     
-                    leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-
-                    if leftover_tax_revenue >= 0:
-                        leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-                        money_bucket_1 = money_bucket_2 + leftover_tax_revenue
-                    else: 
-                        leftover_tax_revenue = 0
-                        money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-
-                    # print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
-                    # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
-                    # print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
-                    # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
-
                     # Update the constellation satellites for the next period - should only be 5%.
                     for i in range(constellation_start_slice, constellation_end_slice):
                         if lam[i] is not None:
                             lam[i] = lam[i] * 0.05
-
-                    # lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
-                
-                    # Record propagated environment data
-                    for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
-                        # 0 based index 
-                        species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
-
-                    # Fringe Equilibrium Controller
-                    start_time = time.time()
-                    print(f"Now starting period {time_idx}...")
-
+                    
+                    # --- Run the economic solver for this trial's outcome ---
+                    solver_guess_trial = 0.05 * np.array(trial_env_after_adr[fringe_start_slice:fringe_end_slice])
                     open_access = OpenAccessSolver(
-                        self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
+                        self.MOCAT, solver_guess_trial, launch_mask, trial_env_after_adr, "linear",
                         econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
                     
-                    collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
-                    ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
-
-                    # Calculate solver_guess
-                    solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
-
-                    open_access = OpenAccessSolver(
-                        self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
-                        econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
-
                     # Solve for equilibrium launch rates
                     launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
 
-                    #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-                    total_tax_revenue = float(open_access.last_total_revenue)
-                    shell_revenue = open_access.last_tax_revenue.tolist()
+                    # --- Calculate the welfare for this trial ---
+                    cost_of_removals_trial = num_removed_trial * econ_calculator.removal_cost
+                    funds_left_trial = econ_calculator.total_funds_for_removals - cost_of_removals_trial
+                    welfare_revenue_component = max(0, funds_left_trial)
+
+                    total_fringe_sat_trial = np.sum(trial_env_after_adr[fringe_start_slice:fringe_end_slice])
+                    welfare_trial = 0.5 * econ_calculator.welfare_coef * total_fringe_sat_trial**2 + welfare_revenue_component
+
+                    # Store the results of this trial
+                    optimization_trials[cs] = {
+                        'welfare': welfare_trial,
+                        'umpy': umpy,
+                        'environment': trial_env_after_adr,
+                        'num_removed': num_removed_trial,
+                        'new_tax_revenue': float(open_access.last_total_revenue),
+                        'launch_rate': launch_rate,
+                        'removal_dict': removal_dict,
+                        'simulation_data': {
+                            "ror": open_access.fringe_rate_of_return(trial_env_after_adr, open_access.calculate_probability_of_collision(trial_env_after_adr)),
+                            "collision_probability": open_access.calculate_probability_of_collision(trial_env_after_adr),
+                            "launch_rate" : launch_rate,
+                            "collision_probability_all_species": col_probability_all_species,
+                            "umpy": umpy,
+                            "excess_returns": excess_returns,
+                            "ICs": x0,
+                            "tax_revenue_total": float(open_access.last_total_revenue),
+                            "tax_revenue_by_shell": open_access.last_tax_revenue.tolist(),
+                            "welfare": welfare_trial,
+                            "bond_revenue": open_access.bond_revenue,
+                        }
+                    }
+
+                # Find the best shell based on the highest welfare
+                if not optimization_trials:
+                    best_shell = None
+                    welfare = 0 
+                else:
+                    best_shell = max(optimization_trials, key=lambda k: optimization_trials[k]['welfare'])
+                    best_trial = optimization_trials[best_shell]
+
+                    # Officially update the simulation state with the results of the best trial
+                    current_environment = best_trial['environment']
+                    num_actually_removed = best_trial['num_removed']
+                    new_tax_revenue = best_trial['new_tax_revenue']
+                    lam[fringe_start_slice:fringe_end_slice] = best_trial['launch_rate']
                     
-                    # Update the initial conditions for the next period
-                    lam[fringe_start_slice:fringe_end_slice] = launch_rate
+                    # Finalized the economics for the period. This call updates the calculator's
+                    # internal state for the *next* period using the results from the best ADR trial.
+                    welfare, _ = econ_calculator.process_period_economics(
+                        num_actually_removed,
+                        current_environment,
+                        (fringe_start_slice, fringe_end_slice),
+                        new_tax_revenue
+                    )
 
-                    elapsed_time = time.time() - start_time
-                    print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
+                    # Save results for post-processing
+                    opt_path[str(time_idx)] = best_trial['removal_dict']
+                    simulation_results[time_idx] = best_trial['simulation_data']
+                    opt_comp[str(time_idx)] = {sh: {'Welfare': d['welfare'], 'UMPY': d['umpy']} for sh, d in optimization_trials.items()}
 
-                    # Update the current environment
-                    current_environment = propagated_environment
-
-                    #J- Adding in Economic Welfare
-                    fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
-                    total_fringe_sat = np.sum(fringe_pop)
-                    welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
-
-                    opt_comp[str(time_idx)][str(cs)] = {'Welfare':welfare, 'UMPY':umpy}
-
-                    #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
-                    money_bucket_2 = money_bucket_1
-                    tax_revenue_lastyr = float(open_access._last_total_revenue)
-
-                    if not scenario_name.startswith("Baseline"):
-
-                        if (time_idx != 1) and (cs != 1):
-                            if (opt_comp[str(time_idx)][str(cs)]['Welfare'] > opt_comp[str(time_idx)][str(cs - 1)]['Welfare']):
-                                opt_path[str(time_idx)] = removals[str(time_idx)]
-                                opt_shell = cs
-                                year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
-                                temp_simulation_results[cs] = {
-                                    "ror": ror,
-                                    "collision_probability": collision_probability,
-                                    "launch_rate" : launch_rate, 
-                                    "collision_probability_all_species": col_probability_all_species,
-                                    "umpy": umpy, 
-                                    "excess_returns": excess_returns,
-                                    "ICs": x0, # sammie addition
-                                    "excess_returns": excess_returns,
-                                    "tax_revenue_total": total_tax_revenue,
-                                    "tax_revenue_by_shell": shell_revenue,
-                                    "welfare": welfare,
-                                    "bond_revenue":open_access.bond_revenue,
-                                }
-                        elif cs == 1:
-                            opt_path[str(time_idx)] = removals[str(time_idx)]
-                            opt_shell = cs
-                            year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
-
-
-                            # propagated_environment = before
-                            # adr_params.removals_left = removals_left_copy
-                            # Save the results that will be used for plotting later
-                            temp_simulation_results[cs] = {
-                                "ror": ror,
-                                "collision_probability": collision_probability,
-                                "launch_rate" : launch_rate, 
-                                "collision_probability_all_species": col_probability_all_species,
-                                "umpy": umpy, 
-                                "excess_returns": excess_returns,
-                                "ICs": x0, # sammie addition
-                                "excess_returns": excess_returns,
-                                "tax_revenue_total": total_tax_revenue,
-                                "tax_revenue_by_shell": shell_revenue,
-                                "welfare": welfare,
-                                "bond_revenue":open_access.bond_revenue,
-                            }
-                        # elif time_idx == 2:
-                        #     opt_path[str(time_idx)] = removals[str(time_idx)]
-                        #     opt_env = propagated_environment
-                        #     opt_removals_left = adr_params.removals_left
-                        #     # Save the results that will be used for plotting later
-                        #     simulation_results[time_idx] = {
-                        #         "ror": ror,
-                        #         "collision_probability": collision_probability,
-                        #         "launch_rate" : launch_rate, 
-                        #         "collision_probability_all_species": col_probability_all_species,
-                        #         "umpy": umpy, 
-                        #         "excess_returns": excess_returns,
-                        #         "ICs": x0, # sammie addition
-                        #         "excess_returns": excess_returns,
-                        #         "tax_revenue_total": total_tax_revenue,
-                        #         "tax_revenue_by_shell": shell_revenue,
-                        #         "welfare": welfare,
-                        #         "bond_revenue":open_access.bond_revenue,
-                        #     }
-                        else: 
-                            opt_path['1'] = {'Shell 0':{'n_remove':0, 'Order':1} }
-                            simulation_results[time_idx] = {
-                                "ror": ror,
-                                "collision_probability": collision_probability,
-                                "launch_rate" : launch_rate, 
-                                "collision_probability_all_species": col_probability_all_species,
-                                "umpy": umpy, 
-                                "excess_returns": excess_returns,
-                                "ICs": x0, # sammie addition
-                                "excess_returns": excess_returns,
-                                "tax_revenue_total": total_tax_revenue,
-                                "tax_revenue_by_shell": shell_revenue,
-                                "welfare": welfare,
-                                "bond_revenue":open_access.bond_revenue,
-                            }
-                            opt_shell = None
-                            
-                            year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
-                current_environment = year_dto.opt_environment
-                adr_params.removals_left = year_dto.opt_removals
-                if (opt_shell is not None):
-                    simulation_results[time_idx] = temp_simulation_results[opt_shell]
+            else: # Logic for years with NO ADR
                 
-            else: 
-                leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-                if leftover_tax_revenue >= 0:
-                    leftover_tax_revenue = tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-                    money_bucket_1 = money_bucket_2 + leftover_tax_revenue
-                else: 
-                    leftover_tax_revenue = 0
-                    money_bucket_1 = money_bucket_2 + tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost
-
-                # print("Last year's revenue (used this year for removals):",tax_revenue_lastyr,"in year", time_idx)
-                # print("Leftover revenue:",tax_revenue_lastyr - (before - propagated_environment).sum()*removal_cost, "in year", time_idx)
-                # print("Leftover revenue being adding to welfare:", leftover_tax_revenue, "in year", time_idx)
-                # print("Leftover Money Bucket:", money_bucket_1, "in year", time_idx)
-
                 # Update the constellation satellites for the next period - should only be 5%.
                 for i in range(constellation_start_slice, constellation_end_slice):
                     if lam[i] is not None:
                         lam[i] = lam[i] * 0.05
-
-                # lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
             
-                # Record propagated environment data
-                for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
-                    # 0 based index 
-                    species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
-
                 # Fringe Equilibrium Controller
                 start_time = time.time()
                 print(f"Now starting period {time_idx}...")
 
+                # Calculate a solver guess based on the current period's environment
+                solver_guess_period = 0.05 * np.array(propagated_environment[fringe_start_slice:fringe_end_slice])
                 open_access = OpenAccessSolver(
-                    self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear",
+                    self.MOCAT, solver_guess_period, launch_mask, propagated_environment, "linear",
                     econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice,adr_params)
                 
-                collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
-                ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
-
-                # Calculate solver_guess
-                solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
-
-                open_access = OpenAccessSolver(
-                    self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
-                    econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
-
                 # Solve for equilibrium launch rates
                 launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
-
-                #J- Tax Revenue read in (this one may be redundant, but the results don't get printed without it?)
-                total_tax_revenue = float(open_access.last_total_revenue)
-                shell_revenue = open_access.last_tax_revenue.tolist()
                 
                 # Update the initial conditions for the next period
                 lam[fringe_start_slice:fringe_end_slice] = launch_rate
@@ -508,33 +370,35 @@ class IAMSolver:
                 # Update the current environment
                 current_environment = propagated_environment
 
-                #J- Adding in Economic Welfare
-                fringe_pop = current_environment[fringe_start_slice:fringe_end_slice]
-                total_fringe_sat = np.sum(fringe_pop)
-                welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue
+                # Handled economics for a non-ADR year. This call calculates welfare and
+                # correctly rolls over funds for the next period.
+                welfare, _ = econ_calculator.process_period_economics(
+                    num_actually_removed=0,
+                    current_environment=current_environment,
+                    fringe_slices=(fringe_start_slice, fringe_end_slice),
+                    new_tax_revenue=float(open_access.last_total_revenue)
+                )
 
+                # Store results
                 opt_comp[str(time_idx)] = {'0':{'Welfare':welfare, 'UMPY':umpy}}
-                # opt_comp[time_idx]['0']['UMPY'] = umpy
-
-                #J- This year's tax revenue + leftover tax revenue from this year's removals, used for next year's removals
-                money_bucket_2 = money_bucket_1
-                tax_revenue_lastyr = float(open_access._last_total_revenue)
                 opt_path[str(time_idx)] = {'Shell 0':{'n_remove':0, 'Order':1} }
                 simulation_results[time_idx] = {
-                    "ror": ror,
-                    "collision_probability": collision_probability,
+                    "ror": open_access.fringe_rate_of_return(current_environment, open_access.calculate_probability_of_collision(current_environment)),
+                    "collision_probability": open_access.calculate_probability_of_collision(current_environment),
                     "launch_rate" : launch_rate, 
                     "collision_probability_all_species": col_probability_all_species,
                     "umpy": umpy, 
                     "excess_returns": excess_returns,
-                    "ICs": x0, # sammie addition
-                    "excess_returns": excess_returns,
-                    "tax_revenue_total": total_tax_revenue,
-                    "tax_revenue_by_shell": shell_revenue,
+                    "ICs": x0,
+                    "tax_revenue_total": float(open_access.last_total_revenue),
+                    "tax_revenue_by_shell": open_access.last_tax_revenue.tolist(),
                     "welfare": welfare,
                     "bond_revenue":open_access.bond_revenue,
                 }
-                year_dto.update_year_data(tax_revenue_lastyr, shell_revenue, adr_params.removals_left, current_environment, money_bucket_1, money_bucket_2)
+            
+            # Record propagated environment data for all years
+            for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+                species_data[sp][time_idx - 1] = current_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
 
         var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
@@ -703,7 +567,7 @@ if __name__ == "__main__":
     # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
-                    # "Baseline",
+                     "Baseline",
                     # "adr_b",
                     # "bond_0k_25yr",
                     # "bond_100k",
@@ -762,4 +626,4 @@ if __name__ == "__main__":
     # normalize umpy and welfare over same value or something? take average??? 
     # look into similar method for current optimization of just umpy
     # create loop to run for each value in target_species, then go through all of the p_remove and save the stuff to a json grid before moving on to the next thing
-    # compare the umpy scores of them and save the best ones 
+    # compare the umpy scores of them and save the best ones
