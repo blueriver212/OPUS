@@ -7,7 +7,7 @@
     "modified": "2024-01-01T12:00:00Z",
     "scenario_properties": {
       "start_date": "01/01/2025",
-      "simulation_duration": 10,
+      "simulation_duration": 25,
       "steps": 10,
       "min_altitude": 200,
       "max_altitude": 1400,

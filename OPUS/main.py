@@ -312,15 +312,15 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    # "bond_100k",
+                    "bond_100k",
                     # "bondrevenuegrowth_100k",
                     # "revenuegrowth_0k",
                     # # "bond_200k",
                     # # # "bond_300k",
                     # # # # "bond_500k",
-                    # "bond_800k",
+                    "bond_800k",
                     # "bond_1200k",
-                    # "bond_1600k",
+                    "bond_1600k",
                     # # # "bond_100k_25yr",
                     # # # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
@@ -334,7 +334,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "test-2"
+    simulation_name = "bond-test"
 
     iam_solver = IAMSolver()
 
@@ -346,23 +346,23 @@ if __name__ == "__main__":
         return totals
 
     # # no parallel processing
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
         # Get the total species from the output
         # total_species = get_total_species_from_output(output)
         # print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
-    # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    # multi_species_names = ["S","Su", "Sns"]
-    # multi_species_names = ["Sns"]
-    # multi_species = MultiSpecies(multi_species_names)
-    # MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
-    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    multi_species_names = ["S","Su", "Sns"]
+    # # multi_species_names = ["Sns"]
+    multi_species = MultiSpecies(multi_species_names)
+    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
+    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
 
-    PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
+    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
