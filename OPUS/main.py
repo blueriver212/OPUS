@@ -140,7 +140,7 @@ class IAMSolver:
                 # if species.name == constellation_sat:
                 #     continue
                 # else:
-                inital_guess = 0.05 * n.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
+                inital_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
                 # if sum of initial guess is 0, muliply each element by 10
                 if sum(inital_guess) == 0:
                     inital_guess[:] = 5
@@ -334,7 +334,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "bond-test"
+    simulation_name = "bond-test-circular"
 
     iam_solver = IAMSolver()
 
