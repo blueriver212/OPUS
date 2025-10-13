@@ -5,6 +5,9 @@ from utils.OpenAccessSolver import OpenAccessSolver
 from utils.PostProcessing import PostProcessing
 from utils.PlotHandler import PlotHandler
 from utils.PostMissionDisposal import evaluate_pmd
+from utils.MultiSpecies import MultiSpecies
+from utils.MultiSpeciesOpenAccessSolver import MultiSpeciesOpenAccessSolver
+from utils.Helpers import insert_launches_into_lam
 from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
@@ -21,7 +24,7 @@ from utils.EconCalculations import EconCalculations
 
 class IAMSolver:
 
-    def __init__(self, params = []):
+    def __init__(self):
         self.output = None
         self.MOCAT = None   
         self.econ_params_json = None
@@ -33,7 +36,7 @@ class IAMSolver:
         self.welfare_dict = {}
 
     @staticmethod
-    def get_species_position_indexes(MOCAT, constellation_sats, fringe_sats, pmd_linked_species):
+    def get_species_position_indexes(MOCAT, constellation_sats):
         """
             The MOCAT model works on arrays that are the number of shells x number of species.
             Often throughout the model, we see the original list being spliced. 
@@ -48,32 +51,27 @@ class IAMSolver:
         constellation_start_slice = (constellation_sats_idx * MOCAT.scenario_properties.n_shells)
         constellation_end_slice = constellation_start_slice + MOCAT.scenario_properties.n_shells
 
-        fringe_idx = MOCAT.scenario_properties.species_names.index(fringe_sats)
-        fringe_start_slice = (fringe_idx * MOCAT.scenario_properties.n_shells)
-        fringe_end_slice = fringe_start_slice + MOCAT.scenario_properties.n_shells
-
-        derelict_idx = MOCAT.scenario_properties.species_names.index(pmd_linked_species)
-        derelict_start_slice = (derelict_idx * MOCAT.scenario_properties.n_shells)
-        derelict_end_slice = derelict_start_slice + MOCAT.scenario_properties.n_shells
-
-        return constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice
+        return constellation_start_slice, constellation_end_slice
 
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name):
         """
             The main function that runs the IAM solver.
         """
         # Define the species that are part of the constellation and fringe
-        constellation_sats = "S"
-        fringe_sats = "Su"
+        multi_species_names = ["S", "Su", "Sns"]
+
+        # This will create a list of OPUSSpecies objects. 
+        multi_species = MultiSpecies(multi_species_names)
 
         #########################
         ### CONFIGURE MOCAT MODEL
         #########################
-        if self.MOCAT is None:
-            self.MOCAT, self.econ_params_json, self.pmd_linked_species = configure_mocat(MOCAT_config, fringe_satellite=fringe_sats)
-            print(self.MOCAT.scenario_properties.x0)
+        # if self.MOCAT is None:
+        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
+        print(self.MOCAT.scenario_properties.x0)
 
-        # If testing using MOCAT x0 use:
+        multi_species.get_species_position_indexes(self.MOCAT)
+        multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
         x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
         constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sats, fringe_sats, self.pmd_linked_species)
         
@@ -154,18 +152,33 @@ class IAMSolver:
                 adr_params.p_remove = 0
                 adr_params.remove_method = ["p"]
         
+        
+        # For each simulation - we will need to modify the base economic parameters for the species. 
+        for species in multi_species.species:
+            species.econ_params.modify_params_for_simulation(scenario_name)
+            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
+
         ############################
         ### CONSTELLATION PARAMETERS
         ############################
-        constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
-        lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
+
+        # Get the slices for the constellation and fringe satellites
+        # constellation_start_slice, constellation_end_slice = self.get_species_position_indexes(self.MOCAT, constellation_sat)
+        # constellation_params = ConstellationParameters('./OPUS/configuration/constellation-parameters.csv')
+        # lam = constellation_params.define_initial_launch_rate(self.MOCAT, constellation_start_slice, constellation_end_slice, x0)
 
         # Fringe population automomous controller. 
         launch_mask = np.ones((self.MOCAT.scenario_properties.n_shells,))
 
-        # Solver guess is 5% of the current fringe satellites. Update The launch file.
-        solver_guess = 0.05 * np.array(x0[fringe_start_slice:fringe_end_slice]) * launch_mask
-        lam[fringe_start_slice:fringe_end_slice] = solver_guess
+        # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
+        solver_guess = x0
+        lam = np.full_like(x0, None, dtype=object)
+        for species in multi_species.species:
+            # if species.name == constellation_sat:
+            #     continue
+            # else:
+            solver_guess[species.start_slice:species.end_slice] = 0.05 * np.array(x0[species.start_slice:species.end_slice]) * launch_mask  
+            lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
         ############################
         ### SOLVE FOR THE FIRST YEAR
@@ -173,13 +186,13 @@ class IAMSolver:
         open_access = OpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", 
                                     econ_params, lam, fringe_start_slice, fringe_end_slice,
                                     derelict_start_slice, derelict_end_slice,adr_params)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, x0, "linear", lam, multi_species)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
-        launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
+        launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
 
-        lam[fringe_start_slice:fringe_end_slice] = launch_rate
-        
-        
+        lam = insert_launches_into_lam(lam, launch_rate, multi_species)
+             
         ####################
         ### SIMULATION LOOP
         # For each year, take the previous state of the environment, 
@@ -209,11 +222,10 @@ class IAMSolver:
             tspan = np.linspace(0, 1, 2)
             fringe_initial_guess = None
 
-            # Propagate the model
-            propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam)
+            # Propagate the model and take the final state of the environment
+            propagated_environment = self.MOCAT.propagate(tspan, current_environment, lam, time_idx)
             propagated_environment = propagated_environment[-1, :] 
-            propagated_environment = evaluate_pmd(propagated_environment, econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat,
-                                                fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, econ_params)
+            propagated_environment, multi_species = evaluate_pmd(propagated_environment, multi_species)
 
             # --- ADR Section ---
             # J- Get the number of removals from our new econ calculations class
@@ -237,6 +249,13 @@ class IAMSolver:
                 if lam[i] is not None:
                     lam[i] *= 0.05
 
+            # Update the constellation satellites for the next period - should only be 5%.
+            # for i in range(constellation_start_slice, constellation_end_slice):
+            #     if lam[i] is not None:
+            #         lam[i] = lam[i] * 0.05
+
+            #lam = constellation_params.constellation_launch_rate_for_next_period(lam, sats_idx, x0, MOCAT)
+        
             # Record propagated environment data
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 species_data[sp][time_idx - 1] = propagated_environment[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
@@ -252,14 +271,32 @@ class IAMSolver:
             collision_probability = open_access.calculate_probability_of_collision(propagated_environment)
             ror = open_access.fringe_rate_of_return(propagated_environment, collision_probability)
             solver_guess = lam[fringe_start_slice:fringe_end_slice] - lam[fringe_start_slice:fringe_end_slice] * (ror - collision_probability) * launch_mask
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, fringe_initial_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
 
+            # Calculate solver_guess
+            solver_guess = lam
+            for species in multi_species.species:
+                # Calculate the probability of collision based on the new position
+                collision_probability = open_access.calculate_probability_of_collision(propagated_environment, species.name)
+                
+                # Rate of Return
+                rate_of_return = open_access.fringe_rate_of_return(propagated_environment, collision_probability, species)
+                solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability) * launch_mask
+
+            # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
+            multi_species.increase_demand()
+
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear", lam, multi_species)
             open_access = OpenAccessSolver(
                 self.MOCAT, solver_guess, launch_mask, propagated_environment, "linear",
                 econ_params, lam, fringe_start_slice, fringe_end_slice, derelict_start_slice, derelict_end_slice, adr_params)
 
-            launch_rate, col_probability_all_species, umpy, excess_returns = open_access.solver()
-            
-            lam[fringe_start_slice:fringe_end_slice] = launch_rate
+            # Solve for equilibrium launch rates
+            launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
+
+            # Update the initial conditions for the next period
+            lam = insert_launches_into_lam(lam, launch_rate, multi_species)
+
             elapsed_time = time.time() - start_time
             print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
             
@@ -281,35 +318,16 @@ class IAMSolver:
             total_tax_revenue_for_storage = float(open_access._last_total_revenue)
 
             simulation_results[time_idx] = {
-                "ror": ror,
+                "ror": rate_of_return,
                 "collision_probability": collision_probability,
                 "launch_rate": launch_rate,
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy,
                 "excess_returns": excess_returns,
-                "ICs": x0,
-                "tax_revenue_total": total_tax_revenue_for_storage, # Storing this period's generated tax
-                "tax_revenue_by_shell": shell_revenue,
-                "welfare": welfare, # Using the welfare calculated by our new class
-                "bond_revenue": open_access.bond_revenue,
-                "leftover_revenue": leftover_revenue
+                "non_compliance": last_non_compliance
             }
-
-        var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, econ_params)
-
-        # sammie addition: storing the optimizable values and params
-        self.umpy_score = var.umpy_score
-        self.adr_dict = var.adr_dict
-        self.welfare_dict[scenario_name] = welfare
-
-        save_path = f"./Results/{simulation_name}/{scenario_name}/objects_removed.json"
-        # if not os.path.exists(os.path.dirname(save_path)):
-        #     os.makedirs(os.path.dirname(save_path))
-        if ('removal_dict' in globals()) or ('removal_dict' in locals()):
-            if not os.path.exists(os.path.dirname(save_path)):
-                os.makedirs(os.path.dirname(save_path))
-            with open(save_path, 'w') as json_file:
-                json.dump(removal_dict, json_file, indent=4)
+        
+        PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, multi_species.species[0].econ_params)
 
     def get_mocat(self):
         return self.MOCAT
@@ -465,30 +483,36 @@ if __name__ == "__main__":
                     # "5rule_N0.00141372kg_one",
                     # "bond_0k_25yr",
                     # "bond_100k",
+                    # "bondrevenuegrowth_100k",
+                    # "revenuegrowth_0k",
                     # # "bond_200k",
-                    # # "bond_300k",
-                    # "bond_500k",
-                    # "bond_800k",
+                    # # # "bond_300k",
+                    # # # # "bond_500k",
+                    # # "bond_800k",
                     # "bond_1600k",
-                    # "bond_100k_25yr",
-                    # # "bond_200k_25yr",
+                    # "bond_1200k",
+                    # "bond_1600k",
+                    # # # "bond_100k_25yr",
+                    # # # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
-                    # "bond_500k_25yr",
+                    # # # # "bond_500k_25yr",
                     # "bond_800k_25yr",
+                    # "bond_1200k_25yr",
+                    # "bond_1600k_25yr",
                     # "tax_1",
-                    # "tax_2"
+                    # # "tax_2"
                 ]
     
-    MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "shell_switching_test_take3"
+    simulation_name = "Bond-With-Revnue-Growth"
 
     iam_solver = IAMSolver()
 
-    # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
+    # # # no parallel processing
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
 
     # Parallel Processing
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name)
@@ -508,10 +532,7 @@ if __name__ == "__main__":
     # PlotHandler(MOCAT, scenario_files, simulation_name, comparison = True)
 
     # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    MOCAT,_, _ = configure_mocat(MOCAT_config, fringe_satellite="Su")
+    multi_species_names = ["S","Su", "Sns"]
+    multi_species = MultiSpecies(multi_species_names)
+    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
-
-    # normalize umpy and welfare over same value or something? take average??? 
-    # look into similar method for current optimization of just umpy
-    # create loop to run for each value in target_species, then go through all of the p_remove and save the stuff to a json grid before moving on to the next thing
-    # compare the umpy scores of them and save the best ones 

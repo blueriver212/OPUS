@@ -60,6 +60,10 @@ class PostProcessing:
                 "tax_revenue_total": data["tax_revenue_total"],
                 "tax_revenue_by_shell": data["tax_revenue_by_shell"].tolist() if isinstance(data["tax_revenue_by_shell"], np.ndarray) else data["tax_revenue_by_shell"],
                 "welfare": data.get("welfare",0),
+                "non_compliance": {
+                    sp: val.tolist() if isinstance(val, (list, np.ndarray)) else val
+                    for sp, val in data["non_compliance"].items()
+                } if isinstance(data["non_compliance"], dict) else data["non_compliance"]
             }
             for time_idx, data in self.other_results.items()
         }

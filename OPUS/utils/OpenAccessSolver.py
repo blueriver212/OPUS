@@ -5,7 +5,6 @@ from concurrent.futures import ProcessPoolExecutor
 from pyssem.model import Model
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd
 
@@ -39,6 +38,7 @@ class OpenAccessSolver:
         self.tspan = np.linspace(0, 1, 2)
         self.derelict_start_slice = derelict_start_slice
         self.derelict_end_slice = derelict_end_slice
+        self.time_idx = 0
         
         # sammie addition
         self.adr_params = adr_params
@@ -49,6 +49,7 @@ class OpenAccessSolver:
         # This is temporary storage of each of the variables, so they can then be stored for visualisation later. 
         self._last_collision_probability = None
         self._last_rate_of_return = None 
+        self._last_non_compliance = None
 
     def excess_return_calculator(self, launches):
         """
@@ -64,7 +65,7 @@ class OpenAccessSolver:
         state_next = state_next_path[-1, :]
 
         # Evaluate pmd
-        state_next = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
+        state_next, non_compliance_total = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
                                   self.fringe_start_slice, self.fringe_end_slice, self.derelict_start_slice, self.derelict_end_slice, 
                                   self.econ_params)
 
@@ -89,6 +90,7 @@ class OpenAccessSolver:
         # Save the collision_probability for all species
         self._last_collision_probability = collision_probability
         self._last_excess_returns = excess_returns
+        self._last_non_compliance = non_compliance_total
 
         #J ─── Revenue collection ────────────────────────────────────────────────────
         fringe_total = state_next[self.fringe_start_slice:self.fringe_end_slice]
