@@ -11,6 +11,7 @@ from utils.Helpers import insert_launches_into_lam
 from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
+from datetime import timedelta
 import time
 
 class IAMSolver:
@@ -85,6 +86,7 @@ class IAMSolver:
         multi_species_names = ["S", "Su", "Sns"]
         # multi_species_names = ["S"]
 
+
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
@@ -92,11 +94,17 @@ class IAMSolver:
         ### CONFIGURE MOCAT MODEL
         #########################
         # if self.MOCAT is None:
-        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
+        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=self.grid_search)
         self.elliptical = self.MOCAT.scenario_properties.elliptical # elp, x0 = 12517
+        print(self.MOCAT.scenario_properties.x0)
 
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
+
+        model_horizon = self.MOCAT.scenario_properties.simulation_duration
+        tf = np.arange(1, model_horizon + 1)
+        # create a list of the years (int) using scenario_properties.start_date and scenario_properties.simulation_duration
+        years = [int(self.MOCAT.scenario_properties.start_date.year) + i for i in range(self.MOCAT.scenario_properties.simulation_duration)]
     
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
@@ -131,8 +139,16 @@ class IAMSolver:
                 # lam will be n_sma_bins x n_ecc_bins x n_alt_shells
                 initial_guess = 0.05 * self.MOCAT.scenario_properties.x0[:, species.species_idx, 0]
                 # if sum of initial guess is 0, multiply each element by 10
-                if np.sum(initial_guess) == 0:
-                    initial_guess[:] = 5
+                # if np.sum(initial_guess) == 0:
+                #     initial_guess[:] = 5
+
+                if species.name == "Sns":
+                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+                if species.name == "Su":
+                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+                if species.name == "S":
+                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+
                 lam[:, species.species_idx, 0] = initial_guess
                 solver_guess[:, species.species_idx, 0] = initial_guess
         else:
@@ -140,11 +156,23 @@ class IAMSolver:
                 # if species.name == constellation_sat:
                 #     continue
                 # else:
-                inital_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
+                initial_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
                 # if sum of initial guess is 0, muliply each element by 10
-                if sum(inital_guess) == 0:
-                    inital_guess[:] = 5
-                solver_guess[species.start_slice:species.end_slice] = inital_guess
+                if species.name == "Sns":
+                    # distribution 800 satellites randomly across the shells
+                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+                if species.name == "Su":
+                    # distribution 2280 satellites randomly across the shells
+                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+                if species.name == "S":
+                    # distribution 6300 satellites randomly across the shells
+                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+                
+
+                # initial_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])       
+                # if np.sum(initial_guess) == 0:
+                #     initial_guess[:] = 5
+                solver_guess[species.start_slice:species.end_slice] = initial_guess
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
         # solver_guess = self._apply_replacement_floor(solver_guess, self.MOCAT.scenario_properties.x0, multi_species)
@@ -159,7 +187,7 @@ class IAMSolver:
         ### SOLVE FOR THE FIRST YEAR
         # elp: 
         ############################c
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -172,9 +200,7 @@ class IAMSolver:
         ### SIMULATION LOOP
         # For each year, take the previous state of the environment, 
         # then use the sovler to calculate the optimal launch rate. 
-        ####################
-        model_horizon = self.MOCAT.scenario_properties.simulation_duration
-        tf = np.arange(1, model_horizon + 1) 
+        ###################
 
         current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
 
@@ -224,7 +250,7 @@ class IAMSolver:
             start_time = time.time()
             # solver guess will be lam
             solver_guess = None
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx)
 
             # Calculate solver_guess
             solver_guess = lam.copy()
@@ -251,8 +277,8 @@ class IAMSolver:
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
             # multi_species.increase_demand()
 
-            solver_guess = self._apply_replacement_floor(solver_guess, environment_for_solver, multi_species)
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species)
+            # solver_guess = self._apply_replacement_floor(solver_guess, environment_for_solver, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx)
 
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -284,6 +310,7 @@ class IAMSolver:
             return species_data
         else:
             PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, multi_species.species[0].econ_params, grid_search=False)
+            return species_data
         
     def get_mocat(self):
         return self.MOCAT
@@ -312,15 +339,15 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    "bond_100k",
+                    # "bond_100k",
                     # "bondrevenuegrowth_100k",
                     # "revenuegrowth_0k",
-                    # # "bond_200k",
+                    # "bond_200k",
                     # # # "bond_300k",
-                    # # # # "bond_500k",
-                    "bond_800k",
+                    # "bond_500k",
+                    # "bond_800k",
                     # "bond_1200k",
-                    "bond_1600k",
+                    # "bond_1600k",
                     # # # "bond_100k_25yr",
                     # # # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
@@ -334,7 +361,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "bond-test-circular"
+    simulation_name = "bond-test-new-bonds"
 
     iam_solver = IAMSolver()
 
@@ -348,10 +375,10 @@ if __name__ == "__main__":
     # # no parallel processing
     # for scenario_name in scenario_files:
     #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
-        # Get the total species from the output
-        # total_species = get_total_species_from_output(output)
-        # print(f"Total species for scenario {scenario_name}: {total_species}")
+    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+    #     # Get the total species from the output
+    #     total_species = get_total_species_from_output(output)
+    #     print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
     with ThreadPoolExecutor() as executor:
@@ -362,7 +389,7 @@ if __name__ == "__main__":
     multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
     multi_species = MultiSpecies(multi_species_names)
-    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
+    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)

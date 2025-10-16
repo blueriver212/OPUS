@@ -23,6 +23,8 @@ class PlotData:
                 self.n_species = MOCAT.scenario_properties.species_length
                 self.HMid = MOCAT.scenario_properties.HMid
 
+                self.derelict_species_names = MOCAT.scenario_properties.pmd_debris_names
+
 
         def get_other_data(self):
                 return self.other_data
@@ -613,6 +615,12 @@ class PlotHandler:
                         timesteps = sorted(other_data.keys(), key=int)
                         first_timestep = timesteps[-1]
                         nc = other_data[first_timestep]["non_compliance"]
+                        
+                        # Sum all non-compliance values if it's a dictionary
+                        if isinstance(nc, dict):
+                                nc_total = sum(nc.values())
+                        else:
+                                nc_total = nc
 
                         # Extract bond amount from name (e.g., "bond_800k" → 800000)
                         match = re.search(r"bond_(\d+)k", scenario_label.lower())
@@ -621,9 +629,9 @@ class PlotHandler:
                         else:
                                 bond = 0  # e.g., for "baseline"
 
-                        total = bond * nc
+                        total = bond * nc_total
                         bond_vals.append(bond)
-                        noncompliance_vals.append(nc)
+                        noncompliance_vals.append(nc_total)
                         total_money_vals.append(total)
 
                 plt.figure(figsize=(10, 6))
@@ -681,7 +689,12 @@ class PlotHandler:
 
                                 umpy = np.sum(timestep_data["umpy"])
                                 non_compliance = timestep_data["non_compliance"]
-                                total_money = bond * non_compliance
+                                # Sum all non-compliance values if it's a dictionary
+                                if isinstance(non_compliance, dict):
+                                        non_compliance_total = sum(non_compliance.values())
+                                else:
+                                        non_compliance_total = non_compliance
+                                total_money = bond * non_compliance_total
 
                                 bond_vals.append(bond)
                                 umpy_vals.append(umpy)
@@ -1141,6 +1154,230 @@ class PlotHandler:
                 combined_file_path = os.path.join(plot_data.path, "combined_species_heatmaps.png")
                 plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
                 plt.close()
+        
+        def total_objects_over_time(self, plot_data, other_data):
+                """
+                Creates a plot showing the sum of each species type over time.
+                Groups species by their prefixes (S, Sns, Su, N, B) and includes derelicts as 'D'.
+                """
+                plt.figure(figsize=(12, 8))
+                
+                # Group species by their prefixes
+                species_groups = {
+                        'S': [],
+                        'Sns': [], 
+                        'Su': [],
+                        'N': [],
+                        'B': []
+                }
+                
+                # Categorize species by their prefixes
+                for species_name in plot_data.species_names:
+                        if species_name.startswith('S') and not species_name.startswith('Sns') and not species_name.startswith('Su'):
+                                species_groups['S'].append(species_name)
+                        elif species_name.startswith('Sns'):
+                                species_groups['Sns'].append(species_name)
+                        elif species_name.startswith('Su'):
+                                species_groups['Su'].append(species_name)
+                        elif species_name.startswith('N'):
+                                species_groups['N'].append(species_name)
+                        elif species_name.startswith('B'):
+                                species_groups['B'].append(species_name)
+                
+                # Calculate totals for each group
+                group_totals = {}
+                
+                for group_name, species_list in species_groups.items():
+                        if species_list:  # Only process if there are species in this group
+                                # Get the first species to determine time dimension
+                                first_species_data = np.array(plot_data.data[species_list[0]])
+                                total_for_group = np.zeros(first_species_data.shape[0])  # Initialize with time dimension
+                                
+                                for species_name in species_list:
+                                        if species_name in plot_data.data:
+                                                species_data = np.array(plot_data.data[species_name])  # (time, shells)
+                                                total_for_group += np.sum(species_data, axis=1)  # Sum across shells
+                                
+                                group_totals[group_name] = total_for_group
+                
+                # Add derelicts as 'D' if they exist
+                if hasattr(plot_data, 'derelict_species_names') and plot_data.derelict_species_names:
+                        # Get time dimension from first available species
+                        first_species_key = list(plot_data.data.keys())[0]
+                        first_species_data = np.array(plot_data.data[first_species_key])
+                        derelict_total = np.zeros(first_species_data.shape[0])
+                        
+                        for derelict_name in plot_data.derelict_species_names:
+                                if derelict_name in plot_data.data:
+                                        derelict_data = np.array(plot_data.data[derelict_name])
+                                        derelict_total += np.sum(derelict_data, axis=1)
+                        
+                        group_totals['D'] = derelict_total
+                
+                # Create time array (assuming equal time steps)
+                time_steps = np.arange(len(list(group_totals.values())[0]))
+                
+                # Plot each group
+                colors = ['blue', 'green', 'red', 'orange', 'purple', 'brown']
+                for i, (group_name, total_data) in enumerate(group_totals.items()):
+                        if len(total_data) > 0:  # Only plot if there's data
+                                plt.plot(time_steps, total_data, label=f'{group_name} (Total)', 
+                                        color=colors[i % len(colors)], linewidth=2)
+                
+                # Calculate and plot grand total
+                grand_total = np.zeros_like(list(group_totals.values())[0])
+                for total_data in group_totals.values():
+                        grand_total += total_data
+                
+                plt.plot(time_steps, grand_total, label='Grand Total', 
+                        color='black', linewidth=3, linestyle='--')
+                
+                plt.xlabel('Time Steps')
+                plt.ylabel('Total Number of Objects')
+                plt.title('Total Objects Over Time by Species Group')
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                
+                # Save the plot
+                file_path = os.path.join(plot_data.path, 'total_objects_over_time.png')
+                plt.savefig(file_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                
+                print(f"Total objects over time plot saved to {file_path}")
+
+        def comparison_total_objects_over_time(self, plot_data_lists, other_data_lists):
+                """
+                Creates a comparison plot showing the sum of each species type over time across scenarios.
+                Groups species by their prefixes and shows them in separate subplots:
+                - Active objects (S, Su, Sns)
+                - Debris (N, B) 
+                - Derelicts (D)
+                """
+                # Create a "comparisons" folder under the main simulation folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+                
+                # Create figure with 3 subplots
+                fig, axes = plt.subplots(3, 1, figsize=(12, 15))
+                
+                # Define groups
+                active_groups = ['S', 'Su', 'Sns']
+                debris_groups = ['N', 'B']
+                derelict_groups = ['D']
+                
+                # Colors for different scenarios
+                scenario_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
+                
+                # Process each scenario
+                for i, plot_data in enumerate(plot_data_lists):
+                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+                        color = scenario_colors[i % len(scenario_colors)]
+                        
+                        # Group species by their prefixes
+                        species_groups = {
+                                'S': [],
+                                'Sns': [], 
+                                'Su': [],
+                                'N': [],
+                                'B': []
+                        }
+                        
+                        # Categorize species by their prefixes
+                        for species_name in plot_data.species_names:
+                                if species_name.startswith('S') and not species_name.startswith('Sns') and not species_name.startswith('Su'):
+                                        species_groups['S'].append(species_name)
+                                elif species_name.startswith('Sns'):
+                                        species_groups['Sns'].append(species_name)
+                                elif species_name.startswith('Su'):
+                                        species_groups['Su'].append(species_name)
+                                elif species_name.startswith('N'):
+                                        species_groups['N'].append(species_name)
+                                elif species_name.startswith('B'):
+                                        species_groups['B'].append(species_name)
+                        
+                        # Calculate totals for each group
+                        group_totals = {}
+                        
+                        for group_name, species_list in species_groups.items():
+                                if species_list:  # Only process if there are species in this group
+                                        # Get the first species to determine time dimension
+                                        first_species_data = np.array(plot_data.data[species_list[0]])
+                                        total_for_group = np.zeros(first_species_data.shape[0])  # Initialize with time dimension
+                                        
+                                        for species_name in species_list:
+                                                if species_name in plot_data.data:
+                                                        species_data = np.array(plot_data.data[species_name])  # (time, shells)
+                                                        total_for_group += np.sum(species_data, axis=1)  # Sum across shells
+                                        
+                                        group_totals[group_name] = total_for_group
+                        
+                        # Add derelicts as 'D' if they exist
+                        if hasattr(plot_data, 'derelict_species_names') and plot_data.derelict_species_names:
+                                # Get time dimension from first available species
+                                first_species_key = list(plot_data.data.keys())[0]
+                                first_species_data = np.array(plot_data.data[first_species_key])
+                                derelict_total = np.zeros(first_species_data.shape[0])
+                                
+                                for derelict_name in plot_data.derelict_species_names:
+                                        if derelict_name in plot_data.data:
+                                                derelict_data = np.array(plot_data.data[derelict_name])
+                                                derelict_total += np.sum(derelict_data, axis=1)
+                                
+                                group_totals['D'] = derelict_total
+                        
+                        # Create time array
+                        if group_totals:
+                                time_steps = np.arange(len(list(group_totals.values())[0]))
+                                
+                                # Plot 1: Active objects (S, Su, Sns)
+                                active_total = np.zeros_like(time_steps, dtype=float)
+                                for group in active_groups:
+                                        if group in group_totals:
+                                                active_total += group_totals[group]
+                                if np.any(active_total > 0):
+                                        axes[0].plot(time_steps, active_total, label=f'{scenario_name} - Active', 
+                                                  color=color, linewidth=2)
+                                
+                                # Plot 2: Debris (N, B)
+                                debris_total = np.zeros_like(time_steps, dtype=float)
+                                for group in debris_groups:
+                                        if group in group_totals:
+                                                debris_total += group_totals[group]
+                                if np.any(debris_total > 0):
+                                        axes[1].plot(time_steps, debris_total, label=f'{scenario_name} - Debris', 
+                                                  color=color, linewidth=2)
+                                
+                                # Plot 3: Derelicts (D)
+                                if 'D' in group_totals and np.any(group_totals['D'] > 0):
+                                        axes[2].plot(time_steps, group_totals['D'], label=f'{scenario_name} - Derelicts', 
+                                                  color=color, linewidth=2)
+                
+                # Configure subplots
+                axes[0].set_title('Active Objects (S, Su, Sns) Over Time', fontsize=14, fontweight='bold')
+                axes[0].set_ylabel('Total Number of Objects')
+                axes[0].legend()
+                axes[0].grid(True, alpha=0.3)
+                
+                axes[1].set_title('Debris Objects (N, B) Over Time', fontsize=14, fontweight='bold')
+                axes[1].set_ylabel('Total Number of Objects')
+                axes[1].legend()
+                axes[1].grid(True, alpha=0.3)
+                
+                axes[2].set_title('Derelict Objects (D) Over Time', fontsize=14, fontweight='bold')
+                axes[2].set_xlabel('Time Steps')
+                axes[2].set_ylabel('Total Number of Objects')
+                axes[2].legend()
+                axes[2].grid(True, alpha=0.3)
+                
+                plt.tight_layout()
+                
+                # Save the plot
+                file_path = os.path.join(comparison_folder, 'comparison_total_objects_over_time.png')
+                plt.savefig(file_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                
+                print(f"Comparison total objects over time plot saved to {file_path}")
 
 
         ## These plots dont work

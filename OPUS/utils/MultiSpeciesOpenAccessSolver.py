@@ -10,7 +10,7 @@ from .PostMissionDisposal import evaluate_pmd, evaluate_pmd_elliptical
 from .Helpers import insert_launches_into_lam
 class MultiSpeciesOpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, x0, revenue_model, 
-                 lam, multi_species):
+                 lam, multi_species, years, time_idx):
         """
         Initialize the MultiSpeciesOpenAccessSolver.
 
@@ -31,6 +31,7 @@ class MultiSpeciesOpenAccessSolver:
         self.elliptical = MOCAT.scenario_properties.elliptical
         self.tspan = np.linspace(0, 1, 2)
         self.time_idx = 0
+        self.years = years
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
@@ -63,7 +64,10 @@ class MultiSpeciesOpenAccessSolver:
 
         # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
         if self.elliptical:
-            state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05)
+            if self.MOCAT.scenario_properties.density_model == "static_exp_dens_func":
+                state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05)
+            else:
+                state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05, density_year=self.years[self.time_idx])
         else:
             state_next_path, _ = self.MOCAT.propagate(self.tspan, self.x0, self.lam, elliptical=self.elliptical) # state_next_path: circ = 12077 elp = alt = 17763, self.x0: circ = 17914, elp = 17914
             if len(state_next_path) > 1:
@@ -221,7 +225,7 @@ class MultiSpeciesOpenAccessSolver:
             'method': 'trf',  # Trust Region Reflective algorithm = trf
             'verbose': 0,
             'ftol': 5e-3,   # residual improvement threshold
-            'xtol': 10.0,   # stop when launch updates < 10 satellites
+            'xtol': 0.5,   # stop when launch updates < 10 satellites
             'gtol': 1e-3,   # gradient norm threshold
             'max_nfev': 150 # optional evaluation cap
         }
@@ -235,6 +239,8 @@ class MultiSpeciesOpenAccessSolver:
             bounds=(lower_bound, np.inf),  # No upper bound
             **solver_options
         )
+
+        print(f" last excess returns: {self._last_excess_returns}")
 
         # Extract the launch rate from the solver result, this will just be for the species
         launch_rate = result.x
