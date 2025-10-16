@@ -59,6 +59,12 @@ class EconParameters:
 
         self.mass = params.get("mass", None)
 
+        # PMD options
+        self.controlled_pmd = params.get("controlled_pmd", 0)
+        self.uncontrolled_pmd = params.get("uncontrolled_pmd", 0)
+        self.no_attempt_pmd = params.get("no_attempt_pmd", 0)
+        self.failed_attempt_pmd = params.get("failed_attempt_pmd", 0)
+
     def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
 
         # Save the pmd_rate as this will be passed from MOCAT

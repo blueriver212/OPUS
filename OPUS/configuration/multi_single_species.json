@@ -66,7 +66,11 @@
             "delta_v_cost": 1000,
             "lift_price": 5000,
             "prob_of_non_compliance": 0,
-            "mass": 521
+            "mass": 521,
+            "controlled_pmd" : 60, 
+            "uncontrolled_pmd" : 0,
+            "no_attempt_pmd" : 40,
+            "failed_attempt_pmd" : 0
         }
       },
       {
@@ -99,7 +103,11 @@
               "delta_v_cost": 1000,
               "lift_price": 5000,
               "prob_of_non_compliance": 0,
-              "mass": 223
+              "mass": 223,
+              "controlled_pmd" : 0, 
+              "uncontrolled_pmd" : 60,
+              "no_attempt_pmd" : 40,
+              "failed_attempt_pmd" : 0
           }
       },
       {
@@ -131,7 +139,11 @@
               "delta_v_cost": 0,
               "lift_price": 5000,
               "prob_of_non_compliance": 0,
-              "mass": 6
+              "mass": 6,
+              "controlled_pmd" : 60, 
+              "uncontrolled_pmd" : 0,
+              "no_attempt_pmd" : 40,
+              "failed_attempt_pmd": 0
           }
       },
       {

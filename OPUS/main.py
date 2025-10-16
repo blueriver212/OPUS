@@ -203,7 +203,7 @@ class IAMSolver:
             # Apply PMD (Post Mission Disposal) evaluation to remove satellites
             print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
             if self.elliptical:
-                state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species)
+                state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species, year, density_model)
             else:
                 state_next_alt, multi_species = evaluate_pmd(state_next_alt, multi_species)
             print(f"After PMD - Total environment: {np.sum(state_next_alt)}")
@@ -312,15 +312,15 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    "bond_100k",
+                    # "bond_100k",
                     # "bondrevenuegrowth_100k",
                     # "revenuegrowth_0k",
                     # # "bond_200k",
                     # # # "bond_300k",
                     # # # # "bond_500k",
-                    "bond_800k",
+                    # "bond_800k",
                     # "bond_1200k",
-                    "bond_1600k",
+                    # "bond_1600k",
                     # # # "bond_100k_25yr",
                     # # # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
