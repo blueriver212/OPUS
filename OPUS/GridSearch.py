@@ -117,7 +117,7 @@ N_INITIAL_POINTS = 10
 RANDOM_STATE     = 42
 SHOW_SURFACE     = True        # set False if you only need the optimiser
 
-TARGET_COUNTS = {"S": 6300, "Su": 2280, "Sns": 801}
+TARGET_COUNTS = {"S": 8148, "Su": 919, "Sns": 681}
 
 
 # ───────────────────────────────────────────────────
@@ -176,61 +176,6 @@ def compute_cost(result):
     return sum((result[sp] - TARGET_COUNTS[sp])**2 for sp in TARGET_COUNTS)
 
 
-# # ───────────────────────────────────────────────────
-# # 2.  BAYESIAN OPTIMISATION
-# # ───────────────────────────────────────────────────
-# # search_space = [
-# #     Real(6.0e5, 9.0e5, name="S"),
-# #     Real(5.0e5, 8.0e5, name="Su"),
-# #     Real(0.0e0, 2.0e5, name="Sns"),
-# # ]
-
-# search_space = [
-#     Real(9.0e5, 1.1e6, name="S"),
-#     Real(8.0e5, 1.0e6, name="Su"),
-#     Real(0.5e5, 2.0e5, name="Sns"),   # leave generous for now
-# ]
-
-# @use_named_args(search_space)
-# def objective(S, Su, Sns):
-#     """Objective wrapper for gp_minimize."""
-#     t0 = time.perf_counter()
-#     cost = compute_cost(run_simulation({"S": S, "Su": Su, "Sns": Sns}))
-#     dt  = time.perf_counter() - t0
-#     # update progress bar (defined outside) with timing info
-#     pbar.update(1)
-#     pbar.set_postfix(cost=f"{cost:,.0f}", last=f"{dt:4.1f}s")
-#     return cost
-
-
-# # ── progress bar set-up ─────────────────────────────────
-# pbar = tqdm(total=N_CALLS, desc="Bayesian optimising", ncols=80)
-
-# start_all = time.perf_counter()
-# result = gp_minimize(
-#     func             = objective,
-#     dimensions       = search_space,
-#     n_calls          = N_CALLS,
-#     n_initial_points = N_INITIAL_POINTS,
-#     acq_func         = "EI",
-#     x0 = [1e6,   # clip S
-#       1e6, # clip Su
-#       1.5e5],            # Sns already within [0.5e5, 2.0e5]
-#     random_state     = RANDOM_STATE,
-#     n_jobs           = -1
-# )
-# pbar.close()
-# print(f"\n🏁  Finished in {(time.perf_counter() - start_all)/60:4.1f} min")
-
-# best_S, best_Su, best_Sns = result.x
-# print(f"Best intercepts:  S={best_S:.1f},  Su={best_Su:.1f},  "
-#       f"Sns={best_Sns:.1f}   Cost={result.fun:,.0f}")
-
-# ───────────────────────────────────────────────────
-# 2.  JACOBIAN / LEAST-SQUARES CALIBRATION
-#     (≈ 5–8 simulator runs total)
-# ───────────────────────────────────────────────────
-
 import numpy as np
 from tqdm import tqdm
 
@@ -253,7 +198,7 @@ def jacobian(R_base, delta=30_000):
     return J, N0
 
 # --- main routine ----------------------------------------------------
-TARGET = np.array([6300, 2280, 801])
+TARGET = np.array([8148, 919, 801])
 N_PASSES      = 2        # 1 pass is often enough; 2 gives “tight” fit
 DELTA         = 30_000   # finite-difference step (adjust if sensitivity is tiny)
 
