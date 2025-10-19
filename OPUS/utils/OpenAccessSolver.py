@@ -61,7 +61,7 @@ class OpenAccessSolver:
 
         # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
         state_next_path = self.MOCAT.propagate(self.tspan, self.x0, self.lam)
-        state_next = state_next_path[-1, :]
+        state_next = state_next_path[0][-1, :]
 
         # Evaluate pmd
         state_next = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
