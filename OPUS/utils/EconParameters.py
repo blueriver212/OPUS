@@ -42,7 +42,14 @@ class EconParameters:
 
         # Cost for a single satellite to use any shell [$]
         # # Cost of delta-v [$/km/s]
-        self.delta_v_cost = params.get("delta_v_cost", 1000)
+        self.base_delta_v_cost = params.get("delta_v_cost", 1000)
+
+        #Toggle the congestion switch to turn on congestion pricing for delta_v
+        self.congestion_switch = 1
+        self.delta_v_cost = np.full(self.mocat.scenario_properties.n_shells, self.base_delta_v_cost)
+        
+        #Competitors for bonded and unbonded species
+        self.competitors = params.get("competitors", [])
 
         # # Price of lift [$/kg]
         # # Default is $5000/kg based on price index calculations
@@ -193,4 +200,49 @@ class EconParameters:
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
 
+    def update_congestion_costs(self, current_environment, initial_environment):
+            """
+            Updates the delta-v cost for each shell based on object congestion.
+            Handles both circular (1D flat) and elliptical (3D) environment arrays.
 
+            Args:
+                current_environment (np.ndarray): The current state of the environment.
+                initial_environment (np.ndarray): The initial state of the environment (at year 0).
+            """
+            n_shells = self.mocat.scenario_properties.n_shells
+            n_species = len(self.mocat.scenario_properties.species_names)
+            is_elliptical = self.mocat.scenario_properties.elliptical
+
+            # Sum objects per shell based on environment shape
+            if is_elliptical:
+                # current_environment shape is (n_shells, n_species, n_ecc_bins)
+                # We sum over the species (axis 1) and eccentricity (axis 2)
+                current_objects_per_shell = np.sum(current_environment, axis=(1, 2))
+                initial_objects_per_shell = np.sum(initial_environment, axis=(1, 2))
+            else:
+                # current_environment shape is (n_species * n_shells,)
+                current_reshaped = current_environment.reshape((n_species, n_shells))
+                initial_reshaped = initial_environment.reshape((n_species, n_shells))
+                # We sum over the species (axis 0)
+                current_objects_per_shell = np.sum(current_reshaped, axis=0)
+                initial_objects_per_shell = np.sum(initial_reshaped, axis=0)
+
+            # Calculate congestion surcharge
+            percent_change = np.zeros(n_shells)
+            # Avoid division by zero for shells that started empty
+            non_zero_mask = initial_objects_per_shell > 0
+            
+            # Calculate percent change
+            percent_change[non_zero_mask] = self.congestion_switch * (current_objects_per_shell[non_zero_mask] - initial_objects_per_shell[non_zero_mask]) / initial_objects_per_shell[non_zero_mask]
+
+            # Surcharge is based on the positive percent change
+            surcharge = np.maximum(0, percent_change) * self.base_delta_v_cost
+            self.delta_v_cost = self.base_delta_v_cost + surcharge
+
+            # Recalculate cost components 
+            self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
+            delta_v_budget = 1.5 * self.sat_lifetime * self.v_drag + 100
+            self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
+            
+            # Recalculate the final cost list
+            self.cost = (self.total_lift_price + self.stationkeeping_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()

@@ -82,7 +82,7 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
-        multi_species_names = ["S", "Su", "Sns"]
+        multi_species_names = ["S_bonded", "S_unbonded", "Su", "Sns"]
         # multi_species_names = ["S"]
 
         # This will create a list of OPUSSpecies objects. 
@@ -140,7 +140,7 @@ class IAMSolver:
                 # if species.name == constellation_sat:
                 #     continue
                 # else:
-                inital_guess = 0.05 * n.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
+                inital_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
                 # if sum of initial guess is 0, muliply each element by 10
                 if sum(inital_guess) == 0:
                     inital_guess[:] = 5
@@ -219,6 +219,11 @@ class IAMSolver:
                 else:
                     # For circular orbits, propagated_environment is a 1D array
                     species_data[sp][time_idx - 1] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+            
+            #Added to take congestion pricing of delta-v into account
+            initial_environment = self.MOCAT.scenario_properties.x0
+            for species in multi_species.species:
+                species.econ_params.update_congestion_costs(environment_for_solver, initial_environment)
 
             # Fringe Equilibrium Controller
             start_time = time.time()
@@ -312,15 +317,15 @@ if __name__ == "__main__":
     scenario_files=[
                     "Baseline",
                     # "bond_0k_25yr",
-                    "bond_100k",
+                    #"bond_100k",
                     # "bondrevenuegrowth_100k",
                     # "revenuegrowth_0k",
                     # # "bond_200k",
                     # # # "bond_300k",
                     # # # # "bond_500k",
-                    "bond_800k",
+                    #"bond_800k",
                     # "bond_1200k",
-                    "bond_1600k",
+                    #"bond_1600k",
                     # # # "bond_100k_25yr",
                     # # # # "bond_200k_25yr",
                     # # "bond_300k_25yr",
