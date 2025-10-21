@@ -253,12 +253,16 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
             # Remove all satellites at end of life - from both sma and alt bins
             state_matrix[:, species.species_idx, 0] -= items_to_pmd_total
             state_matrix_alt[:, species.species_idx] -= items_to_pmd_total
+
+            species.sum_compliant = 0
+            species.sum_non_compliant = 0
             
-            # controlled satellites just get removed from the simulation
+            # succesfully controlled satellites just get removed from the simulation
             if controlled_pmd > 0:
-                # of the derelicts remove those that are controlled 
-                # items_to_pmd_total = items_to_pmd_total * (1 - controlled_pmd)
-                continue
+                controlled_derelicts = items_to_pmd_total * controlled_pmd
+                state_matrix[:, species.species_idx, 0] -= controlled_derelicts
+                state_matrix_alt[:, species.species_idx] -= controlled_derelicts
+                species.sum_compliant = np.sum(controlled_derelicts)
 
             if uncontrolled_pmd > 0:
                 hp = get_disposal_orbits(year, HMid, pmd_lifetime=species.econ_params.disposal_time,
@@ -277,17 +281,28 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                     if hp[idx] is np.nan:
                         state_matrix[idx, species.derelict_idx, 0] += items_to_pmd_total * (1 - uncontrolled_pmd)
                         state_matrix_alt[idx, species.derelict_idx] += items_to_pmd_total * (1 - uncontrolled_pmd)
+
+                        species.sum_compliant += np.sum(items_to_pmd_total * (1 - uncontrolled_pmd))
                     
                     # if not find the new sma and ecc bin and place the derelicts there
                     else:
                         state_matrix[sma_bin_idx[idx], species.derelict_idx, ecc_bin_idx[idx]] += items_to_pmd_total[idx] * (1 - uncontrolled_pmd)
                         state_matrix_alt[sma_bin_idx[idx], species.derelict_idx] += items_to_pmd_total[idx] * (1 - uncontrolled_pmd)
 
+                        species.sum_compliant += np.sum(items_to_pmd_total[idx] * (1 - uncontrolled_pmd))
+
             # if no attempt derelicts, then they remain in the same shell as a derelict
             if no_attempt_pmd > 0:
+                # Remove the satellites from the simulation
+                state_matrix[:, species.species_idx, 0] -= items_to_pmd_total * no_attempt_pmd
+                state_matrix_alt[:, species.species_idx] -= items_to_pmd_total * no_attempt_pmd
+
+                # Add the satellites to the derelict slice
                 state_matrix[:, species.derelict_idx, 0] += items_to_pmd_total * no_attempt_pmd
                 state_matrix_alt[:, species.derelict_idx] += items_to_pmd_total * no_attempt_pmd
-
+                
+                species.sum_non_compliant += np.sum(items_to_pmd_total * no_attempt_pmd)
+                
             if failed_attempt_pmd > 0:
                 continue # to implement
 

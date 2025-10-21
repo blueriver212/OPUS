@@ -137,40 +137,21 @@ class IAMSolver:
             for species in multi_species.species:
                 # lam will be n_sma_bins x n_ecc_bins x n_alt_shells
                 initial_guess = 0.05 * self.MOCAT.scenario_properties.x0[:, species.species_idx, 0]
+                # Ensure all values are non-negative (bounds requirement)
+                initial_guess = np.maximum(initial_guess, 0.0)
                 # if sum of initial guess is 0, multiply each element by 10
-                # if np.sum(initial_guess) == 0:
-                #     initial_guess[:] = 5
-
-                if species.name == "Sns":
-                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
-                if species.name == "Su":
-                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
-                if species.name == "S":
-                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
+                if np.sum(initial_guess) == 0:
+                    initial_guess[:] = 5
 
                 lam[:, species.species_idx, 0] = initial_guess
                 solver_guess[:, species.species_idx, 0] = initial_guess
         else:
-            for species in multi_species.species:
-                # if species.name == constellation_sat:
-                #     continue
-                # else:
-                initial_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
-                # if sum of initial guess is 0, muliply each element by 10
-                if species.name == "Sns":
-                    # distribution 800 satellites randomly across the shells
-                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
-                if species.name == "Su":
-                    # distribution 2280 satellites randomly across the shells
-                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
-                if species.name == "S":
-                    # distribution 6300 satellites randomly across the shells
-                    initial_guess = np.random.randint(0, 800, size=self.MOCAT.scenario_properties.n_shells)
-                
-
-                # initial_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])       
-                # if np.sum(initial_guess) == 0:
-                #     initial_guess[:] = 5
+            for species in multi_species.species:            
+                initial_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])       
+                # Ensure all values are non-negative (bounds requirement)
+                initial_guess = np.maximum(initial_guess, 0.0)
+                if np.sum(initial_guess) == 0:
+                    initial_guess[:] = 5
                 solver_guess[species.start_slice:species.end_slice] = initial_guess
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
@@ -373,17 +354,17 @@ if __name__ == "__main__":
         return totals
 
     # # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
-    #     # Get the total species from the output
-    #     total_species = get_total_species_from_output(output)
-    #     print(f"Total species for scenario {scenario_name}: {total_species}")
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+        # Get the total species from the output
+        total_species = get_total_species_from_output(output)
+        print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    # with ThreadPoolExecutor() as executor:
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     multi_species_names = ["S","Su", "Sns"]

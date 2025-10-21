@@ -50,18 +50,18 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None, grid
     # Create an active_loss_setup for each of the species in the model.
     if multi_species != None:
         for species in multi_species.species:
-            MOCAT.opus_active_loss_setup(species.name)
+            MOCAT.opus_collisions_setup(species.name)
 
-    if grid_search:
-        classified_catalogue = Path("indigo-thesis/grid_search/classified.csv")
-        try:
-            MOCAT = override_initial_population_from_classified_csv(
-                MOCAT,
-                classified_catalogue,
-                before_date="2017-01-01",
-            )
-        except Exception as exc:
-            print(f"Warning: unable to override x0 from {classified_catalogue}: {exc}")
+    # if grid_search:
+    #     classified_catalogue = Path("indigo-thesis/grid_search/classified.csv")
+    #     try:
+    #         MOCAT = override_initial_population_from_classified_csv(
+    #             MOCAT,
+    #             classified_catalogue,
+    #             before_date="2017-01-01",
+    #         )
+    #     except Exception as exc:
+    #         print(f"Warning: unable to override x0 from {classified_catalogue}: {exc}")
 
     if MOCAT.scenario_properties.elliptical:
         MOCAT.build_model(elliptical=True)

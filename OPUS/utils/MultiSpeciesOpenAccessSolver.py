@@ -88,11 +88,13 @@ class MultiSpeciesOpenAccessSolver:
                 self.years[self.time_idx], density_model_name, self.MOCAT.scenario_properties.HMid, self.MOCAT.scenario_properties.eccentricity_bins, 
                 self.MOCAT.scenario_properties.R0_rad_km)
         else:
-            state_next_alt, multi_species = evaluate_pmd(state_next_alt, self.multi_species, self.current_environment)
+            state_next_alt, multi_species = evaluate_pmd(state_next_alt, self.multi_species)
         # 12077, elp = 18076
 
         # As excess returns is calculated on a per species basis, the launch array will need to be built.
         excess_returns = np.array([])
+        collision_probability = np.array([])
+        rate_of_return = np.array([])
 
         # For collision calculations and fringe rate of return, we are able to use the effective state matrix for elliptical orbits. 
         for species in multi_species.species:
@@ -115,6 +117,8 @@ class MultiSpeciesOpenAccessSolver:
         self._last_collision_probability = collision_probability
         self._last_excess_returns = excess_returns
         self._last_multi_species = multi_species
+
+        print(excess_returns)
 
         non_compliance_dict = {
             species.name: species.sum_non_compliant for species in multi_species.species
@@ -225,10 +229,10 @@ class MultiSpeciesOpenAccessSolver:
         solver_options = {
             'method': 'trf',  # Trust Region Reflective algorithm = trf
             'verbose': 0,
-            'ftol': 5e-3,   # residual improvement threshold
-            'xtol': 0.5,   # stop when launch updates < 10 satellites
-            'gtol': 1e-3,   # gradient norm threshold
-            'max_nfev': 150 # optional evaluation cap
+            # 'ftol': 1e-8,   # Much tighter residual improvement threshold (was 5e-3)
+            # 'xtol': 1e-8,   # Much tighter parameter convergence (was 0.05)
+            # 'gtol': 1e-8,   # Much tighter gradient norm threshold (was 1e-3)
+            # 'max_nfev': 1000  # Higher evaluation limit for stricter convergence
         }
 
         # Solve the system of equations
