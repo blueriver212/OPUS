@@ -158,17 +158,41 @@ class MultiSpeciesOpenAccessSolver:
          Calcualtes the fringe rate of return. It can be only used by one species at once. 
          Currently it assumes a linear revenue model, although other models can be used in the future. 
         """
-        if self.elliptical:
-            fringe_total = state_matrix[:, opus_species.species_idx, 0]
-        else:
-            fringe_total = state_matrix[opus_species.start_slice:opus_species.end_slice]
-        # 1.59
-        # 0.87
 
-        revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * np.sum(fringe_total)
-        # 849840
-        # 849912.5
-        # revenue = revenue * opus_species.launch_mask
+        # Initialize total market population
+        market_total_sum = 0.0
+        
+        if self.elliptical:
+            # Get the population for the current species
+            current_pop = state_matrix[:, opus_species.species_idx, 0]
+            market_total_sum += np.sum(current_pop)
+
+            # Check for competitors and add their totals
+            if hasattr(opus_species.econ_params, 'competitors'):
+                for competitor_name in opus_species.econ_params.competitors:
+                    # Find the competitor species object
+                    competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
+                    if competitor_species:
+                        # Add the competitor's satellite count (elliptical)
+                        competitor_pop = state_matrix[:, competitor_species.species_idx, 0]
+                        market_total_sum += np.sum(competitor_pop)
+        else:
+            # Get the population for the current species
+            current_pop = state_matrix[opus_species.start_slice:opus_species.end_slice]
+            market_total_sum += np.sum(current_pop)
+
+            # Check for competitors and add their totals
+            if hasattr(opus_species.econ_params, 'competitors'):
+                for competitor_name in opus_species.econ_params.competitors:
+                    # Find the competitor species object
+                    competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
+                    if competitor_species:
+                        # Add the competitor's satellite count (circular)
+                        competitor_pop = state_matrix[competitor_species.start_slice:competitor_species.end_slice]
+                        market_total_sum += np.sum(competitor_pop)
+
+        # The revenue calculation now correctly uses the total market sum
+        revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * market_total_sum
 
         discount_rate = opus_species.econ_params.discount_rate
         # 0.05
@@ -183,12 +207,11 @@ class MultiSpeciesOpenAccessSolver:
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate  
         else:
-            # bond_per_shell = self.econ_params.bond + (self.econ_params.bond * collision_risk)
             bond_per_shell = np.ones_like(collision_risk) * opus_species.econ_params.bond
             bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost))
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
-        return rate_of_return # 0.189 
+        return rate_of_return
     
     def solver(self):
         """
