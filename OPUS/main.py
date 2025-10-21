@@ -82,7 +82,7 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
-        multi_species_names = ["S_bonded", "S_unbonded", "Su", "Sns"]
+        multi_species_names = ["S", "SuB", "SuUB", "Sns"]
         # multi_species_names = ["S"]
 
         # This will create a list of OPUSSpecies objects. 
