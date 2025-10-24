@@ -1,82 +1,3 @@
-# import json
-# import numpy as np
-# from itertools import product
-# from copy import deepcopy
-# import contextlib
-# import io
-# from tqdm import tqdm
-# from concurrent.futures import ProcessPoolExecutor, as_completed
-# from main import IAMSolver
-
-# TARGET_COUNTS = {"S": 6300, "Su": 2280, "Sns": 801}
-# INTERCEPT_GRID_S = np.linspace(6.5e5, 8.5e5, 5) # should be around 7.5e5
-# INTERCEPT_GRID_SU = np.linspace(6.5e5, 7.5e5, 5) # should be around 5.5e5
-# INTERCEPT_GRID_SNS = np.linspace(0.9e4, 1.5e5, 5) # should be around 1e5,
-
-# def get_total_species_from_output(species_data):
-#     totals = {}
-#     for species, data_array in species_data.items():
-#         if isinstance(data_array, np.ndarray):
-#             totals[species] = np.sum(data_array[-1])
-#     return totals
-
-# def run_simulation(intercepts):
-#     with open("./OPUS/configuration/multi_single_species.json") as f:
-#         base_config = json.load(f)
-
-#     config = deepcopy(base_config)
-#     for species in config["species"]:
-#         name = species["sym_name"]
-#         if name in intercepts:
-#             species["OPUS"]["intercept"] = intercepts[name]
-
-#     sim_name = "RevenueInterceptSearch"
-#     scenario_name = "Baseline"
-#     iam_solver = IAMSolver()
-
-#     with contextlib.redirect_stdout(io.StringIO()):
-#         species_data = iam_solver.iam_solver(scenario_name, config, sim_name, grid_search=True)
-
-#     return get_total_species_from_output(species_data)
-
-# def compute_cost(result):
-#     return sum((result[sp] - TARGET_COUNTS[sp])**2 for sp in TARGET_COUNTS)
-
-# def evaluate_combination(intercepts_tuple):
-#     s_val, su_val, sns_val = intercepts_tuple
-#     intercept_dict = {"S": s_val, "Su": su_val, "Sns": sns_val}
-#     result = run_simulation(intercept_dict)
-#     cost = compute_cost(result)
-#     return intercept_dict, result, cost
-
-# def main():
-#     combinations = list(product(INTERCEPT_GRID_S, INTERCEPT_GRID_SU, INTERCEPT_GRID_SNS))
-#     total_combinations = len(combinations)
-
-#     best_cost = float("inf")
-#     best_intercepts = None
-#     results_log = []
-
-#     with ProcessPoolExecutor() as executor:
-#         futures = {executor.submit(evaluate_combination, comb): comb for comb in combinations}
-#         for future in tqdm(as_completed(futures), total=total_combinations, desc="Parallel Grid Search"):
-#             intercept_dict, result, cost = future.result()
-#             results_log.append((intercept_dict, result, cost))
-
-#             print(f"Intercepts: {intercept_dict}, Final: {result}, Cost: {cost:.2f}")
-#             if cost < best_cost:
-#                 best_cost = cost
-#                 best_intercepts = intercept_dict
-#             if cost == 0:
-#                 break
-
-#     print(f"\n✅ Best intercepts found: {best_intercepts} with cost {best_cost:.2f}")
-
-# if __name__ == "__main__":
-#     from multiprocessing import freeze_support
-#     freeze_support()
-#     main()
-
 """
 bayes_opt_intercepts.py
 ----------------------------------------------------
@@ -117,7 +38,7 @@ N_INITIAL_POINTS = 10
 RANDOM_STATE     = 42
 SHOW_SURFACE     = True        # set False if you only need the optimiser
 
-TARGET_COUNTS = {"S": 8148, "Su": 919, "Sns": 681}
+TARGET_COUNTS = {"S": 7677, "Su": 2665, "Sns": 1228}
 
 
 # ───────────────────────────────────────────────────
@@ -198,12 +119,12 @@ def jacobian(R_base, delta=30_000):
     return J, N0
 
 # --- main routine ----------------------------------------------------
-TARGET = np.array([8148, 919, 801])
+TARGET = np.array([7677, 2665, 1228])
 N_PASSES      = 2        # 1 pass is often enough; 2 gives “tight” fit
 DELTA         = 30_000   # finite-difference step (adjust if sensitivity is tiny)
 
 # starting guess – use last BO best if you have it, otherwise mid-box
-R = np.array([1_000_000, 900_000, 120_000], dtype=float)
+R = np.array([1629368, 2092593, 55780], dtype=float)
 
 for it in range(N_PASSES):
     print(f"\nPass {it+1}")
@@ -227,40 +148,3 @@ for it in range(N_PASSES):
         break
 
 print("\n✅  Final intercepts  → ", np.round(R).astype(int))
-
-# ───────────────────────────────────────────────────
-# 3.  3-D SURFACE VISUALISATION  (optional)
-# ───────────────────────────────────────────────────
-def plot_cost_surface(fixed_Sns=None, num_pts=30):
-    """
-    Fix Sns (e.g. at optimum) and show cost surface over S × Su.
-    """
-    if fixed_Sns is None:
-        fixed_Sns = best_Sns
-
-    S_vals  = np.linspace(6.5e5, 9.0e5, num_pts)
-    Su_vals = np.linspace(5.5e5, 8.0e5, num_pts)
-    S_grid, Su_grid = np.meshgrid(S_vals, Su_vals)
-
-    Z = np.empty_like(S_grid, dtype=float)
-    outer = tqdm(range(num_pts), desc="Surface rows", ncols=80)
-    for i in outer:
-        for j in range(num_pts):
-            res = run_simulation(
-                {"S": S_grid[i, j], "Su": Su_grid[i, j], "Sns": fixed_Sns}
-            )
-            Z[i, j] = compute_cost(res)
-
-    fig = plt.figure(figsize=(8, 6))
-    ax  = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(S_grid, Su_grid, Z, alpha=0.75, linewidth=0)
-    ax.set_xlabel("Intercept S")
-    ax.set_ylabel("Intercept Su")
-    ax.set_zlabel("Cost")
-    ax.set_title(f"Cost surface at Sns = {fixed_Sns:,.0f}")
-    plt.tight_layout()
-    plt.show()
-
-
-# if SHOW_SURFACE:
-#     plot_cost_surface(fixed_Sns=best_Sns, num_pts=30)

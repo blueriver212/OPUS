@@ -18,6 +18,7 @@ class MultiSpecies:
         """
         # Create a list of species objects with the name of the species
         self.species = [OPUSSpecies(name) for name in species_names]
+        self.maneuverable = False
 
     def get_species_position_indexes(self, MOCAT: Model):
         """

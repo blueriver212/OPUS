@@ -41,8 +41,7 @@ class PostProcessing:
             Create plots for the simulation. If all plots, create all.
         """
 
-        serializable_species_data = {sp: data.tolist() for sp, data in self.species_data.items()}
-
+        serializable_species_data = {sp: {year: data.tolist() for year, data in self.species_data[sp].items()} for sp in self.species_data.keys()}
         # Save the serialized data to a JSON file in the appropriate folder
         output_path = f"./Results/{self.simulation_name}/{self.scenario_name}/species_data_{self.scenario_name}.json"
         with open(output_path, 'w') as json_file:
@@ -50,19 +49,38 @@ class PostProcessing:
 
         print(f"species_data has been exported to {output_path}")
 
+        # serializable_other_results = {
+        #     int(time_idx): {
+        #         "ror": data["ror"].tolist() if isinstance(data["ror"], (list, np.ndarray)) else data["ror"],
+        #         "collision_probability": data["collision_probability"].tolist() if isinstance(data["collision_probability"], (list, np.ndarray)) else data["collision_probability"],
+        #         "launch_rate": data["launch_rate"].tolist() if isinstance(data["launch_rate"], (list, np.ndarray)) else data["launch_rate"],
+        #         "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
+        #         "umpy": data["umpy"], 
+        #         "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
+        #         "non_compliance": {
+        #             sp: val.tolist() if isinstance(val, (list, np.ndarray)) else val
+        #             for sp, val in data["non_compliance"].items()
+        #         } if isinstance(data["non_compliance"], dict) else data["non_compliance"]
+        #     }
+        #     for time_idx, data in self.other_results.items()
+        # }
+        def convert_to_serializable(obj):
+            """Recursively convert numpy arrays and other non-serializable objects to JSON-serializable format."""
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.integer, np.int32, np.int64)):
+                return int(obj)
+            elif isinstance(obj, (np.floating, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, dict):
+                return {key: convert_to_serializable(value) for key, value in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [convert_to_serializable(item) for item in obj]
+            else:
+                return obj
+
         serializable_other_results = {
-            int(time_idx): {
-                "ror": data["ror"].tolist() if isinstance(data["ror"], (list, np.ndarray)) else data["ror"],
-                "collision_probability": data["collision_probability"].tolist() if isinstance(data["collision_probability"], (list, np.ndarray)) else data["collision_probability"],
-                "launch_rate": data["launch_rate"].tolist() if isinstance(data["launch_rate"], (list, np.ndarray)) else data["launch_rate"],
-                "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
-                "umpy": data["umpy"], 
-                "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
-                "non_compliance": {
-                    sp: val.tolist() if isinstance(val, (list, np.ndarray)) else val
-                    for sp, val in data["non_compliance"].items()
-                } if isinstance(data["non_compliance"], dict) else data["non_compliance"]
-            }
+            int(time_idx): convert_to_serializable(data)
             for time_idx, data in self.other_results.items()
         }
 

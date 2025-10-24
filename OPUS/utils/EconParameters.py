@@ -16,6 +16,7 @@ class EconParameters:
 
         # Save MOCAT
         self.mocat = mocat
+        self.maneuverable = False
 
         # self.lift_price = 5000
         params = econ_params_json.get("OPUS", econ_params_json)
@@ -252,3 +253,44 @@ class EconParameters:
             
             # Recalculate the final cost list
             self.cost = (self.total_lift_price + self.stationkeeping_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
+            return self.cost
+
+    def return_congestion_costs(self, current_environment, initial_environment):
+        n_shells = self.mocat.scenario_properties.n_shells
+        n_species = len(self.mocat.scenario_properties.species_names)
+        is_elliptical = self.mocat.scenario_properties.elliptical
+
+        # Sum objects per shell based on environment shape
+        if is_elliptical:
+            # current_environment shape is (n_shells, n_species, n_ecc_bins)
+            # We sum over the species (axis 1) and eccentricity (axis 2)
+            current_objects_per_shell = np.sum(current_environment, axis=(1, 2))
+            initial_objects_per_shell = np.sum(initial_environment, axis=(1, 2))
+        else:
+            # current_environment shape is (n_species * n_shells,)
+            current_reshaped = current_environment.reshape((n_species, n_shells))
+            initial_reshaped = initial_environment.reshape((n_species, n_shells))
+            # We sum over the species (axis 0)
+            current_objects_per_shell = np.sum(current_reshaped, axis=0)
+            initial_objects_per_shell = np.sum(initial_reshaped, axis=0)
+
+        # Calculate congestion surcharge
+        percent_change = np.zeros(n_shells)
+        # Avoid division by zero for shells that started empty
+        non_zero_mask = initial_objects_per_shell > 0
+        
+        # Calculate percent change
+        percent_change[non_zero_mask] = self.congestion_switch * (current_objects_per_shell[non_zero_mask] - initial_objects_per_shell[non_zero_mask]) / initial_objects_per_shell[non_zero_mask]
+
+        # Surcharge is based on the positive percent change
+        surcharge = np.maximum(0, percent_change) * self.base_delta_v_cost
+        delta_v_cost = self.base_delta_v_cost + surcharge
+
+        # Recalculate cost components 
+        deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
+        delta_v_budget = 1.5 * self.sat_lifetime * self.v_drag + 100
+        stationkeeping_cost = delta_v_budget * delta_v_cost
+        
+        # Recalculate the final cost list
+        cost = (self.total_lift_price + stationkeeping_cost + deorbit_maneuver_cost * (1 - 0)).tolist()
+        return cost
