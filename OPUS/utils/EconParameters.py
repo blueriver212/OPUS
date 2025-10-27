@@ -16,6 +16,7 @@ class EconParameters:
 
         # Save MOCAT
         self.mocat = mocat
+        self.maneuverable = False
 
         # self.lift_price = 5000
         params = econ_params_json.get("OPUS", econ_params_json)
@@ -42,7 +43,14 @@ class EconParameters:
 
         # Cost for a single satellite to use any shell [$]
         # # Cost of delta-v [$/km/s]
-        self.delta_v_cost = params.get("delta_v_cost", 1000)
+        self.base_delta_v_cost = params.get("delta_v_cost", 1000)
+
+        #Toggle the congestion switch to turn on congestion pricing for delta_v
+        self.congestion_switch = 1
+        self.delta_v_cost = np.full(self.mocat.scenario_properties.n_shells, self.base_delta_v_cost)
+        
+        #Competitors for bonded and unbonded species
+        self.competitors = params.get("competitors", [])
 
         # # Price of lift [$/kg]
         # # Default is $5000/kg based on price index calculations
@@ -58,6 +66,12 @@ class EconParameters:
         self.demand_growth = params.get("demand_growth", None)
 
         self.mass = params.get("mass", None)
+
+        # PMD options
+        self.controlled_pmd = params.get("controlled_pmd", 0)
+        self.uncontrolled_pmd = params.get("uncontrolled_pmd", 0)
+        self.no_attempt_pmd = params.get("no_attempt_pmd", 0)
+        self.failed_attempt_pmd = params.get("failed_attempt_pmd", 0)
 
     def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
 
@@ -136,12 +150,17 @@ class EconParameters:
         self.v_drag = v_drag
         self.k_star = k_star 
 
+
         #BOND CALCULATIONS - compliance rate is defined in MOCAT json
         self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
         
         if self.bond is None:
             self.comp_rate = np.where(self.naturally_compliant_vector != 1, pmd_rate, self.comp_rate)
             return 
+
+        # Scale the bond with the mass of the satellite. Full bond cost = bond/700 kg
+        # bond_per_kg = self.bond / 700
+        # self.bond = bond_per_kg * self.mass
         
         self.discount_factor = 1/(1+self.discount_rate)
         self.bstar = (
@@ -152,15 +171,15 @@ class EconParameters:
 
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
-        non_comp_rate = 1 - pmd_rate
-        self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
+        # non_comp_rate = 1 - pmd_rate
+        # self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
 
         # With Option 1 quation 
-        # A = 57
-        # k = np.log(12) / 75
+        A = 57
+        k = np.log(12) / 75
 
-        # scaled_effort = (self.bond / self.bstar[mask]) * 100
-        # self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
+        scaled_effort = (self.bond / self.bstar[mask]) * 100
+        self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
 
         return       
 
@@ -193,4 +212,90 @@ class EconParameters:
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
 
+    def update_congestion_costs(self, current_environment, initial_environment):
+            """
+            Updates the delta-v cost for each shell based on object congestion.
+            Handles both circular (1D flat) and elliptical (3D) environment arrays.
 
+            Args:
+                current_environment (np.ndarray): The current state of the environment.
+                initial_environment (np.ndarray): The initial state of the environment (at year 0).
+            """
+            n_shells = self.mocat.scenario_properties.n_shells
+            n_species = len(self.mocat.scenario_properties.species_names)
+            is_elliptical = self.mocat.scenario_properties.elliptical
+
+            # Sum objects per shell based on environment shape
+            if is_elliptical:
+                # current_environment shape is (n_shells, n_species, n_ecc_bins)
+                # We sum over the species (axis 1) and eccentricity (axis 2)
+                current_objects_per_shell = np.sum(current_environment, axis=(1, 2))
+                initial_objects_per_shell = np.sum(initial_environment, axis=(1, 2))
+            else:
+                # current_environment shape is (n_species * n_shells,)
+                current_reshaped = current_environment.reshape((n_species, n_shells))
+                initial_reshaped = initial_environment.reshape((n_species, n_shells))
+                # We sum over the species (axis 0)
+                current_objects_per_shell = np.sum(current_reshaped, axis=0)
+                initial_objects_per_shell = np.sum(initial_reshaped, axis=0)
+
+            # Calculate congestion surcharge
+            percent_change = np.zeros(n_shells)
+            # Avoid division by zero for shells that started empty
+            non_zero_mask = initial_objects_per_shell > 0
+            
+            # Calculate percent change
+            percent_change[non_zero_mask] = self.congestion_switch * (current_objects_per_shell[non_zero_mask] - initial_objects_per_shell[non_zero_mask]) / initial_objects_per_shell[non_zero_mask]
+
+            # Surcharge is based on the positive percent change
+            surcharge = np.maximum(0, percent_change) * self.base_delta_v_cost
+            self.delta_v_cost = self.base_delta_v_cost + surcharge
+
+            # Recalculate cost components 
+            self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
+            delta_v_budget = 1.5 * self.sat_lifetime * self.v_drag + 100
+            self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
+            
+            # Recalculate the final cost list
+            self.cost = (self.total_lift_price + self.stationkeeping_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
+            return self.cost
+
+    def return_congestion_costs(self, current_environment, initial_environment):
+        n_shells = self.mocat.scenario_properties.n_shells
+        n_species = len(self.mocat.scenario_properties.species_names)
+        is_elliptical = self.mocat.scenario_properties.elliptical
+
+        # Sum objects per shell based on environment shape
+        if is_elliptical:
+            # current_environment shape is (n_shells, n_species, n_ecc_bins)
+            # We sum over the species (axis 1) and eccentricity (axis 2)
+            current_objects_per_shell = np.sum(current_environment, axis=(1, 2))
+            initial_objects_per_shell = np.sum(initial_environment, axis=(1, 2))
+        else:
+            # current_environment shape is (n_species * n_shells,)
+            current_reshaped = current_environment.reshape((n_species, n_shells))
+            initial_reshaped = initial_environment.reshape((n_species, n_shells))
+            # We sum over the species (axis 0)
+            current_objects_per_shell = np.sum(current_reshaped, axis=0)
+            initial_objects_per_shell = np.sum(initial_reshaped, axis=0)
+
+        # Calculate congestion surcharge
+        percent_change = np.zeros(n_shells)
+        # Avoid division by zero for shells that started empty
+        non_zero_mask = initial_objects_per_shell > 0
+        
+        # Calculate percent change
+        percent_change[non_zero_mask] = self.congestion_switch * (current_objects_per_shell[non_zero_mask] - initial_objects_per_shell[non_zero_mask]) / initial_objects_per_shell[non_zero_mask]
+
+        # Surcharge is based on the positive percent change
+        surcharge = np.maximum(0, percent_change) * self.base_delta_v_cost
+        delta_v_cost = self.base_delta_v_cost + surcharge
+
+        # Recalculate cost components 
+        deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
+        delta_v_budget = 1.5 * self.sat_lifetime * self.v_drag + 100
+        stationkeeping_cost = delta_v_budget * delta_v_cost
+        
+        # Recalculate the final cost list
+        cost = (self.total_lift_price + stationkeeping_cost + deorbit_maneuver_cost * (1 - 0)).tolist()
+        return cost

@@ -1,0 +1,1262 @@
+[
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.539986848831177,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.69933819770813,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.68720316886902,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.752465963363647,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.766198873519897,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.755950212478638,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.97631812095642,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.786012887954712,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.843163013458252,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.917302131652832,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.9926438331604,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose",
+    "config": {
+      "ftol": 0.001,
+      "xtol": 0.1,
+      "gtol": 0.001,
+      "max_nfev": 100
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.974678993225098,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 21.052907943725586,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 21.08727216720581,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.260448932647705,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.45315408706665,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.72712278366089,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.85053014755249,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.64512610435486,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.559318780899048,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.719271898269653,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.709992170333862,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.673619031906128,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.818994998931885,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.55812382698059,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.892169952392578,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "loose_med",
+    "config": {
+      "ftol": 0.0005,
+      "xtol": 0.05,
+      "gtol": 0.0005,
+      "max_nfev": 200
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 20.92314600944519,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 21.118513107299805,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.65947413444519,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.616084098815918,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.83776617050171,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.881466150283813,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium",
+    "config": {
+      "ftol": 0.0001,
+      "xtol": 0.01,
+      "gtol": 0.0001,
+      "max_nfev": 500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.24089288711548,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.068004846572876,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.814252138137817,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.80667805671692,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.86420726776123,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.930896043777466,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.879932165145874,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "medium_tight",
+    "config": {
+      "ftol": 5e-05,
+      "xtol": 0.005,
+      "gtol": 5e-05,
+      "max_nfev": 750
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.09624409675598,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.17460608482361,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.913200855255127,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.412937879562378,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.321710109710693,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.272047758102417,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.330251932144165,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.457756757736206,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.45417881011963,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.52330708503723,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight",
+    "config": {
+      "ftol": 1e-05,
+      "xtol": 0.001,
+      "gtol": 1e-05,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.553200244903564,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.611597776412964,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.65358304977417,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.738958835601807,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.762555837631226,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.74672794342041,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.61212706565857,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.67116904258728,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.4552800655365,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.352475881576538,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "tight_very",
+    "config": {
+      "ftol": 5e-06,
+      "xtol": 0.0005,
+      "gtol": 5e-06,
+      "max_nfev": 1500
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.69628596305847,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.55299186706543,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.546535968780518,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.663730144500732,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.47787594795227,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.63144588470459,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.714972019195557,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.78011989593506,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.788541078567505,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.511413097381592,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight",
+    "config": {
+      "ftol": 1e-06,
+      "xtol": 0.0001,
+      "gtol": 1e-06,
+      "max_nfev": 2000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.963433027267456,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.93621301651001,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.08186388015747,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.205065965652466,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.29076910018921,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.556342840194702,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.402729988098145,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.208988904953003,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.08999013900757,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.966859102249146,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.434683799743652,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "very_tight_2",
+    "config": {
+      "ftol": 5e-07,
+      "xtol": 5e-05,
+      "gtol": 5e-07,
+      "max_nfev": 3000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.103891849517822,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.388178825378418,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 18.347622871398926,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 17.9735689163208,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 14.443588018417358,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 14.472270011901855,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 14.291223049163818,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 14.294620990753174,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 14.377125263214111,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  },
+  {
+    "config_name": "current",
+    "config": {
+      "ftol": 1e-08,
+      "xtol": 0.005,
+      "gtol": 1e-08,
+      "max_nfev": 1000
+    },
+    "final_counts": {},
+    "accuracy": Infinity,
+    "computation_time": 14.336477994918823,
+    "success": false,
+    "error_message": "'OPUSSpecies' object has no attribute 'start_slice'"
+  }
+]
