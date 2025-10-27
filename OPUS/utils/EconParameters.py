@@ -150,12 +150,17 @@ class EconParameters:
         self.v_drag = v_drag
         self.k_star = k_star 
 
+
         #BOND CALCULATIONS - compliance rate is defined in MOCAT json
         self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
         
         if self.bond is None:
             self.comp_rate = np.where(self.naturally_compliant_vector != 1, pmd_rate, self.comp_rate)
             return 
+
+        # Scale the bond with the mass of the satellite. Full bond cost = bond/700 kg
+        # bond_per_kg = self.bond / 700
+        # self.bond = bond_per_kg * self.mass
         
         self.discount_factor = 1/(1+self.discount_rate)
         self.bstar = (

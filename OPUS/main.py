@@ -13,6 +13,82 @@ import json
 import numpy as np
 from datetime import timedelta
 import time
+import os
+import pandas as pd
+
+def ensure_bond_config_files(bond_amounts, lifetimes, config_dir="./OPUS/configuration/"):
+    """
+    Ensure all bond configuration CSV files exist with correct content.
+    
+    Args:
+        bond_amounts (list): List of bond amounts in dollars
+        lifetimes (list): List of disposal times in years
+        config_dir (str): Directory containing configuration files
+    
+    Returns:
+        list: List of scenario names that were created/verified
+    """
+    scenario_names = []
+    
+    # Create configuration directory if it doesn't exist
+    os.makedirs(config_dir, exist_ok=True)
+    
+    for bond_amount in bond_amounts:
+        for lifetime in lifetimes:
+            # Generate filename
+            if bond_amount >= 1000000:
+                bond_k = bond_amount // 1000
+                filename = f"bond_{bond_k}k_{lifetime}yr.csv"
+            elif bond_amount >= 1000:
+                bond_k = bond_amount // 1000
+                filename = f"bond_{bond_k}k_{lifetime}yr.csv"
+            else:
+                filename = f"bond_{bond_amount}k_{lifetime}yr.csv"
+            
+            filepath = os.path.join(config_dir, filename)
+            scenario_name = filename.replace('.csv', '')
+            
+            # Expected content
+            expected_content = f"""parameter_type,parameter_name,parameter_value
+econ,bond,{bond_amount}
+econ,disposal_time,{lifetime}
+"""
+            
+            # Check if file exists and has correct content
+            file_needs_update = False
+            
+            if not os.path.exists(filepath):
+                print(f"Creating missing file: {filename}")
+                file_needs_update = True
+            else:
+                # Check if content is correct
+                try:
+                    with open(filepath, 'r') as f:
+                        current_content = f.read()
+                    
+                    if current_content.strip() != expected_content.strip():
+                        print(f"Updating file with incorrect content: {filename}")
+                        file_needs_update = True
+                    else:
+                        print(f"File exists and is correct: {filename}")
+                        
+                except Exception as e:
+                    print(f"Error reading file {filename}: {e}")
+                    file_needs_update = True
+            
+            # Update file if needed
+            if file_needs_update:
+                try:
+                    with open(filepath, 'w') as f:
+                        f.write(expected_content)
+                    print(f"Successfully created/updated: {filename}")
+                except Exception as e:
+                    print(f"Error writing file {filename}: {e}")
+                    continue
+            
+            scenario_names.append(scenario_name)
+    
+    return scenario_names
 
 class IAMSolver:
     def __init__(self):
@@ -24,6 +100,7 @@ class IAMSolver:
         self.MOCAT = None
         self.econ_params_json = None
         self.pmd_linked_species = None
+        self.config = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats):
@@ -49,7 +126,7 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["S_bonded", "S_unbonded", "Su", "Sns"]
+        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
         multi_species_names = ["S", "Su", "Sns"]
         # multi_species_names = ["S"]
 
@@ -59,7 +136,6 @@ class IAMSolver:
         #########################
         ### CONFIGURE MOCAT MODEL
         #########################
-        # if self.MOCAT is None:
         self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=self.grid_search)
         self.elliptical = self.MOCAT.scenario_properties.elliptical
         print(self.MOCAT.scenario_properties.x0)
@@ -74,7 +150,6 @@ class IAMSolver:
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
 
         current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
-        # species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
         species_data = {sp: {year: np.zeros(self.MOCAT.scenario_properties.n_shells) for year in years} for sp in self.MOCAT.scenario_properties.species_names}
 
         # update time 0 as the initial population
@@ -190,7 +265,7 @@ class IAMSolver:
             # Apply PMD (Post Mission Disposal) evaluation to remove satellites
             print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
             if self.elliptical:
-                # check if density_model has name property
+                # c heck if density_model has name property
                 if self.MOCAT.scenario_properties.density_model != "static_exp_dens_func":
                     try:
                         density_model_name = self.MOCAT.scenario_properties.density_model.__name__
@@ -303,51 +378,60 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name):
     return iam_solver.get_mocat()
 
 if __name__ == "__main__":
-    ####################
-    ### 2. SCENARIO DEFINITIONS
-    # Change to set scenarios and parallelization
-
-    # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
-    ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
-    scenario_files=[
-                    "Baseline",
-                    # "bond_0k_25yr",
-                    "bond_100k",
-                    # "bondrevenuegrowth_100k",
-                    # "revenuegrowth_0k",
-                    "bond_200k",
-                    # # # "bond_300k",
-                    # "bond_800k",
-                    "bond_1200k",
-                    "bond_1600k",
-                    # # # "bond_100k_25yr",
-                    # # # # "bond_200k_25yr",
-                    # # "bond_300k_25yr",
-                    # # # # "bond_500k_25yr",
-                    # "bond_800k_25yr",
-                    # "bond_1200k_25yr",
-                    # "bond_1600k_25yr",
-                    # "tax_1",
-                    # # "tax_2"
-                ]
+    baseline = True
+    bond_amounts = [100000]
+    lifetimes = [5, 25]
     
+    # Ensure all bond configuration files exist with correct content
+    print("Ensuring bond configuration files exist...")
+    bond_scenario_names = ensure_bond_config_files(bond_amounts, lifetimes)
+    
+    # Generate complete scenario names list
+    scenario_files = []
+    if baseline:
+        scenario_files.append("Baseline")
+    scenario_files.extend(bond_scenario_names)
+    config = {
+        "scenario_files": scenario_files,
+        "baseline": baseline,
+        "bond_amounts": bond_amounts,
+        "lifetimes": lifetimes
+    }
+    
+
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "bonds-elliptical"
+    simulation_name = "sns_test_2"
 
     iam_solver = IAMSolver()
 
     def get_total_species_from_output(species_data):
         totals = {}
-        for species, data_array in species_data.items():
-            if isinstance(data_array, np.ndarray):
-                totals[species] = np.sum(data_array[-1])
+        for species, year_data in species_data.items():
+            if isinstance(year_data, dict):
+                # Get the latest year's data
+                latest_year = max(year_data.keys())
+                latest_data = year_data[latest_year]
+                
+                if isinstance(latest_data, np.ndarray):
+                    # Sum the array values
+                    totals[species] = np.sum(latest_data)
+                elif hasattr(latest_data, 'sum'):
+                    # Handle pandas Series
+                    totals[species] = latest_data.sum()
+                else:
+                    # Fallback for other data types
+                    totals[species] = float(latest_data) if isinstance(latest_data, (int, float)) else 0
+            elif isinstance(year_data, np.ndarray):
+                # Handle direct array input (backward compatibility)
+                totals[species] = np.sum(year_data[-1])
+        
         return totals
 
     # # no parallel processing
     # for scenario_name in scenario_files:
     #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=True)
     #     # Get the total species from the output
     #     total_species = get_total_species_from_output(output)
     #     print(f"Total species for scenario {scenario_name}: {total_species}")
@@ -360,6 +444,7 @@ if __name__ == "__main__":
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
+    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

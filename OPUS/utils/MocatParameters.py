@@ -59,17 +59,6 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None, grid
                 MOCAT.opus_collisions_setup(species.name, maneuvers=False)
                 species.maneuverable = False
 
-    # if grid_search:
-    #     classified_catalogue = Path("indigo-thesis/grid_search/classified.csv")
-    #     try:
-    #         MOCAT = override_initial_population_from_classified_csv(
-    #             MOCAT,
-    #             classified_catalogue,
-    #             before_date="2017-01-01",
-    #         )
-    #     except Exception as exc:
-    #         print(f"Warning: unable to override x0 from {classified_catalogue}: {exc}")
-
     if MOCAT.scenario_properties.elliptical:
         MOCAT.build_model(elliptical=True)
     else:
@@ -82,12 +71,23 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None, grid
         return MOCAT
 
     for opus_species in multi_species.species:
-        pmd_linked_species_to_fringe = [
-            species
-            for species_group in MOCAT.scenario_properties.species.values()
-            for species in species_group
-            if any(linked_species.sym_name == opus_species.name for linked_species in species.pmd_linked_species)
-        ]
+        pmd_linked_species_to_fringe = []
+        
+        for species_group in MOCAT.scenario_properties.species.values():
+            for species in species_group:
+                # Check if species has pmd_linked_species attribute and it's not None
+                if hasattr(species, 'pmd_linked_species') and species.pmd_linked_species is not None:
+                    # Check if any linked species matches the opus_species name
+                    # check if pmd_linked_species is a list
+                    if isinstance(species.pmd_linked_species, list):
+                        for linked_species in species.pmd_linked_species:
+                            if linked_species.sym_name == opus_species.name:
+                                pmd_linked_species_to_fringe.append(species)
+                                break  # Found a match, no need to check other linked_species
+                    else:
+                        if species.pmd_linked_species.sym_name == opus_species.name:
+                            pmd_linked_species_to_fringe.append(species)
+                            break  # Found a match, no need to check other linked_species
 
         if len(pmd_linked_species_to_fringe) != 1:
             raise ValueError("Please ensure that there is only one species linked to the fringe satellite.")

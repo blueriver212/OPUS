@@ -38,18 +38,35 @@ N_INITIAL_POINTS = 10
 RANDOM_STATE     = 42
 SHOW_SURFACE     = True        # set False if you only need the optimiser
 
-TARGET_COUNTS = {"S": 7677, "Su": 2665, "Sns": 1228}
+# TARGET_COUNTS = {"S": 7677, "Su": 2665, "Sns": 1228}
+TARGET_COUNTS = {"SA": 3070, "SB": 3070, "SC": 1537, "SuA": 1075, "SuB": 1075, "SuC": 540}
 
 
 # ───────────────────────────────────────────────────
 # 1.  HELPER ROUTINES (unchanged logic)
 # ───────────────────────────────────────────────────
 def get_total_species_from_output(species_data):
-    totals = {}
-    for species, data_array in species_data.items():
-        if isinstance(data_array, np.ndarray):
-            totals[species] = np.sum(data_array[-1])
-    return totals
+        totals = {}
+        for species, year_data in species_data.items():
+            if isinstance(year_data, dict):
+                # Get the latest year's data
+                latest_year = max(year_data.keys())
+                latest_data = year_data[latest_year]
+                
+                if isinstance(latest_data, np.ndarray):
+                    # Sum the array values
+                    totals[species] = np.sum(latest_data)
+                elif hasattr(latest_data, 'sum'):
+                    # Handle pandas Series
+                    totals[species] = latest_data.sum()
+                else:
+                    # Fallback for other data types
+                    totals[species] = float(latest_data) if isinstance(latest_data, (int, float)) else 0
+            elif isinstance(year_data, np.ndarray):
+                # Handle direct array input (backward compatibility)
+                totals[species] = np.sum(year_data[-1])
+        
+        return totals
 
 
 def run_simulation(intercepts):
@@ -63,7 +80,7 @@ def run_simulation(intercepts):
     """
     # ── read the template JSON once and cache it ──────────────────
     if not hasattr(run_simulation, "_baseline"):
-        with open("./OPUS/configuration/multi_single_species.json") as f:
+        with open("./OPUS/configuration/bonded_species.json") as f:
             run_simulation._baseline = json.load(f)
 
     config = deepcopy(run_simulation._baseline)
@@ -103,15 +120,16 @@ from tqdm import tqdm
 # --- helper ----------------------------------------------------------
 def sim_counts(R_vec):
     """vectorised wrapper → np.array([N_S, N_Su, N_Sns])"""
-    names = ["S", "Su", "Sns"]
+    # names = ["S", "Su", "Sns"]
+    names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     result = run_simulation(dict(zip(names, R_vec)))
     return np.array([result[n] for n in names])
 
 def jacobian(R_base, delta=30_000):
     """Finite-difference Jacobian  ∂N_i / ∂R_j  (3×3)."""
-    J = np.zeros((3, 3))
+    J = np.zeros((6, 6))
     N0 = sim_counts(R_base)
-    for j in range(3):
+    for j in range(6):
         R_pert       = R_base.copy()
         R_pert[j]   += delta
         Nj           = sim_counts(R_pert)
@@ -119,12 +137,12 @@ def jacobian(R_base, delta=30_000):
     return J, N0
 
 # --- main routine ----------------------------------------------------
-TARGET = np.array([7677, 2665, 1228])
-N_PASSES      = 2        # 1 pass is often enough; 2 gives “tight” fit
+TARGET = np.array([3070, 3070, 1537, 1075, 1075, 540])
+N_PASSES      = 4        # 1 pass is often enough; 2 gives “tight” fit
 DELTA         = 30_000   # finite-difference step (adjust if sensitivity is tiny)
 
 # starting guess – use last BO best if you have it, otherwise mid-box
-R = np.array([1629368, 2092593, 55780], dtype=float)
+R = np.array([1629368, 1629368, 1629368, 2092593, 2092593, 2092593], dtype=float)
 
 for it in range(N_PASSES):
     print(f"\nPass {it+1}")
@@ -136,8 +154,8 @@ for it in range(N_PASSES):
 
     # Evaluate new intercepts once
     N1  = sim_counts(R)
-    cost = compute_cost(dict(zip(["S","Su","Sns"], N1)))
-
+    # cost = compute_cost(dict(zip(["S","Su","Sns"], N1)))
+    cost = compute_cost(dict(zip(["SA","SB","SC","SuA","SuB","SuC"], N1)))
     print("  Jacobian:\n", np.round(J, 2))
     print("  ΔR:", np.round(dR).astype(int))
     print("  New intercepts:", np.round(R).astype(int))

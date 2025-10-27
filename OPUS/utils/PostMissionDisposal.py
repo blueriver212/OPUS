@@ -1,61 +1,5 @@
 import numpy as np
 
-# def evaluate_pmd(state_matrix, multi_species):
-#     """
-#     NOW FOR MULTI SPECIES
-#     """
-#     # State matrix holds all the entire environment, multi_species holds all of the information required for PMD
-
-#     for species in multi_species.species:
-#         # FIND COMPLIANT SHELLS
-#         # Find he idx of the last naturally compliant shell 
-#         last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
-
-#         # Identify non-compliant shells
-#         non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
-
-#         # Get the number of items in each shell within the fringe range
-#         num_items_fringe = state_matrix[species.start_slice:species.end_slice]
-
-#         # Compute the number of derelicts for each shell.
-#         # If your pmd_rate is 65% (0.65) then your compliance is 0.65 of your annual amount. 
-#         compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.pmd_rate
-
-#         # Non compliance derelicts
-#         # Then your non-compliance is 1-0.63 = 0.35 of your annnual ammount
-#         non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1-species.econ_params.pmd_rate)
-
-#         # Remove the appropriate number of fringe satellites based on active lifetime.
-#         state_matrix[species.start_slice:species.end_slice] -= (1 / species.deltat) * num_items_fringe
-
-#         # There are three posibilites. 
-#         # 1. The shell is naturally compliant, so all derelicts remain where they are. 
-
-#         # 2. The compliant_derelicts are added to the last compliant shell.
-
-#         # 3. The non_compliant_derelicts remain where they are. 
-
-#         # Sum the derelict numbers for non-compliant shells.
-#         sum_non_compliant = np.sum(compliant_derelicts[non_compliant_mask])
-
-#         # Add the sum of non-compliant derelicts to the last compliant shell.
-#         compliant_derelicts[last_compliant_shell] += sum_non_compliant
-
-#         # Zero out the derelict counts in the non-compliant shells.
-#         compliant_derelicts[non_compliant_mask] = 0
-
-#         # Now add the adjusted derelict numbers to the state matrix in the derelict slice.
-#         state_matrix[species.derelict_start_slice:species.derelict_end_slice] += compliant_derelicts
-
-#         # Now for the non_compliant derelicts. They just remain where they are. 
-#         state_matrix[species.derelict_start_slice:species.derelict_end_slice] += non_compliant_derelicts
-
-#         # Save required information to the species
-#         species.sum_non_compliant = sum_non_compliant
-#         species.sum_compliant = sum(compliant_derelicts)
-    
-#     return state_matrix, multi_species
-
 def evaluate_pmd(state_matrix, multi_species):
     """
     PMD logic applied per species type:
@@ -73,12 +17,37 @@ def evaluate_pmd(state_matrix, multi_species):
 
         num_items_fringe = state_matrix[start:end]
 
-        if species_name == 'S':
-            # 97% removed from sim, 3% fail PMD and get dropped randomly into compliant shells
-            successful_pmd = species.econ_params.pmd_rate * (1 / species.deltat) * num_items_fringe
-            failed_pmd = (1 - species.econ_params.pmd_rate) * (1 / species.deltat) * num_items_fringe
 
-             # Remove all satellites at end of life
+        if species_name.startswith('Su'):
+            # All compliant PMD are dropped at the highest naturall compliant vector. 
+            last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
+            non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
+
+            # calculate compliant and non-compliant derelicts - just for reporting
+            compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.comp_rate
+            non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1 - species.econ_params.comp_rate)
+
+            # remove all satellites at end of life
+            state_matrix[start:end] -= (1 / species.deltat) * num_items_fringe
+
+            # add compliant derelicts to last compliant shell
+            sum_non_compliant = np.sum(compliant_derelicts[non_compliant_mask])
+            compliant_derelicts[last_compliant_shell] += sum_non_compliant
+            compliant_derelicts[non_compliant_mask] = 0
+
+            # add compliant and non-compliant derelicts to derelict slice
+            state_matrix[derelict_start:derelict_end] += compliant_derelicts
+            state_matrix[derelict_start:derelict_end] += non_compliant_derelicts
+
+            species.sum_compliant = np.sum(compliant_derelicts)
+            species.sum_non_compliant = np.sum(non_compliant_derelicts)
+
+        elif species_name.startswith('S'):
+            # 97% removed from sim, 3% fail PMD and get dropped randomly into compliant shells
+            successful_pmd = species.econ_params.comp_rate * (1 / species.deltat) * num_items_fringe
+            failed_pmd = (1 - species.econ_params.comp_rate) * (1 / species.deltat) * num_items_fringe
+
+            # Remove all satellites at end of life
             state_matrix[start:end] -= (1 / species.deltat) * num_items_fringe
 
             # Get naturally compliant shell indices
@@ -100,30 +69,6 @@ def evaluate_pmd(state_matrix, multi_species):
 
             species.sum_compliant = np.sum(successful_pmd)
             species.sum_non_compliant = np.sum(failed_pmd)
-
-        elif species_name == 'Su':
-            # All compliant PMD are dropped at the highest naturall compliant vector. 
-            last_compliant_shell = np.where(species.econ_params.naturally_compliant_vector == 1)[0][-1]
-            non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
-
-            # calculate compliant and non-compliant derelicts - just for reporting
-            compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.pmd_rate
-            non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1 - species.econ_params.pmd_rate)
-
-            # remove all satellites at end of life
-            state_matrix[start:end] -= (1 / species.deltat) * num_items_fringe
-
-            # add compliant derelicts to last compliant shell
-            sum_non_compliant = np.sum(compliant_derelicts[non_compliant_mask])
-            compliant_derelicts[last_compliant_shell] += sum_non_compliant
-            compliant_derelicts[non_compliant_mask] = 0
-
-            # add compliant and non-compliant derelicts to derelict slice
-            state_matrix[derelict_start:derelict_end] += compliant_derelicts
-            state_matrix[derelict_start:derelict_end] += non_compliant_derelicts
-
-            species.sum_compliant = np.sum(compliant_derelicts)
-            species.sum_non_compliant = np.sum(non_compliant_derelicts)
 
         elif species_name == 'Sns':
             # No PMD; everything goes to derelict in place
@@ -159,8 +104,8 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                 num_items_fringe = state_matrix[:, species.species_idx, 0]
 
                 # 97% removed from sim, 3% fail PMD and get dropped randomly into compliant shells
-                successful_pmd = species.econ_params.pmd_rate * (1 / species.deltat) * num_items_fringe
-                failed_pmd = (1 - species.econ_params.pmd_rate) * (1 / species.deltat) * num_items_fringe
+                successful_pmd = species.econ_params.comp_rate * (1 / species.deltat) * num_items_fringe
+                failed_pmd = (1 - species.econ_params.comp_rate) * (1 / species.deltat) * num_items_fringe
 
                 # Remove all satellites at end of life - from both sma and alt bins
                 state_matrix[:, species.species_idx, 0] -= (1 / species.deltat) * num_items_fringe
@@ -196,8 +141,8 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                 non_compliant_mask = (species.econ_params.naturally_compliant_vector == 0)
 
                 # Number of compliant and non compiant satellites in each cell 
-                compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.pmd_rate
-                non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1 - species.econ_params.pmd_rate)
+                compliant_derelicts = (1 / species.deltat) * num_items_fringe * species.econ_params.comp_rate
+                non_compliant_derelicts = (1 / species.deltat) * num_items_fringe * (1 - species.econ_params.comp_rate)
 
                 # remove all satellites at end of life
                 state_matrix[:, species.species_idx, 0] -= (1 / species.deltat) * num_items_fringe
@@ -265,8 +210,7 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                 species.sum_compliant = np.sum(controlled_derelicts)
 
             if uncontrolled_pmd > 0:
-                hp = get_disposal_orbits(year, HMid, pmd_lifetime=species.econ_params.disposal_time,
-                         lookup_path="disposal_lookup_24_26.npz")  # or .mat
+                hp = get_disposal_orbits(year, HMid, species_name, pmd_lifetime=species.econ_params.disposal_time)
 
                 # 2) convert to eccentricities
                 sma, e = sma_ecc_from_apogee_perigee(hp, HMid)
@@ -276,20 +220,20 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                 sma_bin_idx = map_sma_to_bins(sma, sma_bins)
 
                 # this will give you a map of where to go for the number of uncontrolled reentries
-                for derelicts, idx in enumerate(ecc_bin_idx):
+                for i, idx in enumerate(ecc_bin_idx):
                     # if hp is nan, then derelicts just remain in the same shell as a derelict
-                    if hp[idx] is np.nan:
-                        state_matrix[idx, species.derelict_idx, 0] += items_to_pmd_total * (1 - uncontrolled_pmd)
-                        state_matrix_alt[idx, species.derelict_idx] += items_to_pmd_total * (1 - uncontrolled_pmd)
+                    if np.isnan(hp[i]):
+                        state_matrix[i, species.derelict_idx, 0] += items_to_pmd_total[i] * uncontrolled_pmd
+                        state_matrix_alt[i, species.derelict_idx] += items_to_pmd_total[i] * uncontrolled_pmd
 
-                        species.sum_compliant += np.sum(items_to_pmd_total * (1 - uncontrolled_pmd))
+                        species.sum_compliant += np.sum(items_to_pmd_total[i] * uncontrolled_pmd)
                     
                     # if not find the new sma and ecc bin and place the derelicts there
                     else:
-                        state_matrix[sma_bin_idx[idx], species.derelict_idx, ecc_bin_idx[idx]] += items_to_pmd_total[idx] * (1 - uncontrolled_pmd)
-                        state_matrix_alt[sma_bin_idx[idx], species.derelict_idx] += items_to_pmd_total[idx] * (1 - uncontrolled_pmd)
+                        state_matrix[sma_bin_idx[i], species.derelict_idx, ecc_bin_idx[i]] += items_to_pmd_total[i] * uncontrolled_pmd
+                        state_matrix_alt[sma_bin_idx[i], species.derelict_idx] += items_to_pmd_total[i] * uncontrolled_pmd
 
-                        species.sum_compliant += np.sum(items_to_pmd_total[idx] * (1 - uncontrolled_pmd))
+                        species.sum_compliant += np.sum(items_to_pmd_total[i] * uncontrolled_pmd)
 
             # if no attempt derelicts, then they remain in the same shell as a derelict
             if no_attempt_pmd > 0:
@@ -302,7 +246,7 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                 state_matrix_alt[:, species.derelict_idx] += items_to_pmd_total * no_attempt_pmd
                 
                 species.sum_non_compliant += np.sum(items_to_pmd_total * no_attempt_pmd)
-                
+                species.sum_compliant += np.sum(items_to_pmd_total * no_attempt_pmd)
             if failed_attempt_pmd > 0:
                 continue # to implement
 
@@ -374,7 +318,7 @@ def _inv_logquad_for_y(p, y_target, xmin, xmax):
 
 # ---------- 1) main function you asked for ----------
 
-def get_disposal_orbits(year, apogees_km, pmd_lifetime=5.0, lookup_path="disposal_lookup_24_26.npz"):
+def get_disposal_orbits(year, apogees_km, satellite_type, pmd_lifetime=5.0, lookup_path="disposal_lookup_.npz"):
     """
     Parameters
     ----------
@@ -393,69 +337,54 @@ def get_disposal_orbits(year, apogees_km, pmd_lifetime=5.0, lookup_path="disposa
         Perigee altitudes (km) matching apogees_km. NaN where no valid solution.
     """
     apogees_km = np.asarray(apogees_km, dtype=float).ravel()
+    if satellite_type == "S":
+        lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"
+    elif satellite_type == "Su":
+        lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_Su.npz"
+    else:
+        raise ValueError(f"Invalid satellite type: {satellite_type}")
     L = _load_lookup_cached(lookup_path)
 
-    years         = L["years"]
-    apogee_grid   = L["apogee_alts_km"]
-    perigee_grid  = L["perigee_alts_km"]
-    coef_logquad  = L["coef_logquad"]      # (ny, na, 3)
-    R2_log        = L["R2_log"]
+    years = L["years"]
+    apogee_grid = L["apogee_alts_km"]
+    perigee_grid = L["perigee_alts_km"]
+    lifetimes_years = L["lifetimes_years"]  # (ny, na, np)
 
     # choose nearest available year
     iy = int(np.argmin(np.abs(years - int(year))))
 
-    hp_min, hp_max = float(perigee_grid.min()), float(perigee_grid.max())
     perigees_out = np.full_like(apogees_km, np.nan, dtype=float)
 
     for j, ap in enumerate(apogees_km):
-        # find bracket on apogee grid
-        i1 = np.searchsorted(apogee_grid, ap, side="left")
-        if i1 == 0:
-            i0 = i1
-        elif i1 >= len(apogee_grid):
-            i0 = len(apogee_grid) - 1
-            i1 = i0
-        else:
-            i0 = i1 - 1
-
-        ap0 = apogee_grid[i0]
-        p0  = coef_logquad[iy, i0, :]
-        hp0 = _inv_logquad_for_y(p0, pmd_lifetime, hp_min, hp_max)
-
-        if i1 == i0:
-            hp_est = hp0
-        else:
-            ap1 = apogee_grid[i1]
-            p1  = coef_logquad[iy, i1, :]
-            hp1 = _inv_logquad_for_y(p1, pmd_lifetime, hp_min, hp_max)
-            # linear interp across apogee dimension (only if both valid)
-            if np.isnan(hp0) and np.isnan(hp1):
-                hp_est = np.nan
-            elif np.isnan(hp0):
-                hp_est = hp1
-            elif np.isnan(hp1):
-                hp_est = hp0
-            else:
-                t = (ap - ap0) / (ap1 - ap0) if ap1 != ap0 else 0.0
-                hp_est = (1 - t) * hp0 + t * hp1
-
-        # physical checks: perigee must be <= apogee & within fit bounds
-        if np.isnan(hp_est) or (hp_est > ap) or (hp_est < hp_min) or (hp_est > hp_max):
+        # find closest apogee altitude
+        apogee_idx = int(np.argmin(np.abs(apogee_grid - ap)))
+        
+        # get lifetimes for this apogee
+        apogee_lifetimes = lifetimes_years[iy, apogee_idx, :]
+        
+        # find valid lifetimes
+        valid_mask = ~np.isnan(apogee_lifetimes) & (apogee_lifetimes > 0)
+        
+        if not np.any(valid_mask):
             perigees_out[j] = np.nan
+            continue
+        
+        valid_lifetimes = apogee_lifetimes[valid_mask]
+        valid_perigees = perigee_grid[valid_mask]
+        
+        # interpolate to find perigee for target lifetime
+        if pmd_lifetime <= np.min(valid_lifetimes):
+            perigee_est = np.min(valid_perigees)
+        elif pmd_lifetime >= np.max(valid_lifetimes):
+            perigee_est = np.max(valid_perigees)
         else:
-            # Optional: reject very low-quality fits
-            if R2_log.size:
-                r2_ok = False
-                # check neighboring apogee R^2s
-                for idx in {i0, i1}:
-                    r2 = R2_log[iy, idx]
-                    if not np.isnan(r2) and r2 >= 0.90:  # relax/raise as you like
-                        r2_ok = True
-                        break
-                if not r2_ok:
-                    perigees_out[j] = np.nan
-                    continue
-            perigees_out[j] = hp_est
+            perigee_est = np.interp(pmd_lifetime, valid_lifetimes, valid_perigees)
+        
+        # Physical constraint: perigee must be <= apogee
+        if perigee_est > ap:
+            perigees_out[j] = np.nan  # Not possible to dispose to this orbit
+        else:
+            perigees_out[j] = perigee_est
 
     return perigees_out
 

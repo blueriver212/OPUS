@@ -55,30 +55,16 @@ class MultiSpeciesOpenAccessSolver:
         # As the launches are only for the fringe, we need to add the launches to the correct slice of the lambda vector.
         self.lam = insert_launches_into_lam(self.lam, launches, self.multi_species, self.elliptical) # circ = 92, elp = 92
 
-        # Print total of self.lam, ignoring None values
-        S_total = 0
-        Su_total = 0
-        Sns_total = 0
-        if self.elliptical:
-            # For elliptical mode, lam is 3D: [n_sma_bins, n_species, n_ecc_bins]
-            for species in self.multi_species.species:
-                if species.name == "S":
-                    S_total = np.sum(self.lam[:, species.species_idx, 0])
-                elif species.name == "Su":
-                    Su_total = np.sum(self.lam[:, species.species_idx, 0])
-                elif species.name == "Sns":
-                    Sns_total = np.sum(self.lam[:, species.species_idx, 0])
-        else:
-            # For non-elliptical mode, lam is 1D
-            for species in self.multi_species.species:
-                if species.name == "S":
-                    S_total = np.sum(self.lam[species.start_slice:species.end_slice])
-                elif species.name == "Su":
-                    Su_total = np.sum(self.lam[species.start_slice:species.end_slice])
-                elif species.name == "Sns":
-                    Sns_total = np.sum(self.lam[species.start_slice:species.end_slice])
+        # # Print total of self.lam, ignoring None values
+        # to_print = ""
+        # for species in self.multi_species.species:
+        #     if self.elliptical:
+        #         total = np.sum(self.lam[:, species.species_idx, 0])
+        #     else:
+        #         total = np.sum(self.lam[species.start_slice:species.end_slice])
+        #     to_print += f"{species.name} total: {total}\n"
+        # print(to_print)
 
-        print(f"S_total: {S_total}, Su_total: {Su_total}, Sns_total: {Sns_total}")
         # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
         if self.elliptical:
             if self.MOCAT.scenario_properties.density_model == "static_exp_dens_func":
@@ -122,7 +108,7 @@ class MultiSpeciesOpenAccessSolver:
             if species.maneuverable:
                 maneuvers = self.calculate_maneuvers(state_next_alt, species.name)
                 # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
-                cost = maneuvers * 10000 # $10,000 per maneuver
+                cost = maneuvers * 12000 * 2 # $10,000 per maneuver, we double since we assume twice as many maneuvers for each collision
                 # Rate of Return
                 if self.elliptical:
                     rate_of_return = self.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
@@ -246,17 +232,13 @@ class MultiSpeciesOpenAccessSolver:
         # 0.2
 
         # Equilibrium expression for rate of return.
-        if congestion_costs is None:
-            rev_cost = revenue / (opus_species.econ_params.cost)
-        else:
-            rev_cost = revenue / (congestion_costs + opus_species.econ_params.cost)
-        # 1.189
-
+        rev_cost = revenue / (opus_species.econ_params.cost)
+      
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate  
         else:
             bond_per_shell = np.ones_like(collision_risk) * opus_species.econ_params.bond
-            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost))
+            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.intercept))
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
         return rate_of_return
