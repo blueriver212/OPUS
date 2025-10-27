@@ -3,7 +3,7 @@ import json
 import numpy as np
 
 class PostProcessing:
-    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params):
+    def __init__(self, MOCAT, scenario_name, simulation_name, species_data, other_results, econ_params, grid_search=False):
         self.MOCAT = MOCAT
         self.scenario_name = scenario_name # this is the breadkdown of the scenario
         self.simulation_name = simulation_name # this is the overall name of the simulation
@@ -17,10 +17,14 @@ class PostProcessing:
         #         "launch_rate" : launch_rate
         #     }
         self.other_results = other_results
-
-        self.create_folder_structure()
-        self.post_process_data()
-        self.post_process_economic_data(self.econ_params)
+        
+        if not grid_search:
+            self.create_folder_structure()
+            self.post_process_data()
+            self.post_process_economic_data(self.econ_params)
+        else:
+            self.create_folder_structure()
+            self.post_process_data()
 
     def create_folder_structure(self):
         """
@@ -54,6 +58,10 @@ class PostProcessing:
                 "collision_probability_all_species": data["collision_probability_all_species"].tolist() if isinstance(data["collision_probability_all_species"], (list, np.ndarray)) else data["collision_probability_all_species"],
                 "umpy": data["umpy"], 
                 "excess_returns": data["excess_returns"].tolist() if isinstance(data["excess_returns"], (list, np.ndarray)) else data["excess_returns"],
+                "non_compliance": {
+                    sp: val.tolist() if isinstance(val, (list, np.ndarray)) else val
+                    for sp, val in data["non_compliance"].items()
+                } if isinstance(data["non_compliance"], dict) else data["non_compliance"]
             }
             for time_idx, data in self.other_results.items()
         }

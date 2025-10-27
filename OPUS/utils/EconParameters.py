@@ -2,7 +2,6 @@ import numpy as np
 from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
 import pandas as pd
-import matplotlib.pyplot as plt
 
 class EconParameters:
     """
@@ -55,18 +54,24 @@ class EconParameters:
         # Bond amount
         self.bond = params.get("bond", None)
 
-        # Post Mission Disposal Rate
-        self.pmd_rate = 0.9
+        # Demand growhth, annual rate
+        self.demand_growth = params.get("demand_growth", None)
 
-    def calculate_cost_fn_parameters(self):
+        self.mass = params.get("mass", None)
+
+    def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
+
+        # Save the pmd_rate as this will be passed from MOCAT
+        self.pmd_rate = pmd_rate
+
         shell_marginal_decay_rates = np.zeros(self.mocat.scenario_properties.n_shells)
         shell_marginal_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
         self.shell_cumulative_residence_times = np.zeros(self.mocat.scenario_properties.n_shells)
 
         # Here using the ballastic coefficient of the species, we are trying to find the highest compliant altitude/shell
         for k in range(self.mocat.scenario_properties.n_shells):
+            #rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k], solar_activity='medium')
             rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
-
             # satellite 
             beta = 0.0172 # ballastic coefficient, area * mass * drag coefficient. This should be done for each species!
             rvel_current_D = -rhok * beta * np.sqrt(self.mocat.scenario_properties.mu * self.mocat.scenario_properties.R0[k]) * (24 * 3600 * 365.25)
@@ -88,7 +93,7 @@ class EconParameters:
             rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
             orbital_velocity = np.sqrt(self.mocat.scenario_properties.mu / self.mocat.scenario_properties.R0[k])
             F_drag = 2.2 * 0.5 * rhok * orbital_velocity**2 * 1.741 # this is cd and area and have been hard coded
-            v_drag[k] = F_drag / 223 * delta_t * 1e-3
+            v_drag[k] = F_drag / self.mass * delta_t * 1e-3
 
         # Calculate the delta-v for deorbiting
         original_orbit_delta_v = np.zeros(self.mocat.scenario_properties.n_shells)
@@ -121,7 +126,7 @@ class EconParameters:
         lifetime_loss = (self.sat_lifetime - self.lifetime_after_deorbit) / self.sat_lifetime
 
         # Cost function compilation
-        self.total_lift_price = np.full_like(self.naturally_compliant_vector, self.lift_price * 223) # this is mass and hard coded, needs to be fixed
+        self.total_lift_price = np.full_like(self.naturally_compliant_vector, self.lift_price * self.mass)
         self.lifetime_loss_cost = lifetime_loss * self.intercept
         self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
         self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
@@ -135,7 +140,7 @@ class EconParameters:
         self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
         
         if self.bond is None:
-            self.comp_rate = np.where(self.naturally_compliant_vector != 1, 0.65, self.comp_rate)
+            self.comp_rate = np.where(self.naturally_compliant_vector != 1, pmd_rate, self.comp_rate)
             return 
         
         self.discount_factor = 1/(1+self.discount_rate)
@@ -147,21 +152,27 @@ class EconParameters:
 
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
-        # self.comp_rate[mask] = np.minimum(0.65 + 0.35 * self.bond / self.bstar[mask], 1)
+        non_comp_rate = 1 - pmd_rate
+        self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
 
         # With Option 1 quation 
-        A = 57
-        k = np.log(12) / 75
+        # A = 57
+        # k = np.log(12) / 75
 
-        scaled_effort = (self.bond / self.bstar[mask]) * 100
-        self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
+        # scaled_effort = (self.bond / self.bstar[mask]) * 100
+        # self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
 
-        return
+        return       
 
-    def modify_params_for_simulation(self, configuration, baseline=False):
+    def modify_params_for_simulation(self, configuration: str):
         """
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
         """
+
+        if configuration.lower() == 'baseline':
+            self.bond = None
+            self.tax = 0
+            return
 
         # read the csv file - must be in the configuration folder
         path = f"./OPUS/configuration/{configuration}.csv"
@@ -181,10 +192,5 @@ class EconParameters:
                     setattr(self, parameter_name, parameter_value)
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
-
-        if baseline:
-            self.bond = None
-            self.tax = 0
-
 
 

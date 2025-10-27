@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.animation as animation
 import math
+import pickle
 
 class PlotData:
         """
@@ -80,8 +81,12 @@ class PlotHandler:
                 self.scenario_files = scenario_files # This will be a list of each sub-scenario run name
                 self.simulation_name = simulation_name # This is the overall name of the simualtion 
                 self.plot_types = plot_types # This will be a list of the types of plots to be generated
-                self.HMid = self.MOCAT.scenario_properties.HMid
-                self.n_shells = self.MOCAT.scenario_properties.n_shells
+                try:
+                        self.HMid = self.MOCAT.scenario_properties.HMid
+                        self.n_shells = self.MOCAT.scenario_properties.n_shells
+                except:
+                        self.HMid = self.MOCAT.HMid
+                        self.n_shells = self.MOCAT.n_shells
 
                 # This will rely on the fact that there is a file available under the simulation name in the Results folder. 
                 self.simulation_folder = os.path.join("Results", self.simulation_name)
@@ -93,13 +98,15 @@ class PlotHandler:
                 
                 plot_data_list = []
                 other_data_list = []
-                econ_params_list = []                
-                
+                econ_params_list = []
+
                 # Loop through the scenario files and generate the plots
                 for scenario in self.scenario_files:
                         scenario_folder = os.path.join(self.simulation_folder, scenario)
                         if not os.path.exists(scenario_folder):
-                                print(f"Error: {scenario_folder} folder does not exist. Skipping scenario...")
+                                # create the folder
+                                os.makedirs(scenario_folder, exist_ok=True)
+                                # print(f"Error: {scenario_folder} folder does not exist. Skipping scenario...")
                                 continue
                         else: 
                                 print("Generating plots for scenario: ", scenario)
@@ -138,15 +145,18 @@ class PlotHandler:
                         # Grab the attribute; see if it’s a callable (method)
                         attr = getattr(self, attr_name)
                         if callable(attr):
-                        # Skip known special methods
+                                # Skip known special methods
                                 if attr_name in ("__init__", "all_plots"):
                                         continue
 
-                        # Only call if it starts with 'comparison_'
-                        if attr_name.startswith("comparison_"):
-                                print(f"Creating plot: {attr_name}")
-                                plot_method = attr
-                                plot_method(plot_data_lists, other_data_lists)
+                                # Only call if it starts with 'comparison_'
+                                if attr_name.startswith("comparison_"):
+                                        print(f"Creating plot: {attr_name}")
+                                        try:
+                                                plot_method = attr
+                                                plot_method(plot_data_lists, other_data_lists)
+                                        except Exception as e:
+                                                print(f"⚠️ Failed to generate plot '{attr_name}': {e}")
 
         def all_plots(self, plot_data, other_data, econ_params):
                 """
@@ -387,7 +397,8 @@ class PlotHandler:
                 plt.close()
                 print(f"Stacked bar chart saved to {file_path}")
 
-        def comparison_total_species_count(self, plot_data_lists, other_data_lists=None):
+        
+        def comparison_total_species_count(self, plot_data_lists, other_data_lists):
                 """
                 Creates a comparison plot of total species count over time.
                 Each species is plotted in its own subplot, comparing across all scenarios.
@@ -469,263 +480,557 @@ class PlotHandler:
 
                 print(f"Comparison plot saved to {out_path}")
 
-        # # def comparison_total_species_count(self):
-        # #         """
-        # #         Creates a comparison plot of total species count over time.
-        # #         Each species is plotted in its own subplot, comparing across all scenarios.
-        # #         """
-
-        # #         # Create a "comparisons" folder under the main simulation folder
-        # #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-        # #         os.makedirs(comparison_folder, exist_ok=True)
-
-        # #         # Dictionary to store time series data for each species across scenarios
-        # #         species_totals = {}
-
-        # #         # Loop over each scenario to extract data
-        # #         for scenario in self.scenario_files:
-        # #                 scenario_folder = os.path.join(self.simulation_folder, scenario)
-                        
-        # #                 if not os.path.exists(scenario_folder):
-        # #                         print(f"Warning: Cannot find {scenario_folder}; skipping.")
-        # #                         continue
-
-        # #                 # Build PlotData to get the dictionary of species->data arrays
-        # #                 plot_data = PlotData(scenario, scenario_folder, self.MOCAT)
-        # #                 data_dict = plot_data.data  # {species: np.array(time, shells), ...}
-
-        # #                 for species, species_data in data_dict.items():
-        # #                         # Sum across shells to get a total count per time step
-        # #                         total_species_count = np.sum(species_data, axis=1)  # shape: (time,)
-
-        # #                         # Store data per species
-        # #                         if species not in species_totals:
-        # #                                 species_totals[species] = {}
-                                
-        # #                         species_totals[species][scenario] = total_species_count
-
-        # #         # Count how many species we have
-        # #         num_species = len(species_totals)
-
-        # #         # If multiple species, create subplots in a grid
-        # #         num_cols = 2
-        # #         num_rows = math.ceil(num_species / num_cols)
-
-        # #         fig, axes = plt.subplots(num_rows, num_cols,
-        # #                                 figsize=(12, 6 * num_rows),
-        # #                                 sharex=True)
-        # #         # Flatten axes for easy iteration
-        # #         axes = np.array(axes).flatten()
-
-        # #         for idx, (species, scenario_data) in enumerate(species_totals.items()):
-        # #                 ax = axes[idx]
-        # #                 for scenario, counts in scenario_data.items():
-        # #                         ax.plot(counts, label=scenario, marker='o')
-
-        # #                 ax.set_title(f"Total Count across all shells for Species: {species}")
-        # #                 ax.set_xlabel("Year")
-        # #                 ax.set_ylabel("Total Count")
-        # #                 ax.legend()
-        # #                 ax.grid(True)
-
-        # #         # Hide any leftover empty subplots (if #species not a multiple of num_cols)
-        # #         for extra_ax in axes[num_species:]:
-        # #                 extra_ax.set_visible(False)
-
-        # #         plt.tight_layout()
-
-        # #         # Save the figure
-        # #         out_path = os.path.join(comparison_folder, "comparison_species_count.png")
-        # #         plt.savefig(out_path, dpi=300)
-        # #         plt.close()
-        # #         print(f"Comparison plot saved to {out_path}")
-
-        # def comparison_UMPY(self, plot_data_lists, other_data_lists):
-        #         """
-        #         Create a comparison plot of total UMPY over time for multiple scenarios.
-        #         Each scenario is plotted on the same figure with a label derived from 
-        #         its scenario name.
-        #         """
-        #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-        #         os.makedirs(comparison_folder, exist_ok=True)
-
-        #         # Create a single figure for all scenarios
-        #         plt.figure(figsize=(8, 5))
-
-        #         # Loop through each plot_data and other_data pair
-        #         for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-        #                 # 1) Sort the timesteps
-        #                 timesteps = sorted(other_data.keys(), key=int)
-        #                 umpy_sums = []
-
-        #                 # 2) Sum the 'umpy' values for each timestep
-        #                 for ts in timesteps:
-        #                         umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
-        #                         total_umpy = np.sum(umpy_list)
-        #                         umpy_sums.append(total_umpy)
-
-        #                 # Here we assume `plot_data` has an attribute storing the scenario name.
-        #                 # Adjust this to match your actual code if the attribute differs.
-        #                 scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-
-        #                 # 3) Plot each scenario on the same figure
-        #                 plt.plot(
-        #                 timesteps,
-        #                 umpy_sums,
-        #                 marker='o',
-        #                 label=scenario_label
-        #                 )
-
-        #         # 4) Labels, legend, and layout
-        #         plt.xlabel("Year (timestep)")
-        #         plt.ylabel("UMPY (kg/year)")
-        #         plt.title("UMPY Evolution Over Time (All Scenarios)")
-        #         plt.legend()
-        #         plt.tight_layout()
-
-        #         # 5) Save the figure using the first plot_data's path 
-        #         out_path = os.path.join(comparison_folder, "umpy_over_time.png")
-        #         plt.savefig(out_path, dpi=300, bbox_inches="tight")
-        #         plt.close()
-        #         print(f"Comparison UMPY plot saved to {out_path}")
-
-        def comparison_final_umpy_vs_total_count(self, plot_data_lists, other_data_lists):
+        def comparison_UMPY(self, plot_data_lists, other_data_lists):
                 """
-                Create and save a scatter plot where each scenario is represented by a point.
-                The X axis is the final UMPY value (kg/year) and the Y axis is the final total count of objects.
-                
-                Parameters
-                ----------
-                plot_data_lists : list
-                        A list of PlotData objects containing species count data in the 'data' attribute.
-                other_data_lists : list
-                        A list of dictionaries (one per scenario) that include timesteps with an "umpy" key.
+                Create a comparison plot of total UMPY over time for multiple scenarios.
+                Each scenario is plotted on the same figure with a label derived from 
+                its scenario name.
                 """
-                # Create folder for comparison plots
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Create a single figure for all scenarios
+                plt.figure(figsize=(8, 5))
+
+                # Loop through each plot_data and other_data pair
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # 1) Sort the timesteps
+                        timesteps = sorted(other_data.keys(), key=int)
+                        umpy_sums = []
+
+                        # 2) Sum the 'umpy' values for each timestep
+                        for ts in timesteps:
+                                umpy_list = other_data[ts]["umpy"]  # This is assumed to be a list of floats
+                                total_umpy = np.sum(umpy_list)
+                                umpy_sums.append(total_umpy)
+
+                        # Here we assume `plot_data` has an attribute storing the scenario name.
+                        # Adjust this to match your actual code if the attribute differs.
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # 3) Plot each scenario on the same figure
+                        plt.plot(
+                        timesteps,
+                        umpy_sums,
+                        marker='o',
+                        label=scenario_label
+                        )
+
+                # 4) Labels, legend, and layout
+                plt.xlabel("Year (timestep)")
+                plt.ylabel("UMPY (kg/year)")
+                plt.title("UMPY Evolution Over Time (All Scenarios)")
+                plt.legend()
+                plt.tight_layout()
+
+                # 5) Save the figure using the first plot_data's path 
+                out_path = os.path.join(comparison_folder, "umpy_over_time.png")
+                plt.savefig(out_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Comparison UMPY plot saved to {out_path}")
+
+        def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
+                """
+                Create a scatter plot showing:
+                - X-axis: bond amount (£)
+                - Y-axis: non-compliance (%)
+                - Point color or size: total money paid (non_compliance × bond)
+
+                Assumes bond amount is encoded in the scenario name, e.g., 'bond_800k'.
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
                 scatter_folder = os.path.join(self.simulation_folder, "comparisons")
                 os.makedirs(scatter_folder, exist_ok=True)
-                scatter_file_path = os.path.join(scatter_folder, "scatter_final_umpy_vs_total_count.png")
-                
-                final_umpy_values = []
-                final_total_counts = []
+                file_path = os.path.join(scatter_folder, "scatter_noncompliance_vs_bond.png")
+
+                bond_vals = []
+                noncompliance_vals = []
+                total_money_vals = []
                 labels = []
-                
-                # Loop over each scenario's data
+
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # --- Calculate final UMPY value ---
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        print(scenario_label)
                         timesteps = sorted(other_data.keys(), key=int)
-                        last_timestep = timesteps[-1]
-                        # Sum the "umpy" list at the final timestep
-                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
-                        
-                        # --- Calculate final total count of objects ---
-                        # Assumes plot_data.data is a dictionary: {species: 2D array with shape (time, shells), ...}
-                        total_count = 0
-                        for sp, data in plot_data.data.items():
-                                data_arr = np.array(data)  # ensure it's a NumPy array
-                                # Sum the counts for the final time step (assumed to be the first dimension)
-                                final_count_sp = np.sum(data_arr[-1, :])
-                                total_count += final_count_sp
-                        
-                        final_umpy_values.append(final_umpy)
-                        final_total_counts.append(total_count)
-                        scenario_label = getattr(plot_data, "scenario", f"Scenario {i+1}")
+                        first_timestep = timesteps[0]
+                        nc = other_data[first_timestep]["non_compliance"]
+
+                        # Extract bond amount from name (e.g., "bond_800k" → 800000)
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if match:
+                                bond = int(match.group(1)) * 1_000
+                        else:
+                                bond = 0  # e.g., for "baseline"
+
+                        total = bond * nc
+                        bond_vals.append(bond)
+                        noncompliance_vals.append(nc)
+                        total_money_vals.append(total)
                         labels.append(scenario_label)
+
+                plt.figure(figsize=(10, 6))
+                scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
+                plt.colorbar(scatter, label="Total Money Paid (£)")
                 
-                # --- Create scatter plot ---
-                plt.figure(figsize=(8, 6))
-                plt.scatter(final_umpy_values, final_total_counts, marker='o')
+                for x, y, label in zip(bond_vals, noncompliance_vals, labels):
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+
+                plt.xlabel("Bond Amount (£)")
+                plt.ylabel("Non-Compliance (%)")
+                plt.title("Non-Compliance vs. Bond Level")
+                plt.grid(True, zorder=0)
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                print(f"Scatter plot saved to {file_path}")
+        
+        def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
+                """
+                Create a scatter plot showing:
+                - X-axis: bond amount (£)
+                - Y-axis: non-compliance (%)
+                - Point color or size: total money paid (non_compliance × bond)
+                Labels now show total money in millions with a $ sign.
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "scatter_noncompliance_vs_bond.png")
+
+                bond_vals = []
+                noncompliance_vals = []
+                total_money_vals = []
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        timesteps = sorted(other_data.keys(), key=int)
+                        first_timestep = timesteps[-1]
+                        nc = other_data[first_timestep]["non_compliance"]
+
+                        # Extract bond amount from name (e.g., "bond_800k" → 800000)
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if match:
+                                bond = int(match.group(1)) * 1_000
+                        else:
+                                bond = 0  # e.g., for "baseline"
+
+                        total = bond * nc
+                        bond_vals.append(bond)
+                        noncompliance_vals.append(nc)
+                        total_money_vals.append(total)
+
+                plt.figure(figsize=(10, 6))
+                scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
+                plt.colorbar(scatter, label="Total Money Paid (£)")
+
+                # Annotate with rounded money values in millions
+                for x, y, total in zip(bond_vals, noncompliance_vals, total_money_vals):
+                        label = f"${round(total / 1_000_000):,}M"
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+
+                plt.xlabel("Bond Amount (£)")
+                plt.ylabel("Count of Derelicts")
+                plt.title("Final Year: Derelict Count vs Bond Pot")
+                plt.grid(True, zorder=0)
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                print(f"Scatter plot saved to {file_path}")
+
+        def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
+                """
+                Scatter plot showing:
+                - X-axis: bond amount (£)
+                - Y-axis: total UMPY (kg) at each timestep
+                - Point color: simulation year (from timestep index)
                 
-                # Annotate each point with its scenario label
-                for x, y, label in zip(final_umpy_values, final_total_counts, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
-                        
-                plt.xlabel("Final UMPY (kg/year)")
-                plt.ylabel("Final Total Count of Objects")
-                plt.title("Final UMPY vs Final Total Count by Scenario")
+                Labels show rounded money paid in millions ($Xm), where:
+                total_money = non_compliance × bond
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "scatter_bond_vs_umpy.png")
+
+                bond_vals = []
+                umpy_vals = []
+                total_money_vals = []
+                year_vals = []
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # Extract bond amount from scenario name
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        bond = int(match.group(1)) * 1_000 if match else 0
+
+                        timesteps = sorted(other_data.keys(), key=int)
+
+                        for t in timesteps:
+                                timestep_data = other_data[t]
+
+                                umpy = np.sum(timestep_data["umpy"])
+                                non_compliance = timestep_data["non_compliance"]
+                                total_money = bond * non_compliance
+
+                                bond_vals.append(bond)
+                                umpy_vals.append(umpy)
+                                total_money_vals.append(total_money)
+                                year_vals.append(int(t))  # Assuming timestep = simulation year
+
+                # Create the scatter plot
+                plt.figure(figsize=(10, 6))
+                scatter = plt.scatter(bond_vals, umpy_vals, c=year_vals, cmap='plasma', s=100, zorder=3)
+                cbar = plt.colorbar(scatter)
+                cbar.set_label("Simulation Year")
+
+                # Annotate each point with $Xm
+                for x, y, total in zip(bond_vals, umpy_vals, total_money_vals):
+                        label = f"${round(total / 1_000_000):,}M"
+                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=7)
+
+                plt.xlabel("Bond Amount (£)")
+                plt.ylabel("Total UMPY (kg)")
+                plt.title("Total UMPY vs. Bond Level by Year")
+                plt.grid(True, zorder=0)
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                print(f"Scatter plot saved to {file_path}")
+
+        def comparison_umpy_vs_final_metrics(self, plot_data_lists, other_data_lists):
+                """
+                Create side-by-side scatter plots:
+                - Final UMPY vs Total Object Count
+                - Final UMPY vs Collision Probability
+                - Final UMPY vs Derelict Count (split by naturally compliant vs not)
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                from matplotlib.lines import Line2D
+                import os
+                import re
+                import json
+
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                file_path = os.path.join(scatter_folder, "umpy_vs_metrics.png")
+
+                umpy_vals = []
+                total_counts = []
+                collision_probs = []
+                derelict_nat_vals = []
+                derelict_non_vals = []
+                colors_nat = []
+                colors_non = []
+                markers_nat = []
+                markers_non = []
+                labels = []
+
+                tax_counter = 1
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        scenario_folder = scenario_label.lower()
+
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+
+                        # Final UMPY and collision probability
+                        final_umpy = np.sum(other_data[final_ts]["umpy"])
+                        final_cp = np.sum(other_data[final_ts].get("collision_probability_all_species", []))
+
+                        # Final object count
+                        total = 0
+                        for sp, arr in plot_data.data.items():
+                                arr_np = np.array(arr)
+                                if arr_np.ndim == 2:
+                                        total += np.sum(arr_np[-1, :])
+
+                        # Get derelict array
+                        derelict_arr = np.array(plot_data.data.get("N_223kg", []))
+                        final_derelicts = derelict_arr[-1] if derelict_arr.ndim == 2 else None
+                        if final_derelicts is None:
+                                continue
+
+                        # Load econ_params JSON
+                        scenario_path = os.path.join(self.simulation_folder, scenario_label)
+                        econ_file = next((f for f in os.listdir(scenario_path) if f.startswith("econ_params") and f.endswith(".json")), None)
+                        if not econ_file:
+                                continue
+                        with open(os.path.join(scenario_path, econ_file), "r") as f:
+                                econ = json.load(f)
+
+                        nat_vec = np.array(econ.get("naturally_compliant_vector", []))
+                        if len(nat_vec) != len(final_derelicts):
+                                continue
+
+                        nat_count = np.sum(final_derelicts[nat_vec == 1])
+                        non_count = np.sum(final_derelicts[nat_vec == 0])
+
+                        # Scenario style
+                        is_tax = "tax" in scenario_folder
+                        is_25yr = "25yr" in scenario_folder
+                        bond_match = re.findall(r'\d+', scenario_folder)
+                        bond_value = int(bond_match[0]) if bond_match else None
+                        labels.append(f"{bond_value}k" if bond_value else "0k")
+
+                        if is_tax:
+                                color = "blue"
+                                marker = "s"
+                        elif bond_value == 0:
+                                color = "orange"
+                                marker = "o"
+                        elif bond_value is None:
+                                color = "green"
+                                marker = "o"
+                        else:
+                                color = "orange" if is_25yr else "green"
+                                marker = "o"
+
+                        # Store all values
+                        umpy_vals.append(final_umpy)
+                        total_counts.append(total)
+                        collision_probs.append(final_cp)
+
+                        derelict_nat_vals.append(nat_count)
+                        derelict_non_vals.append(non_count)
+                        colors_nat.append(color)
+                        colors_non.append(color)
+                        markers_nat.append(marker)
+                        markers_non.append(marker)
+
+                # --- Plot ---
+                fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6), sharex=True)
+
+                # 1. UMPY vs Object Count
+                for x, y, color, marker in zip(umpy_vals, total_counts, colors_nat, markers_nat):
+                        ax1.scatter(x, y, color=color, marker=marker, s=90)
+                ax1.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
+                ax1.set_ylabel("Final Total Count of Objects", fontsize=14, fontweight="bold")
+                ax1.set_title("UMPY vs Object Count", fontsize=14, fontweight="bold")
+                ax1.grid(True)
+                ax1.tick_params(labelsize=12)
+
+                # 2. UMPY vs Collision Probability
+                for x, y, color, marker in zip(umpy_vals, collision_probs, colors_nat, markers_nat):
+                        ax2.scatter(x, y, color=color, marker=marker, s=90)
+                ax2.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
+                ax2.set_ylabel("Final Collision Probability", fontsize=14, fontweight="bold")
+                ax2.set_title("UMPY vs Collision Probability", fontsize=14, fontweight="bold")
+                ax2.grid(True)
+                ax2.tick_params(labelsize=12)
+
+                # 3. UMPY vs Derelict Counts (Split)
+                for x, y, color, marker, bond in zip(umpy_vals, derelict_nat_vals, colors_nat, markers_nat, labels):
+                        ax3.scatter(x, y, color='green', marker=marker, s=90)
+                        ax3.annotate(f"B = {bond}", (x, y), textcoords="offset points", xytext=(5, 5), fontsize=9)
+
+                for x, y, color, marker, bond in zip(umpy_vals, derelict_non_vals, colors_non, markers_non, labels):
+                        ax3.scatter(x, y, color='red', marker=marker, s=90)
+                        ax3.annotate(f"B = {bond}", (x, y), textcoords="offset points", xytext=(5, 5), fontsize=9)
+
+                ax3.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
+                ax3.set_ylabel("Derelict Count (N_223kg)", fontsize=14, fontweight="bold")
+                ax3.set_title("UMPY vs Derelicts (Split)", fontsize=14, fontweight="bold")
+                ax3.grid(True)
+                ax3.tick_params(labelsize=12)
+
+                # --- Shared Legend ---
+                legend_elements = [
+                        Line2D([0], [0], marker='o', color='w', label='5yr PMD', markerfacecolor='green', markersize=10),
+                        Line2D([0], [0], marker='o', color='w', label='25yr PMD', markerfacecolor='orange', markersize=10),
+                        Line2D([0], [0], marker='s', color='w', label='Tax Scenario', markerfacecolor='blue', markersize=10),
+                        Line2D([0], [0], marker='o', color='w', label='Nat. Compliant Derelicts', markerfacecolor='green', markersize=10),
+                        Line2D([0], [0], marker='o', color='w', label='Non-Compliant Derelicts', markerfacecolor='red', markersize=10)
+                ]
+                ax3.legend(handles=legend_elements, loc='upper left', fontsize=11, title="Scenario Type")
+
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300)
+                print(f"Comparison plots saved to {file_path}")
+
+        def comparison_total_welfare_vs_time(self, plot_data_lists, other_data_lists):
+                """
+                Plot total welfare over time for each scenario.
+                - Each line corresponds to one scenario.
+                - Welfare is summed across all S-prefixed species per timestep.
+                - Welfare = 100 × (sum of satellites)^2 at each timestep.
+                """
+                import numpy as np
+                import matplotlib.pyplot as plt
+                import os
+
+                coef = 1e2
+                plt.figure(figsize=(10, 6))
+
+                for plot_data in plot_data_lists:
+                        species_data = {sp: np.array(data) for sp, data in plot_data.data.items()}
+                        s_species_names = [sp for sp in species_data if sp.startswith("S")]
+
+                        if not s_species_names:
+                                print(f"No S-prefixed species found in scenario '{plot_data.scenario}'")
+                                continue
+
+                        # Sum all S-prefixed species into one welfare curve
+                        total_sats = None
+                        for sp in s_species_names:
+                                arr = species_data[sp]  # (timesteps, shells)
+                                sats = np.sum(arr, axis=1)  # (timesteps,)
+                                total_sats = sats if total_sats is None else total_sats + sats
+
+                        welfare = coef * (total_sats ** 2)
+                        label = getattr(plot_data, 'scenario', 'Unnamed Scenario')
+                        plt.plot(welfare, label=label, linewidth=2)
+
+                plt.title("Total Welfare Over Time by Scenario", fontsize=14, fontweight='bold')
+                plt.xlabel("Year", fontsize=12)
+                plt.ylabel("Welfare (Summed Across S-Prefixed Species)", fontsize=12)
+                plt.legend(title="Scenario", fontsize=10)
                 plt.grid(True)
                 plt.tight_layout()
-                plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
-                plt.close()
-                print(f"Scatter plot saved to {scatter_file_path}")
+
+                # Save
+                outdir = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(outdir, exist_ok=True)
+                file_path = os.path.join(outdir, "total_welfare_across_scenarios.png")
+                plt.savefig(file_path, dpi=300)
+
+                print(f"Scenario-wise total welfare plot saved to {file_path}")
 
 
-        def comparison_umpy_vs_count_and_collision(self, plot_data_lists, other_data_lists):
+        def comparison_object_counts_vs_bond(self, plot_data_lists, other_data_lists):
                 """
-                Create a side-by-side scatter plot with two subplots:
-                - Left subplot: Final UMPY (x-axis) vs. Final Total Count of Objects (y-axis)
-                - Right subplot: Final UMPY (x-axis) vs. Final Collision Probability (y-axis)
-                
-                For each scenario:
-                - Final UMPY is computed as the sum of the "umpy" array at the final timestep.
-                - Final Total Count is computed by summing, for each species in plot_data.data,
-                        the counts from the last row (final timestep) across all shells.
-                - Final Collision Probability is computed as the sum of the 
-                        "collision_probability_all_species" array at the final timestep.
+                Compare number of derelicts (N_223kg) and fringe satellites (Su) across 5yr and 25yr PMD scenarios.
+                Separates naturally compliant vs non-compliant derelicts using econ_params.
+
+                X-axis: Bond amount ($k)
+                Y-axis: Number of objects
                 """
-                # Create a folder for saving the plot.
-                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(scatter_folder, exist_ok=True)
-                file_path = os.path.join(scatter_folder, "final_umpy_vs_count_and_collision.png")
-                
-                # Prepare lists to store values and labels for each scenario.
-                final_umpy_vals = []
-                final_total_counts = []
-                final_collision_probs = []
-                labels = []
-                
-                # Loop over scenarios.
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # Get scenario label (or default if not available)
-                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-                        
-                        # Sort timesteps and get the final one.
-                        timesteps = sorted(other_data.keys(), key=int)
-                        last_timestep = timesteps[-1]
-                        
-                        # Compute final UMPY (x-axis value)
-                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
-                        
-                        # Compute final total count (sum over species from plot_data.data)
-                        total_count = 0
-                        for sp, data in plot_data.data.items():
-                        # Assume data is an array-like with shape (time, shells)
-                                arr = np.array(data)
-                                total_count += np.sum(arr[-1, :])
-                        
-                        # Compute final collision probability by summing the provided array.
-                        final_collision = np.sum(other_data[last_timestep]["collision_probability"])
-                        
-                        final_umpy_vals.append(final_umpy)
-                        final_total_counts.append(total_count)
-                        final_collision_probs.append(final_collision)
-                        labels.append(scenario_label)
-                
-                # Create a figure with two subplots side by side.
-                fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-                
-                # Left subplot: Final UMPY vs. Final Total Count
-                axes[0].scatter(final_umpy_vals, final_total_counts, s=100, zorder=3)
-                for x, y, label in zip(final_umpy_vals, final_total_counts, labels):
-                        axes[0].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
-                axes[0].set_xlabel("Final UMPY (kg/year)")
-                axes[0].set_ylabel("Final Total Count of Objects")
-                axes[0].set_title("Final UMPY vs. Total Count")
-                axes[0].grid(True, zorder=0)
-                
-                # Right subplot: Final UMPY vs. Final Collision Probability
-                axes[1].scatter(final_umpy_vals, final_collision_probs, s=100, zorder=3)
-                for x, y, label in zip(final_umpy_vals, final_collision_probs, labels):
-                        axes[1].annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
-                axes[1].set_xlabel("Final UMPY (kg/year)")
-                axes[1].set_ylabel("Final Collision Probability")
-                axes[1].set_title("Final UMPY vs. Collision Probability")
-                axes[1].grid(True, zorder=0)
-                
+                import os
+                import json
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                root_folder = self.simulation_folder
+
+                # Separate derelicts by compliance category
+                bond_5yr_nat, nat_5yr = [], []
+                bond_5yr_non, non_5yr = [], []
+                bond_25yr_nat, nat_25yr = [], []
+                bond_25yr_non, non_25yr = [], []
+
+                # Fringe satellite counts
+                bond_5yr_Su, Su_5yr = [], []
+                bond_25yr_Su, Su_25yr = [], []
+
+                for folder_name in os.listdir(root_folder):
+                        folder_path = os.path.join(root_folder, folder_name)
+                        if not os.path.isdir(folder_path):
+                                continue
+
+                        is_25yr = folder_name.endswith("25yr")
+                        match = re.findall(r"\d+", folder_name)
+                        bond = float(match[0]) if match else None
+                        if bond is None:
+                                continue
+
+                        species_file = next((f for f in os.listdir(folder_path) if f.startswith("species_data")), None)
+                        econ_file = next((f for f in os.listdir(folder_path) if f.startswith("econ_params") and f.endswith(".json")), None)
+                        if not econ_file:
+                                continue
+
+                        with open(os.path.join(folder_path, econ_file), "r") as f:
+                                econ = json.load(f)
+                        if not species_file or not econ_file:
+                                continue
+
+                        with open(os.path.join(folder_path, species_file), "r") as f:
+                                data = json.load(f)
+                        with open(os.path.join(folder_path, econ_file), "r") as f:
+                                econ = json.load(f)
+
+                        try:
+                                N_arr = np.array(data["N_223kg"])  # (timesteps, shells)
+                                Su_arr = np.array(data["Su"])      # (timesteps, shells)
+                                final_N = N_arr[-1]
+                                final_Su = np.sum(Su_arr[-1])
+                        except (KeyError, IndexError, TypeError):
+                                continue
+
+                        nat_vec = np.array(econ.get("naturally_compliant_vector", []))
+                        if len(nat_vec) != len(final_N):
+                                continue  # mismatch in dimensions
+
+                        nat_sum = np.sum(final_N[nat_vec == 1])
+                        non_sum = np.sum(final_N[nat_vec == 0])
+
+                        if is_25yr:
+                                bond_25yr_nat.append(bond)
+                                nat_25yr.append(nat_sum)
+                                bond_25yr_non.append(bond)
+                                non_25yr.append(non_sum)
+                                bond_25yr_Su.append(bond)
+                                Su_25yr.append(final_Su)
+                        else:
+                                bond_5yr_nat.append(bond)
+                                nat_5yr.append(nat_sum)
+                                bond_5yr_non.append(bond)
+                                non_5yr.append(non_sum)
+                                bond_5yr_Su.append(bond)
+                                Su_5yr.append(final_Su)
+
+                # --- Sort helper ---
+                def sort_by_bond(bonds, vals):
+                        zipped = sorted(zip(bonds, vals), key=lambda x: x[0])
+                        return zip(*zipped) if zipped else ([], [])
+
+                bond_5yr_nat, nat_5yr = sort_by_bond(bond_5yr_nat, nat_5yr)
+                bond_5yr_non, non_5yr = sort_by_bond(bond_5yr_non, non_5yr)
+                bond_25yr_nat, nat_25yr = sort_by_bond(bond_25yr_nat, nat_25yr)
+                bond_25yr_non, non_25yr = sort_by_bond(bond_25yr_non, non_25yr)
+                bond_5yr_Su, Su_5yr = sort_by_bond(bond_5yr_Su, Su_5yr)
+                bond_25yr_Su, Su_25yr = sort_by_bond(bond_25yr_Su, Su_25yr)
+
+                # --- Plot ---
+                plt.figure(figsize=(10, 6))
+
+                # Derelicts
+                plt.scatter(bond_5yr_nat, nat_5yr, marker='o', color='green', label='5yr PMD - Nat. Compliant Derelicts')
+                plt.scatter(bond_5yr_non, non_5yr, marker='o', color='red', label='5yr PMD - Non-Comp. Derelicts')
+                plt.scatter(bond_25yr_nat, nat_25yr, marker='^', color='green', label='25yr PMD - Nat. Compliant Derelicts')
+                plt.scatter(bond_25yr_non, non_25yr, marker='^', color='red', label='25yr PMD - Non-Comp. Derelicts')
+
+                # Fringe satellites
+                plt.plot(bond_5yr_Su, Su_5yr, marker='s', linestyle='-', color='blue', label='5yr PMD - Fringe Sats')
+                plt.plot(bond_25yr_Su, Su_25yr, marker='s', linestyle='--', color='blue', label='25yr PMD - Fringe Sats')
+
+                plt.xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                plt.ylabel("Number of Objects", fontsize=14, fontweight='bold')
+                plt.xticks(fontsize=12, fontweight='bold')
+                plt.yticks(fontsize=12, fontweight='bold')
+                plt.grid(True)
+                plt.legend(fontsize=12, loc='upper right')
                 plt.tight_layout()
-                plt.savefig(file_path, dpi=300, bbox_inches="tight")
-                plt.close()
-                print(f"Final UMPY vs. Count and Collision Probability scatter plots saved to {file_path}")
+
+                for spine in plt.gca().spines.values():
+                        spine.set_linewidth(1.5)
+
+                # Save and show
+                file_path = os.path.join(self.simulation_folder, "comparisons", "object_counts_vs_bond_split.png")
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                plt.savefig(file_path, dpi=300)
+                print(f"Split object count plot saved to {file_path}")
 
 
 
@@ -771,7 +1076,18 @@ class PlotHandler:
                         plt.xlabel('Year')
                         plt.ylabel('Shell Mid Altitude (km)')
                         plt.xticks(ticks=range(data.shape[0]), labels=range(1, data.shape[0] + 1))
-                        plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
+                        # Ensure the number of labels matches the number of ticks
+                        if len(self.HMid) == data.shape[1]:
+                            plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
+                        else:
+                            # If HMid length doesn't match, use a subset or create appropriate labels
+                            if len(self.HMid) < data.shape[1]:
+                                # Pad with additional values or use the available ones
+                                labels = list(self.HMid) + [f"Shell {i}" for i in range(len(self.HMid), data.shape[1])]
+                                plt.yticks(ticks=range(data.shape[1]), labels=labels[:data.shape[1]])
+                            else:
+                                # Use only the first data.shape[1] elements
+                                plt.yticks(ticks=range(data.shape[1]), labels=self.HMid[:data.shape[1]])
 
                         # Save the plot to the designated folder
                         file_path = os.path.join(plot_data.path, f"count_over_time_{sp}.png")
@@ -803,7 +1119,18 @@ class PlotHandler:
                         ax.set_xticks(range(data.shape[0]))
                         ax.set_xticklabels(range(1, data.shape[0] + 1))
                         ax.set_yticks(range(data.shape[1]))
-                        ax.set_yticklabels(self.HMid)
+                        # Ensure the number of labels matches the number of ticks
+                        if len(self.HMid) == data.shape[1]:
+                            ax.set_yticklabels(self.HMid)
+                        else:
+                            # If HMid length doesn't match, use a subset or create appropriate labels
+                            if len(self.HMid) < data.shape[1]:
+                                # Pad with additional values or use the available ones
+                                labels = list(self.HMid) + [f"Shell {i}" for i in range(len(self.HMid), data.shape[1])]
+                                ax.set_yticklabels(labels[:data.shape[1]])
+                            else:
+                                # Use only the first data.shape[1] elements
+                                ax.set_yticklabels(self.HMid[:data.shape[1]])
                         fig.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04)
 
                 # Turn off unused subplots
@@ -815,256 +1142,137 @@ class PlotHandler:
                 plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
                 plt.close()
 
-        def ror_cp_and_launch_rate(self, plot_data, other_data):
-                """
-                Generate and save a combined plot for time evolution of different parameters (RoR, Collision Probability, Launch Rate).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
 
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
+        ## These plots dont work
+        # def ror_cp_and_launch_rate(self, plot_data, other_data):
+        #         """
+        #         Generate and save a combined plot for time evolution of different parameters (RoR, Collision Probability, Launch Rate).
+        #         """
+        #         # Extract keys (timesteps) and sort
+        #         timesteps = sorted(other_data.keys(), key=int)
 
-                # Prepare the figure
-                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        #         # Get number of altitude shells (assuming all timesteps have the same length)
+        #         num_altitude_shells = len(other_data[timesteps[0]]["ror"])
 
-                # Color map for time evolution
-                colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
+        #         # Prepare the figure
+        #         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-                # Static Plot
-                for idx, timestep in enumerate(timesteps):
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
+        #         # Color map for time evolution
+        #         colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
 
-                        axes[0].plot(range(num_altitude_shells), ror, color=colors[idx], label=f"Year {timestep}")
-                        axes[1].plot(range(num_altitude_shells), collision_prob, color=colors[idx])
-                        axes[2].plot(range(num_altitude_shells), launch_rate, color=colors[idx])
+        #         # Static Plot
+        #         for idx, timestep in enumerate(timesteps):
+        #                 ror = other_data[timestep]["ror"]
+        #                 collision_prob = other_data[timestep]["collision_probability"]
+        #                 launch_rate = other_data[timestep]["launch_rate"]
+        #                 excess_returns = other_data[timestep]["excess_returns"]
 
-                axes[0].set_title("Rate of Return (RoR)")
-                axes[1].set_title("Collision Probability")
-                axes[2].set_title("Launch Rate")
+        #                 # Number of species is inferred from array length and known number of shells
+        #                 num_species = len(ror) // self.n_shells
 
-                # Set labels and ticks
-                for ax in axes:
-                        ax.set_xlabel("Shell - Mid Altitude (km)")
-                        ax.set_ylabel("Value")
-                        ax.set_xticklabels(self.HMid)
+        #                 for species_idx in range(num_species):
+        #                         label = f"Year {timestep} - Species {species_idx + 1}"
+        #                         start = species_idx * self.n_shells
+        #                         end = (species_idx + 1) * self.n_shells
 
-                # Add a legend
-                fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
+        #                         ror_slice = ror[start:end]
+        #                         cp_slice = collision_prob[start:end]
+        #                         lr_slice = launch_rate[start:end]
+        #                         er_slice = excess_returns[start:end]
 
-                # Tight layout
-                plt.tight_layout()
+        #                         if len(ror_slice) == self.n_shells:
+        #                                 axes[0].plot(self.HMid, ror_slice, color=colors[idx], label=label)
+        #                                 axes[1].plot(self.HMid, cp_slice, color=colors[idx])
+        #                                 axes[2].plot(self.HMid, lr_slice, color=colors[idx])
+        #                                 axes[3].plot(self.HMid, er_slice, color=colors[idx])
+        #                         else:
+        #                                 print(f"Warning: Skipping timestep {timestep}, species {species_idx} due to mismatched shell size.")
 
-                # Save the combined plot
-                combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
-                plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
-                plt.close()
 
-        def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
-                """
-                Generate and save an animated plot for the time evolution of different parameters (RoR, Collision Probability, Launch Rate).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
+        #         axes[0].set_title("Rate of Return (RoR)")
+        #         axes[1].set_title("Collision Probability")
+        #         axes[2].set_title("Launch Rate")
 
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
+        #         # Set labels and ticks
+        #         for ax in axes:
+        #                 ax.set_xlabel("Shell - Mid Altitude (km)")
+        #                 ax.set_ylabel("Value")
+        #                 ax.set_xticklabels(self.HMid)
 
-                # Determine global min/max for each metric across all timesteps
-                ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
-                collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
-                launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
+        #         # Add a legend
+        #         fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
 
-                ror_min, ror_max = min(ror_values), max(ror_values)
-                collision_min, collision_max = min(collision_values), max(collision_values)
-                launch_min, launch_max = min(launch_values), max(launch_values)
+        #         # Tight layout
+        #         plt.tight_layout()
 
-                # Create the figure and axes
-                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        #         # Save the combined plot
+        #         combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
+        #         plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
+        #         plt.close()
 
-                def update(frame):
-                        timestep = timesteps[frame]
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
+        # def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
+        #         """
+        #         Generate and save an animated plot for the time evolution of different parameters (RoR, Collision Probability, Launch Rate).
+        #         """
+        #         # Extract keys (timesteps) and sort
+        #         timesteps = sorted(other_data.keys(), key=int)
 
-                        for ax in axes:
-                                ax.clear()
+        #         # Get number of altitude shells (assuming all timesteps have the same length)
+        #         num_altitude_shells = len(other_data[timesteps[0]]["ror"])
 
-                                # Plot each metric with fixed y-axis limits
-                                axes[0].plot(range(num_altitude_shells), ror, color='b')
-                                axes[0].set_ylim(ror_min, ror_max)
-                                axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
-                                axes[0].set_xlabel("Shell - Mid Altitude (km)")
-                                axes[0].set_ylabel("RoR")
-                                axes[0].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-                                axes[0].set_xticklabels(self.HMid)
+        #         # Determine global min/max for each metric across all timesteps
+        #         ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
+        #         collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
+        #         launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
 
-                                axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
-                                axes[1].set_ylim(collision_min, collision_max)
-                                axes[1].set_title(f"Collision Probability - Year {timestep}")
-                                axes[1].set_xlabel("Shell - Mid Altitude (km)")
-                                axes[1].set_ylabel("Collision Probability")
-                                axes[1].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-                                axes[1].set_xticklabels(self.HMid)
+        #         ror_min, ror_max = min(ror_values), max(ror_values)
+        #         collision_min, collision_max = min(collision_values), max(collision_values)
+        #         launch_min, launch_max = min(launch_values), max(launch_values)
 
-                                axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
-                                axes[2].set_ylim(launch_min, launch_max)
-                                axes[2].set_title(f"Launch Rate - Year {timestep}")
-                                axes[2].set_xlabel("Shell - Mid Altitude (km)")
-                                axes[2].set_ylabel("Launch Rate")
-                                axes[2].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
-                                axes[2].set_xticklabels(self.HMid)
+        #         # Create the figure and axes
+        #         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-                        plt.tight_layout()
+        #         def update(frame):
+        #                 timestep = timesteps[frame]
+        #                 ror = other_data[timestep]["ror"]
+        #                 collision_prob = other_data[timestep]["collision_probability"]
+        #                 launch_rate = other_data[timestep]["launch_rate"]
+
+        #                 for ax in axes:
+        #                         ax.clear()
+
+        #                         # Plot each metric with fixed y-axis limits
+        #                         axes[0].plot(range(num_altitude_shells), ror, color='b')
+        #                         axes[0].set_ylim(ror_min, ror_max)
+        #                         axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
+        #                         axes[0].set_xlabel("Shell - Mid Altitude (km)")
+        #                         axes[0].set_ylabel("RoR")
+        #                         axes[0].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+        #                         axes[0].set_xticklabels(self.HMid)
+
+        #                         axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
+        #                         axes[1].set_ylim(collision_min, collision_max)
+        #                         axes[1].set_title(f"Collision Probability - Year {timestep}")
+        #                         axes[1].set_xlabel("Shell - Mid Altitude (km)")
+        #                         axes[1].set_ylabel("Collision Probability")
+        #                         axes[1].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+        #                         axes[1].set_xticklabels(self.HMid)
+
+        #                         axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
+        #                         axes[2].set_ylim(launch_min, launch_max)
+        #                         axes[2].set_title(f"Launch Rate - Year {timestep}")
+        #                         axes[2].set_xlabel("Shell - Mid Altitude (km)")
+        #                         axes[2].set_ylabel("Launch Rate")
+        #                         axes[2].set_xticks(range(len(self.HMid)))  # Ensure correct number of ticks
+        #                         axes[2].set_xticklabels(self.HMid)
+
+        #                 plt.tight_layout()
                 
-                # Create the animation
-                ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
+        #         # Create the animation
+        #         ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
 
-                # Save as GIF
-                combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
-                ani.save(combined_file_path, writer="pillow", fps=2)
+        #         # Save as GIF
+        #         combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
+        #         ani.save(combined_file_path, writer="pillow", fps=2)
 
-                plt.close()
-
-        def ror_cp_and_launch_rate(self, plot_data, other_data):
-                """
-                Generate and save a combined plot for time evolution of different parameters
-                (RoR, Collision Probability, Launch Rate, Excess Returns).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
-
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
-
-                # Prepare the figure with 4 subplots now
-                fig, axes = plt.subplots(1, 4, figsize=(20, 5))
-
-                # Color map for time evolution
-                colors = cm.viridis(np.linspace(0, 1, len(timesteps)))
-
-                # Static Plot: loop through each timestep and plot each metric
-                for idx, timestep in enumerate(timesteps):
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
-                        excess_returns = other_data[timestep]["excess_returns"]
-
-                        axes[0].plot(range(num_altitude_shells), ror, color=colors[idx], label=f"Year {timestep}")
-                        axes[1].plot(range(num_altitude_shells), collision_prob, color=colors[idx])
-                        axes[2].plot(range(num_altitude_shells), launch_rate, color=colors[idx])
-                        axes[3].plot(range(num_altitude_shells), excess_returns, color=colors[idx])
-
-                axes[0].set_title("Rate of Return (RoR)")
-                axes[1].set_title("Collision Probability")
-                axes[2].set_title("Launch Rate")
-                axes[3].set_title("Excess Returns")
-
-                # Set labels and ticks for each subplot
-                for ax in axes:
-                        ax.set_xlabel("Shell - Mid Altitude (km)")
-                        ax.set_ylabel("Value")
-                        ax.set_xticklabels(self.HMid)
-
-                # Add a legend to the figure (outside the individual axes)
-                fig.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=5)
-
-                plt.tight_layout()
-
-                # Save the combined plot
-                combined_file_path = os.path.join(plot_data.path, "combined_time_evolution.png")
-                plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
-                plt.close()
-                print(f"All economic metrics single plot saved to {combined_file_path}")
-
-
-        def ror_cp_and_launch_rate_gif(self, plot_data, other_data):
-                """
-                Generate and save an animated plot for the time evolution of different parameters 
-                (RoR, Collision Probability, Launch Rate, Excess Returns).
-                """
-                # Extract keys (timesteps) and sort
-                timesteps = sorted(other_data.keys(), key=int)
-
-                # Get number of altitude shells (assuming all timesteps have the same length)
-                num_altitude_shells = len(other_data[timesteps[0]]["ror"])
-
-                # Determine global min/max for each metric across all timesteps
-                ror_values = [val for timestep in timesteps for val in other_data[timestep]["ror"]]
-                collision_values = [val for timestep in timesteps for val in other_data[timestep]["collision_probability"]]
-                launch_values = [val for timestep in timesteps for val in other_data[timestep]["launch_rate"]]
-                excess_values = [val for timestep in timesteps for val in other_data[timestep]["excess_returns"]]
-
-                ror_min, ror_max = min(ror_values), max(ror_values)
-                collision_min, collision_max = min(collision_values), max(collision_values)
-                launch_min, launch_max = min(launch_values), max(launch_values)
-                excess_min, excess_max = min(excess_values), max(excess_values)
-
-                # Create the figure and axes with 4 subplots
-                fig, axes = plt.subplots(1, 4, figsize=(20, 5))
-
-                def update(frame):
-                        timestep = timesteps[frame]
-                        ror = other_data[timestep]["ror"]
-                        collision_prob = other_data[timestep]["collision_probability"]
-                        launch_rate = other_data[timestep]["launch_rate"]
-                        excess_returns = other_data[timestep]["excess_returns"]
-
-                        # Clear each axis before plotting new data
-                        for ax in axes:
-                                ax.clear()
-
-                        # Plot each metric with fixed y-axis limits
-                        axes[0].plot(range(num_altitude_shells), ror, color='b')
-                        axes[0].set_ylim(ror_min, ror_max)
-                        axes[0].set_title(f"Rate of Return (RoR) - Year {timestep}")
-                        axes[0].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[0].set_ylabel("RoR")
-                        axes[0].set_xticks(range(len(self.HMid)))
-                        axes[0].set_xticklabels(self.HMid)
-
-                        axes[1].plot(range(num_altitude_shells), collision_prob, color='r')
-                        axes[1].set_ylim(collision_min, collision_max)
-                        axes[1].set_title(f"Collision Probability - Year {timestep}")
-                        axes[1].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[1].set_ylabel("Collision Probability")
-                        axes[1].set_xticks(range(len(self.HMid)))
-                        axes[1].set_xticklabels(self.HMid)
-
-                        axes[2].plot(range(num_altitude_shells), launch_rate, color='g')
-                        axes[2].set_ylim(launch_min, launch_max)
-                        axes[2].set_title(f"Launch Rate - Year {timestep}")
-                        axes[2].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[2].set_ylabel("Launch Rate")
-                        axes[2].set_xticks(range(len(self.HMid)))
-                        axes[2].set_xticklabels(self.HMid)
-
-                        axes[3].plot(range(num_altitude_shells), excess_returns, color='m')
-                        axes[3].set_ylim(excess_min, excess_max)
-                        axes[3].set_title(f"Excess Returns - Year {timestep}")
-                        axes[3].set_xlabel("Shell - Mid Altitude (km)")
-                        axes[3].set_ylabel("Excess Returns")
-                        axes[3].set_xticks(range(len(self.HMid)))
-                        axes[3].set_xticklabels(self.HMid)
-
-                        plt.tight_layout()
-
-                # Create the animation
-                ani = animation.FuncAnimation(fig, update, frames=len(timesteps), repeat=True)
-
-                # Save as GIF
-                combined_file_path = os.path.join(plot_data.path, "space_metrics_evolution.gif")
-                ani.save(combined_file_path, writer="pillow", fps=2)
-
-                plt.close()
-                print(f"Animated evolution plot saved to {combined_file_path}")
-
-
-        # def collision_probability_stacked_by_species(self, plot_data, other_data):
-        #         pass
-
-        # def pmd_effectiveness(self, plot_data, other_data):
-        #         pass
+        #         plt.close()

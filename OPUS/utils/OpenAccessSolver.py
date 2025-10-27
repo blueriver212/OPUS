@@ -5,7 +5,6 @@ from concurrent.futures import ProcessPoolExecutor
 from pyssem.model import Model
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd
 
@@ -35,6 +34,7 @@ class OpenAccessSolver:
         self.tspan = np.linspace(0, 1, 2)
         self.derelict_start_slice = derelict_start_slice
         self.derelict_end_slice = derelict_end_slice
+        self.time_idx = 0
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
@@ -42,6 +42,7 @@ class OpenAccessSolver:
         # This is temporary storage of each of the variables, so they can then be stored for visualisation later. 
         self._last_collision_probability = None
         self._last_rate_of_return = None 
+        self._last_non_compliance = None
 
     def excess_return_calculator(self, launches):
         """
@@ -57,7 +58,7 @@ class OpenAccessSolver:
         state_next = state_next_path[-1, :]
 
         # Evaluate pmd
-        state_next = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
+        state_next, non_compliance_total = evaluate_pmd(state_next, self.econ_params.comp_rate, self.MOCAT.scenario_properties.species['active'][1].deltat, 
                                   self.fringe_start_slice, self.fringe_end_slice, self.derelict_start_slice, self.derelict_end_slice, 
                                   self.econ_params)
 
@@ -76,6 +77,7 @@ class OpenAccessSolver:
         # Save the collision_probability for all species
         self._last_collision_probability = collision_probability
         self._last_excess_returns = excess_returns
+        self._last_non_compliance = non_compliance_total
 
         return excess_returns
 
@@ -161,17 +163,4 @@ class OpenAccessSolver:
         # Calculate the UMPY value
         umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()
 
-        return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns
-    
-   
-def create_bar_chart(data, title, xlabel, ylabel, filename):
-    plt.figure(figsize=(8, 6))
-    plt.bar(range(len(data)), data, color='blue', alpha=0.7)
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.xticks(range(len(data)))
-    plt.tight_layout()
-    plt.savefig(f"figures/{filename}")
-    plt.close()
-    print(f"{title} bar chart saved as {filename}")
+        return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns, self._last_non_compliance
