@@ -1276,3 +1276,207 @@ class PlotHandler:
         #         ani.save(combined_file_path, writer="pillow", fps=2)
 
         #         plt.close()
+
+
+        # sammie addition
+        def comparison_evolution_umpy_over_time(self, plot_data_lists, other_data_lists):
+                # Create a "comparisons" folder under the main simulation folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Dictionary to store time series data for each species across scenarios
+                # Structure: species_totals[species][scenario_name] = np.array of total counts over time
+                umpy_dict = {}
+
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # We assume `plot_data.scenario` holds the scenario name
+                        # If it doesn't, change the attribute name or use a default label.
+                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+
+                        # Retrieve the dictionary of species -> data arrays
+                        # e.g., {species: np.array(time, shells), ...
+
+                        
+                        for j, year in enumerate(other_data):
+                                umpy = other_data[year]['umpy']
+                                if scenario_name not in umpy_dict:
+                                        umpy_dict[scenario_name] = np.zeros(len(other_data))
+                                umpy_dict[scenario_name][j] = np.sum(umpy)
+                
+                for idx, scenario_name in enumerate(umpy_dict):
+                        umpy = umpy_dict[scenario_name]
+                        x_axis = range(len(umpy)) + np.ones(len(umpy))
+                        if idx <= 9:
+                                plt.plot(x_axis, umpy, label=scenario_name, marker='o')
+                        elif (idx > 9) and (idx <= 19):
+                                plt.plot(x_axis, umpy, label=scenario_name, marker='X')
+                        else:
+                                plt.plot(x_axis, umpy, label=scenario_name, marker='>')
+                # 1) Sort the timesteps and prepare arrays
+
+                # plt.figure(figsize=(16,6))
+
+                # 4) Labels and title
+                plt.xlabel("Year (timestep)")
+                plt.ylabel("UMPY (kg/year)")
+                # plt.title(f"UMPY Evolution Over Time")
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                plt.tight_layout()
+                plt.grid(True)
+
+                # 5) Save the figure
+                save_path = os.path.join(comparison_folder, "comparison_umpy_time_evolution.png")
+                plt.savefig(save_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Comparison plot saved to {save_path}")
+
+        # def comparison_launches_time(self, plot_data_lists, other_data_lists):
+        #         """
+        #         Creates a comparison plot of total species count over time.
+        #         Each species is plotted in its own subplot, comparing across all scenarios.
+        #         """
+
+        #         # Create a "comparisons" folder under the main simulation folder
+        #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+        #         os.makedirs(comparison_folder, exist_ok=True)
+
+        #         # Dictionary to store time series data for each species across scenarios
+        #         # Structure: species_totals[species][scenario_name] = np.array of total counts over time
+        #         launch_totals = {}
+
+        #         # Loop over each PlotData to extract data
+        #         for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+        #                 # We assume `plot_data.scenario` holds the scenario name
+        #                 # If it doesn't, change the attribute name or use a default label.
+        #                 scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+
+        #                 # Retrieve the dictionary of species -> data arrays
+        #                 # e.g., {species: np.array(time, shells), ...
+                        
+        #                 for j, year in enumerate(other_data):
+        #                         launches = other_data[year]['launch_rate']
+        #                         if scenario_name not in launch_totals:
+        #                                 launch_totals[scenario_name] = np.zeros(len(other_data))
+        #                         launch_totals[scenario_name][j] = np.sum(launches)
+                
+        #         for idx, scenario_name in enumerate(launch_totals):
+        #                 launches = launch_totals[scenario_name]
+        #                 x_axis = range(len(launches)) + np.ones(len(launches))
+        #                 if idx <= 9:
+        #                         plt.plot(x_axis, launches, label=scenario_name, marker='o')
+        #                 elif (idx > 9) and (idx <= 19):
+        #                         plt.plot(x_axis, launches, label=scenario_name, marker='X')
+        #                 else:
+        #                         plt.plot(x_axis, launches, label=scenario_name, marker='>')
+                        
+        #         # plt.title(f"Total Launches across all shells")
+        #         plt.xlabel("Time Steps (Years)")
+        #         plt.ylabel("Total Launches")
+        #         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        #         plt.grid(True)
+
+        #         out_path = os.path.join(comparison_folder, "total_launches_comparison.png")
+        #         plt.savefig(out_path, dpi=300, bbox_inches='tight')
+        #         plt.close()
+
+        #         print(f"Comparison launch plot saved to {out_path}")
+
+        def comparison_umpy_vs_welfare(self, plot_data_lists, other_data_lists):
+                # Create folder for comparison plots
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                scatter_file_path = os.path.join(scatter_folder, "scatter_final_umpy_vs_welfare.png")
+                
+                final_umpy_values = []
+                final_welfare_values = []
+                labels = []
+                
+                # Loop over each scenario's data
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # --- Calculate final UMPY value ---
+                        timesteps = sorted(other_data.keys(), key=int)
+                        last_timestep = timesteps[-1]
+                        # Sum the "umpy" list at the final timestep
+                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
+                        final_welfare = other_data[last_timestep]["welfare"]
+
+                        final_umpy_values.append(final_umpy)
+                        final_welfare_values.append(final_welfare)
+                        scenario_label = getattr(plot_data, "scenario", f"Scenario {i+1}")
+                        labels.append(scenario_label)
+                
+                # --- Create scatter plot ---
+                plt.figure(figsize=(8, 6))
+                for idx, scenario in enumerate(labels):
+                        if (idx < 10):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 9) and (idx <= 19):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 19) and (idx <= 29):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        else:
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+                
+                # # Annotate each point with its scenario label
+                # for x, y, label in zip(final_umpy_values, final_welfare_values, labels):
+                #         plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
+                        
+                plt.xlabel("Final UMPY (kg/year)")
+                plt.ylabel("Final Welfare ($)")
+                # plt.title("Final UMPY vs Final Welfare by Scenario")
+                plt.grid(True)
+                plt.tight_layout()
+                plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Scatter plot saved to {scatter_file_path}")
+        def comparison_time_welfare(self, plot_data_lists, other_data_lists):
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+                
+                welfare_dict = {}
+                
+                # Loop over each scenario's data
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # We assume `plot_data.scenario` holds the scenario name
+                        # If it doesn't, change the attribute name or use a default label.
+                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+
+                        # Retrieve the dictionary of species -> data arrays
+                        # e.g., {species: np.array(time, shells), ...
+
+                        for j, year in enumerate(other_data):
+                                welfare = other_data[year]['welfare']
+                                if scenario_name not in welfare_dict:
+                                        welfare_dict[scenario_name] = np.zeros(len(other_data))
+                                welfare_dict[scenario_name][j] = welfare
+                counter = 0
+                labels = []
+                for idx, scenario_name in enumerate(welfare_dict):
+                        welfare_list = welfare_dict[scenario_name]
+                        x_axis = range(len(welfare_list)) + np.ones(len(welfare_list))
+                        if idx <= 9:
+                                plt.plot(x_axis, welfare_list, label=scenario_name, marker='o')
+                                counter = counter + 1
+                        elif (idx > 9) and (idx <= 19):
+                                plt.plot(x_axis, welfare_list, label=scenario_name, marker='X')
+                                counter = counter + 1
+                        else:
+                                counter = counter + 1
+                                plt.plot(x_axis, welfare_list, label=scenario_name, marker='>')
+                        labels.append(scenario_name)
+                        
+                # plt.title(f"Welfare Over Time")
+                plt.xlabel("Time Steps (Years)")
+                plt.ylabel("Welfare ($)")
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                plt.grid(True)
+
+                out_path = os.path.join(comparison_folder, "welfare_comparison.png")
+                plt.savefig(out_path, dpi=300, bbox_inches='tight')
+                plt.close()
+
+                print(f"Comparison launch plot saved to {out_path}")

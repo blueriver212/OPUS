@@ -2,6 +2,7 @@ import numpy as np
 from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
 import pandas as pd
+import os
 
 class EconParameters:
     """
@@ -193,4 +194,12 @@ class EconParameters:
             else:
                 print(f'Warning: Unknown parameter_type: {parameter_type}')
 
-
+    def econ_params_for_ADR(self, configuration):
+        # if scenario_name.startswith("Baseline"):
+        #     self.tax = 0
+        #     self.bond = None
+        #     self.ouf = 0
+        path = f"./OPUS/configuration/{configuration}.csv"
+        if not ((configuration).startswith("Baseline")) and (os.path.exists(path)):
+            self.modify_params_for_simulation(configuration)
+        self.calculate_cost_fn_parameters()

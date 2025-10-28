@@ -8,9 +8,12 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd, evaluate_pmd_elliptical
 from .Helpers import insert_launches_into_lam
+from ADR import optimize_ADR_removal, implement_adr
+from EconCalculations import revenue_open_access_calculations
+
 class MultiSpeciesOpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, x0, revenue_model, 
-                 lam, multi_species):
+                 lam, multi_species, adr_params):
         """
         Initialize the MultiSpeciesOpenAccessSolver.
 
@@ -31,6 +34,8 @@ class MultiSpeciesOpenAccessSolver:
         self.elliptical = MOCAT.scenario_properties.elliptical
         self.tspan = np.linspace(0, 1, 2)
         self.time_idx = 0
+
+        self.adr_params = adr_params 
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
@@ -79,6 +84,12 @@ class MultiSpeciesOpenAccessSolver:
             state_next_alt, multi_species = evaluate_pmd(state_next_alt, self.multi_species)
         # 12077, elp = 18076
 
+        if self.elliptical:
+            state_next_sma, _ = implement_adr(state_next_sma, self.MOCAT, self.adr_params)
+            state_next_alt, _ = implement_adr(state_next_alt, self.MOCAT, self.adr_params)
+        else:
+            state_next_alt, _ = implement_adr(state_next_alt, self.MOCAT, self.adr_params)
+
         # Gets the final output and update the current environment matrix
         if self.elliptical:
             self.current_environment = state_next_sma
@@ -116,6 +127,8 @@ class MultiSpeciesOpenAccessSolver:
         }
 
         self._last_non_compliance = non_compliance_dict
+
+        self._last_tax_revenue, self._last_total_revenue, self._dbg_tax_rate, self._dbg_Cp, self._dbg_cost_per_sat, self._dbg_fringe_total = revenue_open_access_calculations(self, state_next=self.current_environment)
 
         return excess_returns 
         # circ: array([  7.42215529,   7.60501665,   6.6453673 ,   5.73031984,
@@ -252,3 +265,28 @@ class MultiSpeciesOpenAccessSolver:
             umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()  # 120765
 
         return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns, self._last_non_compliance
+    
+    #Joey - Tax revenue properties (had to add these in for access to them in Main)
+    @property
+    def last_tax_revenue(self):
+        return getattr(self,"_last_tax_revenue", None)
+    
+    @property
+    def last_total_revenue(self):
+        return getattr(self, '_last_total_revenue', 0.0)
+    
+    @property
+    def dbg_tax_rate(self):
+        return getattr(self, "_dbg_tax_rate", None)
+
+    @property
+    def dbg_Cp(self):
+        return getattr(self, "_dbg_Cp", None)
+
+    @property
+    def dbg_cost_per_sat(self):
+        return getattr(self, "_dbg_cost_per_sat", None)
+
+    @property
+    def dbg_fringe_total(self):
+        return getattr(self, "_dbg_fringe_total", None)

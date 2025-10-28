@@ -99,3 +99,4 @@ class OPUSSpecies:
         """
         self.name = name
         self.econ_params = None
+        self.adr_params = None

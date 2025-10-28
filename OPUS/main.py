@@ -13,6 +13,10 @@ import json
 import numpy as np
 import time
 
+from utils.ADRParameters import ADRParameters
+from utils.ADR import optimize_ADR_removal, implement_adr
+from utils.EconCalculations import EconCalculations
+
 class IAMSolver:
 
     def __init__(self):
@@ -24,6 +28,7 @@ class IAMSolver:
         self.MOCAT = None
         self.econ_params_json = None
         self.pmd_linked_species = None
+        self.adr_params_json = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats):
@@ -155,11 +160,17 @@ class IAMSolver:
             for species in multi_species.species:
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
+        adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
+        adr_params.adr_parameter_setup(scenario_name)
+        # for species in multi_species.species:
+        #     if species.adr_params is None:
+        #         species.adr_params.adr_parameter_setup(scenario_name)
+
         ############################
         ### SOLVE FOR THE FIRST YEAR
         # elp: 
         ############################c
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, adr_params)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -186,6 +197,9 @@ class IAMSolver:
 
         # sammie addition:
         adr_times = [5, 10, 15, 20]
+        econ_params_gen = EconParameters(self.econ_params_json, mocat=self.MOCAT)
+        econ_params_gen.econ_params_for_ADR(scenario_name)
+        econ_calculator = EconCalculations(econ_params_gen, initial_removal_cost=5000000)
 
 
         for time_idx in tf:
@@ -215,6 +229,14 @@ class IAMSolver:
 
             environment_for_solver = state_next_sma if self.elliptical else state_next_alt
 
+            # # ----- ADR Section ---- # #
+            adr_params.removals_left = econ_calculator.get_removals_for_current_period()
+            num_removed_this_period = 0; # initialize counter for removed objects
+            adr_params.time = time_idx
+            if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
+                # environment_for_solver, ~ = implement_adr(environment_for_solver,self.MOCAT,adr_params)
+                environment_for_solver, removal_dict = optimize_ADR_removal(environment_for_solver,self.MOCAT,adr_params)
+
             # Record propagated environment data 
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
@@ -229,7 +251,7 @@ class IAMSolver:
             start_time = time.time()
             # solver guess will be lam
             solver_guess = None
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, adr_params)
 
             # Calculate solver_guess
             solver_guess = lam.copy()
@@ -257,7 +279,7 @@ class IAMSolver:
             # multi_species.increase_demand()
 
             solver_guess = self._apply_replacement_floor(solver_guess, environment_for_solver, multi_species)
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, adr_params)
 
             # Solve for equilibrium launch rates
             launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
@@ -274,6 +296,20 @@ class IAMSolver:
             else:
                 current_environment = state_next_alt
 
+            # # ---- Process Economics ---- # #
+            new_total_tax_revenue = float(open_access._last_total_revenue)
+
+            welfare, leftover_revenue = econ_calculator.process_period_economics(
+                num_actually_removed=num_removed_this_period,
+                current_environment=current_environment,
+                fringe_slices=(),
+                new_tax_revenue=new_total_tax_revenue
+            )
+
+            # Read revenues for storage
+            shell_revenue = open_access.last_tax_revenue.tolist()
+            total_tax_revenue_for_storage = float(open_access._last_total_revenue)
+
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
                 "ror": rate_of_return,
@@ -282,7 +318,12 @@ class IAMSolver:
                 "collision_probability_all_species": col_probability_all_species,
                 "umpy": umpy, 
                 "excess_returns": excess_returns,
-                "non_compliance": last_non_compliance
+                "non_compliance": last_non_compliance,
+                "tax_revenue_total": total_tax_revenue_for_storage,
+                "tax_revenue_by_shell": shell_revenue,
+                "welfare": welfare,
+                "bond_revenue": open_access.bond_revenue,
+                "leftover_revenue": leftover_revenue
             }
         
         if self.grid_search:
