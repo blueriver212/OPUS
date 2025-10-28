@@ -341,6 +341,8 @@ def get_disposal_orbits(year, apogees_km, satellite_type, pmd_lifetime=5.0, look
         lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"
     elif satellite_type == "Su":
         lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_Su.npz"
+    elif satellite_type == "Sns":
+        lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"
     else:
         raise ValueError(f"Invalid satellite type: {satellite_type}")
     L = _load_lookup_cached(lookup_path)

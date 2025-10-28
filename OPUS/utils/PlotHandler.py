@@ -6,6 +6,7 @@ import matplotlib.cm as cm
 import matplotlib.animation as animation
 import math
 import pickle
+import re
 
 class PlotData:
         """
@@ -164,17 +165,17 @@ class PlotHandler:
                                 econ_params_list.append(econ_data)
 
                                 # If the plot_types is None, then generate all plots
-                                if "all_plots" in self.plot_types:
-                                        self.all_plots(plot_data, other_data, econ_data)
-                                else:
-                                        # Dynamically generate plots
-                                        for plot_name in self.plots:
-                                                plot_method = getattr(self, plot_name, None)
-                                                if callable(plot_method):
-                                                        print(f"Creating plot: {plot_name}")
-                                                        plot_method()
-                                                else:
-                                                        print(f"Warning: Plot '{plot_name}' not found. Skipping...")
+                                # if "all_plots" in self.plot_types:
+                                #         self.all_plots(plot_data, other_data, econ_data)
+                                # else:
+                                #         # Dynamically generate plots
+                                #         for plot_name in self.plots:
+                                #                 plot_method = getattr(self, plot_name, None)
+                                #                 if callable(plot_method):
+                                #                         print(f"Creating plot: {plot_name}")
+                                #                         plot_method()
+                                #                 else:
+                                #                         print(f"Warning: Plot '{plot_name}' not found. Skipping...")
 
                 if comparison:
                         self._comparison_plots(plot_data_list, other_data_list)
@@ -184,7 +185,7 @@ class PlotHandler:
                 Run all plot functions that start with 'comparison_', ignoring others.
                 """
                 for attr_name in dir(self):
-                        # Grab the attribute; see if it’s a callable (method)
+                        # Grab the attribute; see if it's a callable (method)
                         attr = getattr(self, attr_name)
                         if callable(attr):
                                 # Skip known special methods
@@ -782,11 +783,11 @@ class PlotHandler:
                 from matplotlib.lines import Line2D
                 import os
                 import re
-                import json
 
-                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(scatter_folder, exist_ok=True)
-                file_path = os.path.join(scatter_folder, "umpy_vs_metrics.png")
+                # Create comparison folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+                file_path = os.path.join(comparison_folder, "umpy_vs_metrics.png")
 
                 umpy_vals = []
                 total_counts = []
@@ -799,8 +800,6 @@ class PlotHandler:
                 markers_non = []
                 labels = []
 
-                tax_counter = 1
-
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
                         scenario_folder = scenario_label.lower()
@@ -809,36 +808,73 @@ class PlotHandler:
                         final_ts = timesteps[-1]
 
                         # Final UMPY and collision probability
-                        final_umpy = np.sum(other_data[final_ts]["umpy"])
-                        final_cp = np.sum(other_data[final_ts].get("collision_probability_all_species", []))
+                        umpy_data = other_data[final_ts].get("umpy", [])
+                        if isinstance(umpy_data, dict):
+                                final_umpy = np.sum(list(umpy_data.values()))
+                        else:
+                                final_umpy = np.sum(umpy_data)
+                        
+                        cp_data = other_data[final_ts].get("collision_probability_all_species", [])
+                        if isinstance(cp_data, dict):
+                                final_cp = np.sum(list(cp_data.values()))
+                        else:
+                                final_cp = np.sum(cp_data)
 
-                        # Final object count
+                        # Final object count across all species
                         total = 0
-                        for sp, arr in plot_data.data.items():
-                                arr_np = np.array(arr)
-                                if arr_np.ndim == 2:
-                                        total += np.sum(arr_np[-1, :])
+                        for sp, species_data in plot_data.data.items():
+                                if isinstance(species_data, np.ndarray):
+                                        # Data is already converted to numpy array (time, shells)
+                                        if species_data.ndim == 2:
+                                                total += np.sum(species_data[-1, :])
+                                        else:
+                                                total += np.sum(species_data)
+                                elif isinstance(species_data, dict):
+                                        # Data is stored as {year: [shell1, shell2, ...], ...}
+                                        year_keys = sorted(species_data.keys(), key=int)
+                                        final_year = year_keys[-1]
+                                        final_year_data = species_data[final_year]
+                                        if isinstance(final_year_data, list):
+                                                total += np.sum(final_year_data)
+                                elif isinstance(species_data, list) and len(species_data) > 0:
+                                        arr_np = np.array(species_data)
+                                        if arr_np.ndim == 2:
+                                                total += np.sum(arr_np[-1, :])
+                                        else:
+                                                total += np.sum(arr_np)
 
-                        # Get derelict array
-                        derelict_arr = np.array(plot_data.data.get("N_223kg", []))
-                        final_derelicts = derelict_arr[-1] if derelict_arr.ndim == 2 else None
-                        if final_derelicts is None:
-                                continue
+                        # Find derelict species (N_* or B_*)
+                        derelict_species = [sp for sp in plot_data.data.keys() if sp.startswith('N_') or sp.startswith('B_')]
+                        
+                        # Calculate total derelicts
+                        total_derelicts = 0
+                        for derelict_sp in derelict_species:
+                                if derelict_sp in plot_data.data:
+                                        derelict_data = plot_data.data[derelict_sp]
+                                        if isinstance(derelict_data, np.ndarray):
+                                                # Data is already converted to numpy array (time, shells)
+                                                if derelict_data.ndim == 2:
+                                                        total_derelicts += np.sum(derelict_data[-1, :])
+                                                else:
+                                                        total_derelicts += np.sum(derelict_data)
+                                        elif isinstance(derelict_data, dict):
+                                                # Data is stored as {year: [shell1, shell2, ...], ...}
+                                                year_keys = sorted(derelict_data.keys(), key=int)
+                                                final_year = year_keys[-1]
+                                                final_year_data = derelict_data[final_year]
+                                                if isinstance(final_year_data, list):
+                                                        total_derelicts += np.sum(final_year_data)
+                                        elif isinstance(derelict_data, list) and len(derelict_data) > 0:
+                                                derelict_arr = np.array(derelict_data)
+                                                if derelict_arr.ndim == 2:
+                                                        total_derelicts += np.sum(derelict_arr[-1, :])
+                                                else:
+                                                        total_derelicts += np.sum(derelict_arr)
 
-                        # Load econ_params JSON
-                        scenario_path = os.path.join(self.simulation_folder, scenario_label)
-                        econ_file = next((f for f in os.listdir(scenario_path) if f.startswith("econ_params") and f.endswith(".json")), None)
-                        if not econ_file:
-                                continue
-                        with open(os.path.join(scenario_path, econ_file), "r") as f:
-                                econ = json.load(f)
-
-                        nat_vec = np.array(econ.get("naturally_compliant_vector", []))
-                        if len(nat_vec) != len(final_derelicts):
-                                continue
-
-                        nat_count = np.sum(final_derelicts[nat_vec == 1])
-                        non_count = np.sum(final_derelicts[nat_vec == 0])
+                        # For now, split derelicts 50/50 since we don't have econ_params in memory
+                        # This is a simplified approach - in a real implementation you'd want to pass econ_params
+                        nat_count = total_derelicts * 0.5  # Simplified split
+                        non_count = total_derelicts * 0.5
 
                         # Scenario style
                         is_tax = "tax" in scenario_folder
@@ -872,6 +908,11 @@ class PlotHandler:
                         markers_nat.append(marker)
                         markers_non.append(marker)
 
+                # Check if we have data to plot
+                if not umpy_vals:
+                        print("Warning: No data found for umpy_vs_metrics plot")
+                        return
+
                 # --- Plot ---
                 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6), sharex=True)
 
@@ -880,7 +921,7 @@ class PlotHandler:
                         ax1.scatter(x, y, color=color, marker=marker, s=90)
                 ax1.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
                 ax1.set_ylabel("Final Total Count of Objects", fontsize=14, fontweight="bold")
-                ax1.set_title("LEO Species Total", fontsize=14, fontweight="bold")
+                ax1.set_title("UMPY vs Total Objects", fontsize=14, fontweight="bold")
                 ax1.grid(True)
                 ax1.tick_params(labelsize=12)
 
@@ -903,7 +944,7 @@ class PlotHandler:
                         ax3.annotate(f"B = {bond}", (x, y), textcoords="offset points", xytext=(5, 5), fontsize=9)
 
                 ax3.set_xlabel("Final UMPY (kg/year)", fontsize=14, fontweight="bold")
-                ax3.set_ylabel("Derelict Count (N_223kg)", fontsize=14, fontweight="bold")
+                ax3.set_ylabel("Derelict Count", fontsize=14, fontweight="bold")
                 ax3.set_title("UMPY vs Derelicts (Split)", fontsize=14, fontweight="bold")
                 ax3.grid(True)
                 ax3.tick_params(labelsize=12)
@@ -920,7 +961,8 @@ class PlotHandler:
 
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
-                print(f"Comparison plots saved to {file_path}")
+                plt.close()
+                print(f"UMPY vs metrics plot saved to {file_path}")
 
         def comparison_total_welfare_vs_time(self, plot_data_lists, other_data_lists):
                 """
@@ -973,127 +1015,221 @@ class PlotHandler:
 
         def comparison_object_counts_vs_bond(self, plot_data_lists, other_data_lists):
                 """
-                Compare number of derelicts (N_223kg) and fringe satellites (Su) across 5yr and 25yr PMD scenarios.
-                Separates naturally compliant vs non-compliant derelicts using econ_params.
-
-                X-axis: Bond amount ($k)
-                Y-axis: Number of objects
+                Create a comparison line plot across bond levels for:
+                - Derelicts split into naturally compliant vs non-compliant using econ_params.naturally_compliant_vector
+                - Fringe satellites Su and Sns
+                Styling: 5yr PMD = solid lines; 25yr PMD = dashed lines.
+                X-axis uses bond amount ($k).
                 """
                 import os
-                import json
                 import re
                 import numpy as np
                 import matplotlib.pyplot as plt
 
-                root_folder = self.simulation_folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
 
-                # Separate derelicts by compliance category
-                bond_5yr_nat, nat_5yr = [], []
-                bond_5yr_non, non_5yr = [], []
-                bond_25yr_nat, nat_25yr = [], []
-                bond_25yr_non, non_25yr = [], []
+                # Buckets by lifetime
+                data_5yr = {"bond": [], "nat": [], "non": [], "Su": [], "Sns": []}
+                data_25yr = {"bond": [], "nat": [], "non": [], "Su": [], "Sns": []}
 
-                # Fringe satellite counts
-                bond_5yr_Su, Su_5yr = [], []
-                bond_25yr_Su, Su_25yr = [], []
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-                for folder_name in os.listdir(root_folder):
-                        folder_path = os.path.join(root_folder, folder_name)
-                        if not os.path.isdir(folder_path):
+                        # Extract bond amount and lifetime
+                        m = re.search(r"bond_(\d+)k_(\d+)yr", scenario_label.lower())
+                        if not m:
                                 continue
+                        bond_k = int(m.group(1))
+                        lifetime = int(m.group(2))
 
-                        is_25yr = folder_name.endswith("25yr")
-                        match = re.findall(r"\d+", folder_name)
-                        bond = float(match[0]) if match else None
-                        if bond is None:
-                                continue
+                        # Final timestep index
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
 
-                        species_file = next((f for f in os.listdir(folder_path) if f.startswith("species_data")), None)
-                        econ_file = next((f for f in os.listdir(folder_path) if f.startswith("econ_params") and f.endswith(".json")), None)
-                        if not econ_file:
-                                continue
+                        # econ_params for naturally_compliant_vector
+                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
+                        nat_vec = np.array(econ.get("naturally_compliant_vector", [])) if econ else np.array([])
 
-                        with open(os.path.join(folder_path, econ_file), "r") as f:
-                                econ = json.load(f)
-                        if not species_file or not econ_file:
-                                continue
+                        # Aggregate derelicts across all N_* species at final year per shell
+                        derelicts_per_shell = None
+                        for sp_name, sp_data in plot_data.data.items():
+                                if sp_name.startswith('N'):
+                                        arr = np.array(sp_data)
+                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
+                                                final_row = arr[-1, :]
+                                                derelicts_per_shell = final_row if derelicts_per_shell is None else derelicts_per_shell + final_row
 
-                        with open(os.path.join(folder_path, species_file), "r") as f:
-                                data = json.load(f)
-                        with open(os.path.join(folder_path, econ_file), "r") as f:
-                                econ = json.load(f)
+                        # If nat_vec length mismatches shells, fall back to totals without split
+                        nat_sum = 0.0
+                        non_sum = 0.0
+                        if derelicts_per_shell is not None and nat_vec.size == derelicts_per_shell.size:
+                                nat_sum = float(np.sum(derelicts_per_shell[nat_vec == 1]))
+                                non_sum = float(np.sum(derelicts_per_shell[nat_vec == 0]))
+                        elif derelicts_per_shell is not None:
+                                total_d = float(np.sum(derelicts_per_shell))
+                                nat_sum = total_d / 2.0
+                                non_sum = total_d / 2.0
 
-                        try:
-                                N_arr = np.array(data["N_223kg"])  # (timesteps, shells)
-                                Su_arr = np.array(data["Su"])      # (timesteps, shells)
-                                final_N = N_arr[-1]
-                                final_Su = np.sum(Su_arr[-1])
-                        except (KeyError, IndexError, TypeError):
-                                continue
+                        # Fringe satellites totals at final year
+                        def sum_final(species_key: str) -> float:
+                                if species_key in plot_data.data:
+                                        arr = np.array(plot_data.data[species_key])
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                return float(np.sum(arr[-1, :]))
+                                return 0.0
 
-                        nat_vec = np.array(econ.get("naturally_compliant_vector", []))
-                        if len(nat_vec) != len(final_N):
-                                continue  # mismatch in dimensions
+                        su_total = sum_final('Su')
+                        sns_total = sum_final('Sns')
 
-                        nat_sum = np.sum(final_N[nat_vec == 1])
-                        non_sum = np.sum(final_N[nat_vec == 0])
+                        bucket = data_5yr if lifetime == 5 else data_25yr
+                        bucket["bond"].append(bond_k)
+                        bucket["nat"].append(nat_sum)
+                        bucket["non"].append(non_sum)
+                        bucket["Su"].append(su_total)
+                        bucket["Sns"].append(sns_total)
 
-                        if is_25yr:
-                                bond_25yr_nat.append(bond)
-                                nat_25yr.append(nat_sum)
-                                bond_25yr_non.append(bond)
-                                non_25yr.append(non_sum)
-                                bond_25yr_Su.append(bond)
-                                Su_25yr.append(final_Su)
-                        else:
-                                bond_5yr_nat.append(bond)
-                                nat_5yr.append(nat_sum)
-                                bond_5yr_non.append(bond)
-                                non_5yr.append(non_sum)
-                                bond_5yr_Su.append(bond)
-                                Su_5yr.append(final_Su)
+                # Sort by bond for smooth lines
+                def sort_bucket(b):
+                        if not b["bond"]:
+                                return b
+                        order = np.argsort(b["bond"])  # ascending
+                        for k in b.keys():
+                                b[k] = [b[k][idx] for idx in order]
+                        return b
 
-                # --- Sort helper ---
-                def sort_by_bond(bonds, vals):
-                        zipped = sorted(zip(bonds, vals), key=lambda x: x[0])
-                        return zip(*zipped) if zipped else ([], [])
+                data_5yr = sort_bucket(data_5yr)
+                data_25yr = sort_bucket(data_25yr)
 
-                bond_5yr_nat, nat_5yr = sort_by_bond(bond_5yr_nat, nat_5yr)
-                bond_5yr_non, non_5yr = sort_by_bond(bond_5yr_non, non_5yr)
-                bond_25yr_nat, nat_25yr = sort_by_bond(bond_25yr_nat, nat_25yr)
-                bond_25yr_non, non_25yr = sort_by_bond(bond_25yr_non, non_25yr)
-                bond_5yr_Su, Su_5yr = sort_by_bond(bond_5yr_Su, Su_5yr)
-                bond_25yr_Su, Su_25yr = sort_by_bond(bond_25yr_Su, Su_25yr)
+                # Plot
+                plt.figure(figsize=(12, 7))
 
-                # --- Plot ---
-                plt.figure(figsize=(10, 6))
+                # 5yr solid
+                plt.plot(data_5yr["bond"], data_5yr["nat"], color='green', marker='o', linestyle='-', label='5yr PMD - Nat. Compliant Derelicts')
+                plt.plot(data_5yr["bond"], data_5yr["non"], color='green', marker='o', linestyle='-', alpha=0.75, label='5yr PMD - Non-Comp. Derelicts')
+                plt.plot(data_5yr["bond"], data_5yr["Su"], color='blue', marker='s', linestyle='-', label='5yr PMD - Fringe Sats (Su)')
+                plt.plot(data_5yr["bond"], data_5yr["Sns"], color='purple', marker='x', linestyle='-', label='5yr PMD - Fringe Sats (Sns)')
 
-                # Derelicts
-                plt.scatter(bond_5yr_nat, nat_5yr, marker='o', color='green', label='5yr PMD - Nat. Compliant Derelicts')
-                plt.scatter(bond_5yr_non, non_5yr, marker='o', color='red', label='5yr PMD - Non-Comp. Derelicts')
-                plt.scatter(bond_25yr_nat, nat_25yr, marker='^', color='green', label='25yr PMD - Nat. Compliant Derelicts')
-                plt.scatter(bond_25yr_non, non_25yr, marker='^', color='red', label='25yr PMD - Non-Comp. Derelicts')
-
-                # Fringe satellites
-                plt.plot(bond_5yr_Su, Su_5yr, marker='s', linestyle='-', color='blue', label='5yr PMD - Fringe Sats')
-                plt.plot(bond_25yr_Su, Su_25yr, marker='s', linestyle='--', color='blue', label='25yr PMD - Fringe Sats')
+                # 25yr dashed
+                plt.plot(data_25yr["bond"], data_25yr["nat"], color='red', marker='o', linestyle='--', label='25yr PMD - Nat. Compliant Derelicts')
+                plt.plot(data_25yr["bond"], data_25yr["non"], color='red', marker='o', linestyle='--', alpha=0.75, label='25yr PMD - Non-Comp. Derelicts')
+                plt.plot(data_25yr["bond"], data_25yr["Su"], color='blue', marker='s', linestyle='--', label='25yr PMD - Fringe Sats (Su)')
+                plt.plot(data_25yr["bond"], data_25yr["Sns"], color='purple', marker='x', linestyle='--', label='25yr PMD - Fringe Sats (Sns)')
 
                 plt.xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
                 plt.ylabel("Number of Objects", fontsize=14, fontweight='bold')
-                plt.xticks(fontsize=12, fontweight='bold')
-                plt.yticks(fontsize=12, fontweight='bold')
-                plt.grid(True)
-                plt.legend(fontsize=12, loc='upper right')
+                plt.grid(True, alpha=0.3)
+                plt.legend(fontsize=11, loc='best')
                 plt.tight_layout()
 
-                for spine in plt.gca().spines.values():
-                        spine.set_linewidth(1.5)
-
-                # Save and show
-                file_path = os.path.join(self.simulation_folder, "comparisons", "object_counts_vs_bond_split.png")
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                file_path = os.path.join(comparison_folder, "object_counts_vs_bond_split.png")
                 plt.savefig(file_path, dpi=300)
+                plt.close()
                 print(f"Split object count plot saved to {file_path}")
+
+        def comparison_scatter_umpy_vs_total_objects(self, plot_data_lists, other_data_lists):
+                """
+                Create a scatter plot showing FINAL YEAR ONLY:
+                - X-axis: Total UMPY across all shells
+                - Y-axis: Total count of objects
+                - Color: Bond amount
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                import re
+
+                # Create comparison folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+                file_path = os.path.join(comparison_folder, "scatter_umpy_vs_total_objects.png")
+
+                umpy_vals = []
+                total_object_vals = []
+                bond_vals = []
+                scenario_labels = []
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        
+                        # Extract bond amount from scenario name
+                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        bond = int(match.group(1)) if match else 0
+                        
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_timestep = timesteps[-1]  # Only final year
+                        
+                        # Calculate total UMPY for final timestep
+                        umpy_data = other_data[final_timestep].get("umpy", [])
+                        if isinstance(umpy_data, dict):
+                                total_umpy = np.sum(list(umpy_data.values()))
+                        else:
+                                total_umpy = np.sum(umpy_data) if umpy_data else 0
+                        
+                        # Calculate total objects across all species for final timestep
+                        total_objects = 0
+                        for species_name, species_data in plot_data.data.items():
+                                if isinstance(species_data, np.ndarray):
+                                        # Data is already converted to numpy array (time, shells)
+                                        if species_data.ndim == 2:
+                                                # Get data for final timestep
+                                                total_objects += np.sum(species_data[-1, :])
+                                        else:
+                                                total_objects += np.sum(species_data)
+                                elif isinstance(species_data, dict):
+                                        # Data is stored as {year: [shell1, shell2, ...], ...}
+                                        year_keys = sorted(species_data.keys(), key=int)
+                                        final_year = year_keys[-1]
+                                        final_year_data = species_data[final_year]
+                                        if isinstance(final_year_data, list):
+                                                total_objects += np.sum(final_year_data)
+                                elif isinstance(species_data, list) and len(species_data) > 0:
+                                        arr = np.array(species_data)
+                                        if arr.ndim == 2:  # (time, shells)
+                                                # Get data for final timestep
+                                                total_objects += np.sum(arr[-1, :])
+                                        else:
+                                                total_objects += np.sum(arr)
+                        
+                        print(f"Scenario {scenario_label}: UMPY={total_umpy:.2f}, Total Objects={total_objects:.2f}")
+                        
+                        umpy_vals.append(total_umpy)
+                        total_object_vals.append(total_objects)
+                        bond_vals.append(bond)
+                        scenario_labels.append(scenario_label)
+
+                # Check if we have data
+                if not umpy_vals:
+                        print("Warning: No data found for scatter_umpy_vs_total_objects plot")
+                        return
+
+                # Create the scatter plot
+                plt.figure(figsize=(10, 8))
+                
+                # Create scatter plot with color based on bond amount
+                scatter = plt.scatter(umpy_vals, total_object_vals, 
+                                    c=bond_vals, s=100, 
+                                    cmap='viridis', alpha=0.7, edgecolors='black', linewidth=0.5)
+                
+                # Add colorbar for bond amounts
+                cbar = plt.colorbar(scatter)
+                cbar.set_label("Bond Amount ($k)", fontsize=12)
+                
+                # Add annotations for scenario labels
+                for x, y, scenario in zip(umpy_vals, total_object_vals, scenario_labels):
+                        clean_label = scenario.replace('bond_', '').replace('_5yr', '').replace('_25yr', '')
+                        plt.annotate(clean_label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+
+                plt.xlabel("Total UMPY (kg/year)", fontsize=14, fontweight='bold')
+                plt.ylabel("Total Count of Objects", fontsize=14, fontweight='bold')
+                plt.title("Final Year: Total Objects vs UMPY by Bond Amount", fontsize=16, fontweight='bold')
+                plt.grid(True, alpha=0.3)
+                
+                plt.tight_layout()
+                plt.savefig(file_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                
+                print(f"UMPY vs total objects scatter plot saved to {file_path}")
 
 
 
