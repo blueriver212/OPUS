@@ -19,7 +19,7 @@
         "fragment_spreading": false, 
         "parallel_processing": false,
         "indicator_variables" : ["active_loss_per_species", "umpy"],
-        "launch_scenario": "SEP1"
+        "launch_scenario": "OPUS"
     },
     "simulation_name": "Bond-Pot",
     "OPUS" :{
