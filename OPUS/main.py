@@ -185,6 +185,17 @@ class IAMSolver:
         # launch rate is 6075
 
         # sammie / joey addition: This populates the `total_funds_for_removals` available for the start of the simulation loop (Year 1).
+        for i, sp in multi_species:
+            if sp == 'S':
+                constellation_sats_idx = multi_species.species.sp.species_idx
+                constellation_start_slice = multi_species.species.sp.start_slice
+                constellation_end_slice = multi_species.species.sp.end_slice
+
+            if sp == 'Su':
+                fringe_sats_idx = multi_species.species.sp.species_idx
+                fringe_start_slice = multi_species.species.sp.start_slice
+                fringe_end_slice = multi_species.species.sp.end_slice
+                
         econ_calculator.process_period_economics(
             num_actually_removed=0,
             current_environment=self.MOCAT.scenario_properties.x0,

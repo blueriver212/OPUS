@@ -19,7 +19,6 @@ from utils.EconCalculations import EconCalculations
 import os
 from itertools import repeat
 
-
 class OptimizeADR:
     def __init__(self, params = []):
         self.output = None
@@ -30,6 +29,31 @@ class OptimizeADR:
         self.params = params 
         self.umpy_score = None
         self.welfare_dict = {}
+
+    @staticmethod
+    def optimizer_get_species_position_indexes(MOCAT, multi_species):
+        """
+            The MOCAT model works on arrays that are the number of shells x number of species.
+            Often throughout the model, we see the original list being spliced. 
+            This function returns the start and end slice of the species in the array.
+
+            Inputs:
+                MOCAT: The MOCAT model
+                constellation_sats: The name of the constellation satellites
+                fringe_sats: The name of the fringe satellites
+        """
+        for i, sp in multi_species:
+            if sp == 'S':
+                constellation_sats_idx = multi_species.species.sp.species_idx
+                constellation_start_slice = multi_species.species.sp.start_slice
+                constellation_end_slice = multi_species.species.sp.end_slice
+
+            if sp == 'Su':
+                fringe_sats_idx = multi_species.species.sp.species_idx
+                fringe_start_slice = multi_species.species.sp.start_slice
+                fringe_end_slice = multi_species.species.sp.end_slice
+
+        return constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice
 
     def solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False):
         self.grid_search = grid_search
@@ -50,6 +74,8 @@ class OptimizeADR:
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
     
+        _, _, fringe_start_slice, fringe_end_slice = self.optimizer_get_species_position_indexes(MOCAT=self.MOCAT, multi_species=multi_species)
+
         shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
         if MOCAT_config['OPUS']['disposal_time'] == 5:
             mids = self.MOCAT.scenario_properties.HMid
@@ -209,9 +235,9 @@ class OptimizeADR:
         species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
 
         
-        return tf, current_environment, species_data, col_probability_all_species, umpy, excess_returns, last_non_compliance, econ_calculator, shells, lam
+        return tf, current_environment, species_data, col_probability_all_species, umpy, excess_returns, last_non_compliance, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice
 
-    def optimize_adr_loop(self, time_idx, species_data, econ_calculator, shells, current_environment, lam):
+    def optimize_adr_loop(self, time_idx, species_data, econ_calculator, shells, current_environment, lam, fringe_start_slice, fringe_end_slice):
         current_trial_results = {}
         print("Starting year ", time_idx)
         
@@ -331,11 +357,11 @@ class OptimizeADR:
             trial_shell_revenue = open_access.last_tax_revenue.tolist()
 
             """NEED TO FIX THE WELFARE CALCULATIONS HERE"""
-            # #J- Adding in Economic Welfare
-            # fringe_pop = propagated_environment_trial[fringe_start_slice:fringe_end_slice]
-            # total_fringe_sat = np.sum(fringe_pop)
-            # # Use the trial's leftover revenue
-            # welfare = 0.5 * econ_params.coef * total_fringe_sat ** 2 + leftover_tax_revenue_trial
+            #J- Adding in Economic Welfare
+            fringe_pop = trial_environment_for_solver[fringe_start_slice:fringe_end_slice]
+            total_fringe_sat = np.sum(fringe_pop)
+            # Use the trial's leftover revenue
+            welfare = 0.5 * self.econ_params.coef * total_fringe_sat ** 2 + trial_leftover_tax_revenue
 
             # Save the results that will be used for plotting later
             current_trial_results[cs] = {
@@ -370,9 +396,9 @@ class OptimizeADR:
     def run_optimizer_loop(self, scenario_name, simulation_name, MOCAT_config):
         simulation_results = {}
         opt_path = {}
-        tf, current_environment, species_data, col_probability_all_species, umpy, excess_returns, last_non_compliance, econ_calculator, shells, lam = OptimizeADR.solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False)
+        tf, current_environment, species_data, col_probability_all_species, umpy, excess_returns, last_non_compliance, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False)
         for time_idx in tf:
-            optimization_trial_results, opt_shell = OptimizeADR.optimize_adr_loop(self, time_idx, species_data, econ_calculator, current_environment=current_environment, lam=lam, shells=shells)
+            optimization_trial_results, opt_shell = OptimizeADR.optimize_adr_loop(self, time_idx, species_data, econ_calculator, current_environment=current_environment, lam=lam, shells=shells, fringe_start_slice=fringe_start_slice, fringe_end_slice=fringe_end_slice)
             
             if opt_shell is not None:
                 best_trial_results = optimization_trial_results[opt_shell]
