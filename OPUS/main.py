@@ -16,6 +16,7 @@ import time
 from utils.ADRParameters import ADRParameters
 from utils.ADR import optimize_ADR_removal, implement_adr
 from utils.EconCalculations import EconCalculations
+from optimize_ADR import OptimizeADR, process_optimizer_scenario
 
 class IAMSolver:
 
@@ -107,6 +108,12 @@ class IAMSolver:
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
         
+        # sammie addition:
+        adr_times = [5, 10, 15, 20]
+        econ_params_gen = EconParameters(self.econ_params_json, mocat=self.MOCAT)
+        econ_params_gen.econ_params_for_ADR(scenario_name)
+        econ_calculator = EconCalculations(econ_params_gen, initial_removal_cost=5000000)
+
         # For each simulation - we will need to modify the base economic parameters for the species. 
         for species in multi_species.species:
             species.econ_params.modify_params_for_simulation(scenario_name)
@@ -177,6 +184,15 @@ class IAMSolver:
         # launch rate is 92
         # launch rate is 6075
 
+        # sammie / joey addition: This populates the `total_funds_for_removals` available for the start of the simulation loop (Year 1).
+        econ_calculator.process_period_economics(
+            num_actually_removed=0,
+            current_environment=self.MOCAT.scenario_properties.x0,
+            fringe_slices=(fringe_start_slice, fringe_end_slice),
+            new_tax_revenue=float(open_access.last_total_revenue)
+        )
+
+
         lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
              
         ####################
@@ -194,12 +210,6 @@ class IAMSolver:
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
-
-        # sammie addition:
-        adr_times = [5, 10, 15, 20]
-        econ_params_gen = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-        econ_params_gen.econ_params_for_ADR(scenario_name)
-        econ_calculator = EconCalculations(econ_params_gen, initial_removal_cost=5000000)
 
 
         for time_idx in tf:
@@ -233,9 +243,12 @@ class IAMSolver:
             adr_params.removals_left = econ_calculator.get_removals_for_current_period()
             num_removed_this_period = 0; # initialize counter for removed objects
             adr_params.time = time_idx
+            environment_before_adr = environment_for_solver.copy()
+
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
                 # environment_for_solver, ~ = implement_adr(environment_for_solver,self.MOCAT,adr_params)
                 environment_for_solver, removal_dict = optimize_ADR_removal(environment_for_solver,self.MOCAT,adr_params)
+                num_removed_this_period = (environment_before_adr - environment_for_solver).sum
 
             # Record propagated environment data 
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
@@ -404,11 +417,32 @@ if __name__ == "__main__":
         # Map process_scenario function over scenario_files
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
+    
+
+    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
+
+    # sammie addition: running the optimizer version of IAM Solver for shell-switching
+    optimization_solver = OptimizeADR()
+
+    ts = ["N_223kg"]
+    # tp = np.linspace(0, 0.5, num=2)
+    tn = [1000]
+    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    bond = [0, 1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    ouf = [0]*1
+    target_shell = [12] # last number should be the number of shells + 1
+    rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
+
+    # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
+    opt, MOCAT, scenario_files, best_umpy = OptimizeADR.fit(optimization_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
+
+
+
+
+
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
-
-    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
