@@ -8,8 +8,8 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd, evaluate_pmd_elliptical
 from .Helpers import insert_launches_into_lam
-from ADR import optimize_ADR_removal, implement_adr
-from EconCalculations import revenue_open_access_calculations
+from .ADR import optimize_ADR_removal, implement_adr
+from .EconCalculations import revenue_open_access_calculations
 
 class MultiSpeciesOpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, x0, revenue_model, 
@@ -85,10 +85,10 @@ class MultiSpeciesOpenAccessSolver:
         # 12077, elp = 18076
 
         if self.elliptical:
-            state_next_sma, _ = implement_adr(state_next_sma, self.MOCAT, self.adr_params)
-            state_next_alt, _ = implement_adr(state_next_alt, self.MOCAT, self.adr_params)
+            state_next_sma, _ = optimize_ADR_removal(state_next_sma, self.MOCAT, self.adr_params)
+            state_next_alt, _ = optimize_ADR_removal(state_next_alt, self.MOCAT, self.adr_params)
         else:
-            state_next_alt, _ = implement_adr(state_next_alt, self.MOCAT, self.adr_params)
+            state_next_alt, _ = optimize_ADR_removal(state_next_alt, self.MOCAT, self.adr_params)
 
         # Gets the final output and update the current environment matrix
         if self.elliptical:

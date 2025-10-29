@@ -195,7 +195,7 @@ class IAMSolver:
                 fringe_sats_idx = multi_species.species.sp.species_idx
                 fringe_start_slice = multi_species.species.sp.start_slice
                 fringe_end_slice = multi_species.species.sp.end_slice
-                
+
         econ_calculator.process_period_economics(
             num_actually_removed=0,
             current_environment=self.MOCAT.scenario_properties.x0,
@@ -381,6 +381,7 @@ if __name__ == "__main__":
     ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
     scenario_files=[
                     "Baseline",
+                    "adr_test",
                     # "bond_0k_25yr",
                     "bond_100k",
                     # "bondrevenuegrowth_100k",
@@ -404,7 +405,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "bond-test"
+    simulation_name = "setup-test"
 
     iam_solver = IAMSolver()
 
@@ -432,23 +433,20 @@ if __name__ == "__main__":
 
     # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
 
-    # sammie addition: running the optimizer version of IAM Solver for shell-switching
-    optimization_solver = OptimizeADR()
+    # # sammie addition: running the optimizer version of IAM Solver for shell-switching
+    # optimization_solver = OptimizeADR()
 
-    ts = ["N_223kg"]
-    # tp = np.linspace(0, 0.5, num=2)
-    tn = [1000]
-    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [0, 1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    ouf = [0]*1
-    target_shell = [12] # last number should be the number of shells + 1
-    rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
+    # ts = ["N_223kg"]
+    # # tp = np.linspace(0, 0.5, num=2)
+    # tn = [1000]
+    # tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    # bond = [0, 1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    # ouf = [0]*1
+    # target_shell = [12] # last number should be the number of shells + 1
+    # rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
-    # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
-    opt, MOCAT, scenario_files, best_umpy = OptimizeADR.fit(optimization_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
-
-
-
+    # # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
+    # opt, MOCAT, scenario_files, best_umpy = OptimizeADR.fit(optimization_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
 
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
