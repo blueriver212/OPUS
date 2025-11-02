@@ -126,8 +126,8 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-        multi_species_names = ["S", "Su", "Sns"]
+        multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+        # multi_species_names = ["S", "Su", "Sns"]
         # multi_species_names = ["S"]
 
         # This will create a list of OPUSSpecies objects. 
@@ -357,7 +357,14 @@ class IAMSolver:
         if self.grid_search:
             return species_data
         else:
-            PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, multi_species.species[0].econ_params, grid_search=False)
+            # Create a dictionary of econ_params for all species
+            all_econ_params = {
+                species.name: species.econ_params 
+                for species in multi_species.species 
+                if hasattr(species, 'econ_params') and species.econ_params is not None
+            }
+            
+            PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, all_econ_params, grid_search=False)
             return species_data
         
     def get_mocat(self):
@@ -379,8 +386,8 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name):
 
 if __name__ == "__main__":
     baseline = True
-    bond_amounts = [100000, 500000, 1000000, 1500000, 2000000]
-    lifetimes = [5, 25]
+    bond_amounts = [100000]
+    lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content
     print("Ensuring bond configuration files exist...")
@@ -399,9 +406,11 @@ if __name__ == "__main__":
     }
     
 
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
 
     simulation_name = "sns_test_2"
+    if not os.path.exists(f"./Results/{simulation_name}"):
+        os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
@@ -428,13 +437,13 @@ if __name__ == "__main__":
         
         return totals
 
-    # # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=True)
-    #     # Get the total species from the output
-    #     total_species = get_total_species_from_output(output)
-    #     print(f"Total species for scenario {scenario_name}: {total_species}")
+    # no parallel processing
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+        # Get the total species from the output
+        total_species = get_total_species_from_output(output)
+        print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
     # with ThreadPoolExecutor() as executor:
@@ -442,9 +451,9 @@ if __name__ == "__main__":
     #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    multi_species_names = ["S","Su", "Sns"]
+    # multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
-    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
