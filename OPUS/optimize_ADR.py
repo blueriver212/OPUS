@@ -12,11 +12,13 @@ from concurrent.futures import ProcessPoolExecutor
 import json
 import numpy as np
 import time
+from datetime import timedelta
+import os
+import pandas as pd
 
 from utils.ADRParameters import ADRParameters
 from utils.ADR import optimize_ADR_removal, implement_adr
 from utils.EconCalculations import EconCalculations
-import os
 from itertools import repeat
 
 class OptimizeADR:
@@ -29,6 +31,7 @@ class OptimizeADR:
         self.params = params 
         self.umpy_score = None
         self.welfare_dict = {}
+        self.config = None
 
     @staticmethod
     def optimizer_get_species_position_indexes(MOCAT, multi_species):
@@ -58,6 +61,7 @@ class OptimizeADR:
     def solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False):
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
+        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
         multi_species_names = ["S", "Su", "Sns"]
         # multi_species_names = ["S"]
 
@@ -68,12 +72,34 @@ class OptimizeADR:
         ### CONFIGURE MOCAT MODEL
         #########################
         # if self.MOCAT is None:
-        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
+        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=self.grid_search)
         self.elliptical = self.MOCAT.scenario_properties.elliptical # elp, x0 = 12517
+        print(self.MOCAT.scenario_properties.x0)
+
+        model_horizon = self.MOCAT.scenario_properties.simulation_duration
+        tf = np.arange(1, model_horizon + 1)
+        # create a list of the years (int) using scenario_properties.start_date and scenario_properties.simulation_duration
+        years = [int(self.MOCAT.scenario_properties.start_date.year) + i for i in range(self.MOCAT.scenario_properties.simulation_duration)]
+        years.insert(0, years[0] - 1)
 
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
     
+        current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
+        species_data = {sp: {year: np.zeros(self.MOCAT.scenario_properties.n_shells) for year in years} for sp in self.MOCAT.scenario_properties.species_names}
+
+        # update time 0 as the initial population
+        initial_year = years[0] # Get the first year (e.g., 2016)
+
+        if self.elliptical:
+            x0_alt = self.MOCAT.scenario_properties.sma_ecc_mat_to_altitude_mat(self.MOCAT.scenario_properties.x0)
+        
+        for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+            if self.elliptical:
+                species_data[sp][initial_year] = x0_alt[:, i]
+            else:
+                species_data[sp][initial_year] = self.MOCAT.scenario_properties.x0[sp]
+
         _, _, fringe_start_slice, fringe_end_slice = self.optimizer_get_species_position_indexes(MOCAT=self.MOCAT, multi_species=multi_species)
 
         shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
@@ -128,6 +154,22 @@ class OptimizeADR:
         for species in multi_species.species:
             species.econ_params.modify_params_for_simulation(scenario_name)
             species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
+            # species.econ_params.update_congestion_costs(multi_species, self.MOCAT.scenario_properties.x0) 
+
+        # For now make all satellites circular if elliptical
+        if self.elliptical:
+            # for species idx in multi_species.species, place all of their satellites in the first eccentricity bin
+            for species in multi_species.species:
+                # Sum all satellites across all eccentricity bins for this species
+                total_satellites = np.sum(self.MOCAT.scenario_properties.x0[:, species.species_idx, :], axis=1)
+                # Move all satellites to the first eccentricity bin (index 0)
+                self.MOCAT.scenario_properties.x0[:, species.species_idx, 0] = total_satellites
+                # Set all other eccentricity bins to zero
+                self.MOCAT.scenario_properties.x0[:, species.species_idx, 1:] = 0
+
+        # Flatten for circular orbits
+        if not self.elliptical:     
+            self.MOCAT.scenario_properties.x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()           
 
         self.adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         self.adr_params.adr_parameter_setup(scenario_name)
@@ -146,21 +188,30 @@ class OptimizeADR:
                 self.adr_params.p_remove = [current_params[3]]
                 self.adr_params.remove_method = ["p"]
 
-
-        # For now make all satellites circular if elliptical
+        # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
+        # Lam should be the same shape as x0 and is full of None values for objects that are not launched. 
+        solver_guess = self.MOCAT.scenario_properties.x0.copy()
+        lam = np.full_like(self.MOCAT.scenario_properties.x0, None, dtype=object)
         if self.elliptical:
-            # for species idx in multi_species.species, place all of their satellites in the first eccentricity bin
             for species in multi_species.species:
-                # Sum all satellites across all eccentricity bins for this species
-                total_satellites = np.sum(self.MOCAT.scenario_properties.x0[:, species.species_idx, :], axis=1)
-                # Move all satellites to the first eccentricity bin (index 0)
-                self.MOCAT.scenario_properties.x0[:, species.species_idx, 0] = total_satellites
-                # Set all other eccentricity bins to zero
-                self.MOCAT.scenario_properties.x0[:, species.species_idx, 1:] = 0
-
-        # Flatten for circular orbits
-        if not self.elliptical:     
-            self.MOCAT.scenario_properties.x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
+                # lam will be n_sma_bins x n_ecc_bins x n_alt_shells
+                initial_guess = 0.05 * self.MOCAT.scenario_properties.x0[:, species.species_idx, 0]
+                # if sum of initial guess is 0, multiply each element by 10
+                if np.sum(initial_guess) == 0:
+                    initial_guess[:] = 5
+                lam[:, species.species_idx, 0] = initial_guess
+                solver_guess[:, species.species_idx, 0] = initial_guess
+        else:
+            for species in multi_species.species:
+                # if species.name == constellation_sat:
+                #     continue
+                # else:
+                inital_guess = 0.05 * n.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
+                # if sum of initial guess is 0, muliply each element by 10
+                if sum(inital_guess) == 0:
+                    inital_guess[:] = 5
+                solver_guess[species.start_slice:species.end_slice] = inital_guess
+                lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
 
         # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
         # Lam should be the same shape as x0 and is full of None values for objects that are not launched. 
@@ -194,21 +245,17 @@ class OptimizeADR:
         else:
             for species in multi_species.species:
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
-
-        
-
         # for species in multi_species.species:
         #     if species.adr_params is None:
         #         species.adr_params.adr_parameter_setup(scenario_name)
 
         ############################
         ### SOLVE FOR THE FIRST YEAR
-        # elp: 
         ############################c
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, adr_params)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0, self.adr_params)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
-        launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
+        launch_rate = open_access.solver()
         # launch rate is 92
         # launch rate is 6075
 
@@ -235,12 +282,14 @@ class OptimizeADR:
         species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
 
         
-        return tf, current_environment, species_data, col_probability_all_species, umpy, excess_returns, last_non_compliance, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice
+        return tf, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice
 
-    def optimize_adr_loop(self, time_idx, species_data, econ_calculator, shells, current_environment, lam, fringe_start_slice, fringe_end_slice):
+    def optimize_adr_loop(self, years, time_idx, species_data, econ_calculator, shells, current_environment, lam, fringe_start_slice, fringe_end_slice):
         current_trial_results = {}
-        print("Starting year ", time_idx)
-        
+        try:
+            print("Starting year ", years[time_idx-1])
+        except Exception as e:
+            print("Starting year ", time_idx)
         # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
         tspan = np.linspace(0, 1, 2)
         
@@ -257,7 +306,15 @@ class OptimizeADR:
         # Apply PMD (Post Mission Disposal) evaluation to remove satellites
         print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
         if self.elliptical:
-            state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species)
+                # c heck if density_model has name property
+            if self.MOCAT.scenario_properties.density_model != "static_exp_dens_func":
+                try:
+                    density_model_name = self.MOCAT.scenario_properties.density_model.__name__
+                except AttributeError:
+                    raise ValueError(f"Density model {self.MOCAT.scenario_properties.density_model} does not have a name property")
+            state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species, 
+                years[time_idx-1], density_model_name, self.MOCAT.scenario_properties.HMid, self.MOCAT.scenario_properties.eccentricity_bins, 
+                self.MOCAT.scenario_properties.R0_rad_km)
         else:
             state_next_alt, multi_species = evaluate_pmd(state_next_alt, multi_species)
         print(f"After PMD - Total environment: {np.sum(state_next_alt)}")
@@ -268,7 +325,7 @@ class OptimizeADR:
         removals_possible = econ_calculator.get_removals_for_current_period()
         self.adr_params.removals_left = removals_possible
         self.adr_params.time = time_idx
-        if (self.econ_params.tax == 0 and self.econ_params.bond == 0 and self.econ_params.ouf == 0) or (econ_params.bond == None and econ_params.tax == 0 and econ_params.ouf == 0):
+        if (self.econ_params.tax == 0 and self.econ_params.bond == 0 and self.econ_params.ouf == 0) or (self.econ_params.bond == None and self.econ_params.tax == 0 and self.econ_params.ouf == 0):
                 self.adr_params.removals_left = 7 # This is a hard-coded override, kept as-is.
 
         before_adr = environment_for_solver.copy()
@@ -280,9 +337,9 @@ class OptimizeADR:
             self.adr_params.removals_left = removals_possible
             self.adr_params.target_shell = [cs]
 
-            if ((self.adr_params.adr_times is not None) and (time_idx in self.adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
+            if ((self.adr_params.adr_times is not None) and (time_idx in self.adr_params.adr_times) and (len(self.adr_params.adr_times) != 0)):
                 # environment_for_solver, ~ = implement_adr(environment_for_solver,self.MOCAT,adr_params)
-                trial_environment_for_solver, removal_dict = optimize_ADR_removal(trial_environment_for_solver,self.MOCAT,adr_params)
+                trial_environment_for_solver, removal_dict = optimize_ADR_removal(trial_environment_for_solver,self.MOCAT,self.adr_params)
 
             trial_num_removed = (before_adr - trial_environment_for_solver).sum
             trial_cost_of_removals = trial_num_removed * econ_calculator.removal_cost
@@ -290,58 +347,58 @@ class OptimizeADR:
             trial_leftover_tax_revenue = max(0, trial_funds_left)
 
             # Record propagated environment data 
-            trial_species_data = {}
-
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
                 # 0 based index 
                 if self.elliptical:
                     # For elliptical orbits, propagated_environment is a 2D array (n_shells, n_species)
-                    trial_species_data[sp][time_idx - 1] = state_next_alt[:, i]
+                    species_data[sp][years[time_idx - 1]] = state_next_alt[:, i]
                 else:
                     # For circular orbits, propagated_environment is a 1D array
-                    trial_species_data[sp][time_idx - 1] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                    species_data[sp][years[time_idx - 1]] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
             start_time = time.time()
             # solver guess will be lam
             solver_guess = None
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, trial_environment_for_solver, "linear", lam, multi_species, adr_params=self.adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, self.adr_params)
 
             # Calculate solver_guess
             solver_guess = lam.copy()
             for species in multi_species.species:
                 # Calculate the probability of collision based on the new position
-                if self.elliptical:
-                    # For elliptical orbits, we need to use the 3D SMA matrix for collision probability
-                    collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
-                    # Rate of Return - use the 3D SMA matrix
-                    rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species)
-                else:
-                    # For circular orbits, use the 2D matrix
-                    collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
+                collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
+
+                if species.maneuverable:
+                    maneuvers = open_access.calculate_maneuvers(state_next_alt, species.name)
+                    # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
+                    cost = maneuvers * 10000 # $10,000 per maneuver
                     # Rate of Return
-                    rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species)
+                    if self.elliptical:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
+                    else:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species, cost)
+                else:
+                    if self.elliptical:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species)
+                    else:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species)
                 
                 if self.elliptical:
-                    # For elliptical orbits, solver_guess is 3D, so we need to handle it differently
-                    # We'll update the first eccentricity bin (index 0) for this species
                     solver_guess[:, species.species_idx, 0] = solver_guess[:, species.species_idx, 0] - solver_guess[:, species.species_idx, 0] * (rate_of_return - collision_probability)
                 else:
                     solver_guess[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability)
 
+            # sto±re the rate of return for this species
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
             # multi_species.increase_demand()
 
-            solver_guess = self._apply_replacement_floor(solver_guess, trial_environment_for_solver, multi_species)
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, trial_environment_for_solver, "linear", lam, multi_species, adr_params=self.adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, self.adr_params)
 
             # Solve for equilibrium launch rates
-            launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
+            launch_rate = open_access.solver()
 
             # Update the initial conditions for the next period
-            # lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
-            # trial update for lam:
-            trial_launch_rate = launch_rate.copy()
+            lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
 
             elapsed_time = time.time() - start_time
             print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
@@ -355,6 +412,8 @@ class OptimizeADR:
             # # ---- Process Economics ---- # #
             trial_total_tax_revenue = float(open_access._last_total_revenue)
             trial_shell_revenue = open_access.last_tax_revenue.tolist()
+            trial_species_data = species_data
+            trial_launch_rate = launch_rate
 
             """NEED TO FIX THE WELFARE CALCULATIONS HERE"""
             #J- Adding in Economic Welfare
@@ -376,10 +435,13 @@ class OptimizeADR:
                     "ror": rate_of_return,
                     "collision_probability": collision_probability,
                     "launch_rate" : launch_rate, 
-                    "collision_probability_all_species": col_probability_all_species,
-                    "umpy": umpy, 
-                    "excess_returns": excess_returns,
-                    "non_compliance": last_non_compliance,
+                    "collision_probability_all_species": open_access._last_collision_probability,
+                    "umpy": open_access.umpy, 
+                    "excess_returns": open_access._last_excess_returns,
+                    "non_compliance": open_access._last_non_compliance, 
+                    "maneuvers": open_access._last_maneuvers,
+                    "cost": open_access._last_cost,
+                    "rate_of_return": open_access._last_rate_of_return,
                     "tax_revenue_total": trial_total_tax_revenue,
                     "tax_revenue_by_shell": trial_shell_revenue,
                     "welfare": welfare,
@@ -396,7 +458,7 @@ class OptimizeADR:
     def run_optimizer_loop(self, scenario_name, simulation_name, MOCAT_config):
         simulation_results = {}
         opt_path = {}
-        tf, current_environment, species_data, col_probability_all_species, umpy, excess_returns, last_non_compliance, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False)
+        tf, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False)
         for time_idx in tf:
             optimization_trial_results, opt_shell = OptimizeADR.optimize_adr_loop(self, time_idx, species_data, econ_calculator, current_environment=current_environment, lam=lam, shells=shells, fringe_start_slice=fringe_start_slice, fringe_end_slice=fringe_end_slice)
             
@@ -430,12 +492,7 @@ class OptimizeADR:
                 )
                 pass 
             
-        
-        var = PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, self.econ_params)
-
         # sammie addition: storing the optimizable values and params
-        self.umpy_score = var.umpy_score
-        self.adr_dict = var.adr_dict
         self.welfare_dict[scenario_name] = welfare
 
         removal_save_path = f"./Results/{simulation_name}/{scenario_name}/removal_path.json"
@@ -450,11 +507,23 @@ class OptimizeADR:
         with open(opt_save_path, 'w') as json_file:
             json.dump(optimization_trial_results, json_file, indent=4)
 
+        if self.grid_search:
+                return species_data
+        else:
+            # Create a dictionary of econ_params for all species
+            all_econ_params = {
+                species.name: species.econ_params 
+                for species in multi_species.species 
+                if hasattr(species, 'econ_params') and species.econ_params is not None
+            }
+            
+            PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, all_econ_params, grid_search=False)
+            return species_data
+
     def get_mocat_from_optimizer(self):
         return self.MOCAT
     
     def grid_setup(self, simulation_name, target_species, target_shell, amount_remove, removal_cost, tax_rate, bond, ouf):
-        test = "test"
         params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf)*len(target_shell)+1)
         scenario_files = ["Baseline"]
         # params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf))

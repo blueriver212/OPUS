@@ -12,11 +12,88 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import numpy as np
 import time
+from datetime import timedelta
+import os
+import pandas as pd
 
 from utils.ADRParameters import ADRParameters
 from utils.ADR import optimize_ADR_removal, implement_adr
 from utils.EconCalculations import EconCalculations
 from optimize_ADR import OptimizeADR, process_optimizer_scenario
+
+def ensure_bond_config_files(bond_amounts, lifetimes, config_dir="./OPUS/configuration/"):
+    """
+    Ensure all bond configuration CSV files exist with correct content.
+    
+    Args:
+        bond_amounts (list): List of bond amounts in dollars
+        lifetimes (list): List of disposal times in years
+        config_dir (str): Directory containing configuration files
+    
+    Returns:
+        list: List of scenario names that were created/verified
+    """
+    scenario_names = []
+    
+    # Create configuration directory if it doesn't exist
+    os.makedirs(config_dir, exist_ok=True)
+    
+    for bond_amount in bond_amounts:
+        for lifetime in lifetimes:
+            # Generate filename
+            if bond_amount >= 1000000:
+                bond_k = bond_amount // 1000
+                filename = f"bond_{bond_k}k_{lifetime}yr.csv"
+            elif bond_amount >= 1000:
+                bond_k = bond_amount // 1000
+                filename = f"bond_{bond_k}k_{lifetime}yr.csv"
+            else:
+                filename = f"bond_{bond_amount}k_{lifetime}yr.csv"
+            
+            filepath = os.path.join(config_dir, filename)
+            scenario_name = filename.replace('.csv', '')
+            
+            # Expected content
+            expected_content = f"""parameter_type,parameter_name,parameter_value
+                econ,bond,{bond_amount}
+                econ,disposal_time,{lifetime}
+            """
+            
+            # Check if file exists and has correct content
+            file_needs_update = False
+            
+            if not os.path.exists(filepath):
+                print(f"Creating missing file: {filename}")
+                file_needs_update = True
+            else:
+                # Check if content is correct
+                try:
+                    with open(filepath, 'r') as f:
+                        current_content = f.read()
+                    
+                    if current_content.strip() != expected_content.strip():
+                        print(f"Updating file with incorrect content: {filename}")
+                        file_needs_update = True
+                    else:
+                        print(f"File exists and is correct: {filename}")
+                        
+                except Exception as e:
+                    print(f"Error reading file {filename}: {e}")
+                    file_needs_update = True
+            
+            # Update file if needed
+            if file_needs_update:
+                try:
+                    with open(filepath, 'w') as f:
+                        f.write(expected_content)
+                    print(f"Successfully created/updated: {filename}")
+                except Exception as e:
+                    print(f"Error writing file {filename}: {e}")
+                    continue
+            
+            scenario_names.append(scenario_name)
+    
+    return scenario_names
 
 class IAMSolver:
 
@@ -30,6 +107,7 @@ class IAMSolver:
         self.econ_params_json = None
         self.pmd_linked_species = None
         self.adr_params_json = None
+        self.config = None
 
     @staticmethod
     def get_species_position_indexes(MOCAT, constellation_sats):
@@ -88,6 +166,7 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
+        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
         multi_species_names = ["S", "Su", "Sns"]
         # multi_species_names = ["S"]
 
@@ -98,12 +177,34 @@ class IAMSolver:
         ### CONFIGURE MOCAT MODEL
         #########################
         # if self.MOCAT is None:
-        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species)
+        self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=self.grid_search)
         self.elliptical = self.MOCAT.scenario_properties.elliptical # elp, x0 = 12517
+        print(self.MOCAT.scenario_properties.x0)
+
+        model_horizon = self.MOCAT.scenario_properties.simulation_duration
+        tf = np.arange(1, model_horizon + 1)
+        # create a list of the years (int) using scenario_properties.start_date and scenario_properties.simulation_duration
+        years = [int(self.MOCAT.scenario_properties.start_date.year) + i for i in range(self.MOCAT.scenario_properties.simulation_duration)]
+        years.insert(0, years[0] - 1)
 
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
     
+        current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
+        species_data = {sp: {year: np.zeros(self.MOCAT.scenario_properties.n_shells) for year in years} for sp in self.MOCAT.scenario_properties.species_names}
+
+        # update time 0 as the initial population
+        initial_year = years[0] # Get the first year (e.g., 2016)
+
+        if self.elliptical:
+            x0_alt = self.MOCAT.scenario_properties.sma_ecc_mat_to_altitude_mat(self.MOCAT.scenario_properties.x0)
+        
+        for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+            if self.elliptical:
+                species_data[sp][initial_year] = x0_alt[:, i]
+            else:
+                species_data[sp][initial_year] = self.MOCAT.scenario_properties.x0[sp]
+
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
         #################################
@@ -118,6 +219,7 @@ class IAMSolver:
         for species in multi_species.species:
             species.econ_params.modify_params_for_simulation(scenario_name)
             species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
+            # species.econ_params.update_congestion_costs(multi_species, self.MOCAT.scenario_properties.x0) 
 
         # For now make all satellites circular if elliptical
         if self.elliptical:
@@ -174,15 +276,12 @@ class IAMSolver:
         #         species.adr_params.adr_parameter_setup(scenario_name)
 
         ############################
-        ### SOLVE FOR THE FIRST YEAR
-        # elp: 
+        ### SOLVE FOR THE FIRST YEAR 
         ############################c
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, adr_params)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0, adr_params)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
-        launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
-        # launch rate is 92
-        # launch rate is 6075
+        launch_rate = open_access.solver()
 
         # sammie / joey addition: This populates the `total_funds_for_removals` available for the start of the simulation loop (Year 1).
         for i, sp in multi_species:
@@ -211,22 +310,15 @@ class IAMSolver:
         # For each year, take the previous state of the environment, 
         # then use the sovler to calculate the optimal launch rate. 
         ####################
-        model_horizon = self.MOCAT.scenario_properties.simulation_duration
-        tf = np.arange(1, model_horizon + 1) 
-
-        current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
-
-        species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
-
         # Store the ror, collision probability and the launch rate 
         simulation_results = {}
 
-
-
         for time_idx in tf:
 
-            print("Starting year ", time_idx)
-            
+            try:
+                print("Starting year ", years[time_idx-1])
+            except Exception as e:
+                print("Starting year ", time_idx)
             # tspan = np.linspace(tf[time_idx], tf[time_idx + 1], time_step) # simulate for one year 
             tspan = np.linspace(0, 1, 2)
             
@@ -243,7 +335,15 @@ class IAMSolver:
             # Apply PMD (Post Mission Disposal) evaluation to remove satellites
             print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
             if self.elliptical:
-                state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species)
+                 # c heck if density_model has name property
+                if self.MOCAT.scenario_properties.density_model != "static_exp_dens_func":
+                    try:
+                        density_model_name = self.MOCAT.scenario_properties.density_model.__name__
+                    except AttributeError:
+                        raise ValueError(f"Density model {self.MOCAT.scenario_properties.density_model} does not have a name property")
+                state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, multi_species, 
+                    years[time_idx-1], density_model_name, self.MOCAT.scenario_properties.HMid, self.MOCAT.scenario_properties.eccentricity_bins, 
+                    self.MOCAT.scenario_properties.R0_rad_km)
             else:
                 state_next_alt, multi_species = evaluate_pmd(state_next_alt, multi_species)
             print(f"After PMD - Total environment: {np.sum(state_next_alt)}")
@@ -266,47 +366,51 @@ class IAMSolver:
                 # 0 based index 
                 if self.elliptical:
                     # For elliptical orbits, propagated_environment is a 2D array (n_shells, n_species)
-                    species_data[sp][time_idx - 1] = state_next_alt[:, i]
+                    species_data[sp][years[time_idx - 1]] = state_next_alt[:, i]
                 else:
                     # For circular orbits, propagated_environment is a 1D array
-                    species_data[sp][time_idx - 1] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                    species_data[sp][years[time_idx - 1]] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
             start_time = time.time()
             # solver guess will be lam
             solver_guess = None
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, adr_params)
 
             # Calculate solver_guess
             solver_guess = lam.copy()
             for species in multi_species.species:
                 # Calculate the probability of collision based on the new position
-                if self.elliptical:
-                    # For elliptical orbits, we need to use the 3D SMA matrix for collision probability
-                    collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
-                    # Rate of Return - use the 3D SMA matrix
-                    rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species)
-                else:
-                    # For circular orbits, use the 2D matrix
-                    collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
+                collision_probability = open_access.calculate_probability_of_collision(state_next_alt, species.name)
+
+                if species.maneuverable:
+                    maneuvers = open_access.calculate_maneuvers(state_next_alt, species.name)
+                    # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
+                    cost = maneuvers * 10000 # $10,000 per maneuver
                     # Rate of Return
-                    rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species)
+                    if self.elliptical:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
+                    else:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species, cost)
+                else:
+                    if self.elliptical:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species)
+                    else:
+                        rate_of_return = open_access.fringe_rate_of_return(state_next_alt, collision_probability, species)
                 
                 if self.elliptical:
-                    # For elliptical orbits, solver_guess is 3D, so we need to handle it differently
-                    # We'll update the first eccentricity bin (index 0) for this species
                     solver_guess[:, species.species_idx, 0] = solver_guess[:, species.species_idx, 0] - solver_guess[:, species.species_idx, 0] * (rate_of_return - collision_probability)
                 else:
                     solver_guess[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability)
 
+            # sto±re the rate of return for this species
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
             # multi_species.increase_demand()
 
-            solver_guess = self._apply_replacement_floor(solver_guess, environment_for_solver, multi_species)
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, adr_params)
 
             # Solve for equilibrium launch rates
-            launch_rate, col_probability_all_species, umpy, excess_returns, last_non_compliance = open_access.solver()
+            launch_rate = open_access.solver()
 
             # Update the initial conditions for the next period
             lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
@@ -339,10 +443,13 @@ class IAMSolver:
                 "ror": rate_of_return,
                 "collision_probability": collision_probability,
                 "launch_rate" : launch_rate, 
-                "collision_probability_all_species": col_probability_all_species,
-                "umpy": umpy, 
-                "excess_returns": excess_returns,
-                "non_compliance": last_non_compliance,
+                "collision_probability_all_species": open_access._last_collision_probability,
+                "umpy": open_access.umpy, 
+                "excess_returns": open_access._last_excess_returns,
+                "non_compliance": open_access._last_non_compliance, 
+                "maneuvers": open_access._last_maneuvers,
+                "cost": open_access._last_cost,
+                "rate_of_return": open_access._last_rate_of_return,
                 "tax_revenue_total": total_tax_revenue_for_storage,
                 "tax_revenue_by_shell": shell_revenue,
                 "welfare": welfare,
@@ -353,8 +460,16 @@ class IAMSolver:
         if self.grid_search:
             return species_data
         else:
-            PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, multi_species.species[0].econ_params, grid_search=False)
-        
+            # Create a dictionary of econ_params for all species
+            all_econ_params = {
+                species.name: species.econ_params 
+                for species in multi_species.species 
+                if hasattr(species, 'econ_params') and species.econ_params is not None
+            }
+            
+            PostProcessing(self.MOCAT, scenario_name, simulation_name, species_data, simulation_results, all_econ_params, grid_search=False)
+            return species_data
+
     def get_mocat(self):
         return self.MOCAT
 
@@ -373,66 +488,71 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name):
     return iam_solver.get_mocat()
 
 if __name__ == "__main__":
-    ####################
-    ### 2. SCENARIO DEFINITIONS
-    # Change to set scenarios and parallelization
-
-    # Define the scenario to run. Store them in an array. Should be valid names of parameter set CSV files. 
-    ## See examples in scenarios/parsets and compare to files named --parameters.csv for how to create new ones.
-    scenario_files=[
-                    "Baseline",
-                    "adr_test",
-                    # "bond_0k_25yr",
-                    "bond_100k",
-                    # "bondrevenuegrowth_100k",
-                    # "revenuegrowth_0k",
-                    # # "bond_200k",
-                    # # # "bond_300k",
-                    # # # # "bond_500k",
-                    "bond_800k",
-                    # "bond_1200k",
-                    "bond_1600k",
-                    # # # "bond_100k_25yr",
-                    # # # # "bond_200k_25yr",
-                    # # "bond_300k_25yr",
-                    # # # # "bond_500k_25yr",
-                    # "bond_800k_25yr",
-                    # "bond_1200k_25yr",
-                    # "bond_1600k_25yr",
-                    # "tax_1",
-                    # # "tax_2"
-                ]
+    baseline = True
+    bond_amounts = [100000]
+    lifetimes = [5]
     
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
+    # Ensure all bond configuration files exist with correct content
+    print("Ensuring bond configuration files exist...")
+    bond_scenario_names = ensure_bond_config_files(bond_amounts, lifetimes)
+    
+    # Generate complete scenario names list
+    scenario_files = []
+    if baseline:
+        scenario_files.append("Baseline")
+    scenario_files.extend(bond_scenario_names)
+    config = {
+        "scenario_files": scenario_files,
+        "baseline": baseline,
+        "bond_amounts": bond_amounts,
+        "lifetimes": lifetimes
+    }
+    
 
-    simulation_name = "setup-test"
+    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
+
+    simulation_name = "sns_test_2"
+    if not os.path.exists(f"./Results/{simulation_name}"):
+        os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
     def get_total_species_from_output(species_data):
         totals = {}
-        for species, data_array in species_data.items():
-            if isinstance(data_array, np.ndarray):
-                totals[species] = np.sum(data_array[-1])
+        for species, year_data in species_data.items():
+            if isinstance(year_data, dict):
+                # Get the latest year's data
+                latest_year = max(year_data.keys())
+                latest_data = year_data[latest_year]
+                
+                if isinstance(latest_data, np.ndarray):
+                    # Sum the array values
+                    totals[species] = np.sum(latest_data)
+                elif hasattr(latest_data, 'sum'):
+                    # Handle pandas Series
+                    totals[species] = latest_data.sum()
+                else:
+                    # Fallback for other data types
+                    totals[species] = float(latest_data) if isinstance(latest_data, (int, float)) else 0
+            elif isinstance(year_data, np.ndarray):
+                # Handle direct array input (backward compatibility)
+                totals[species] = np.sum(year_data[-1])
+        
         return totals
 
-    # # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+    # no parallel processing
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
         # Get the total species from the output
-        # total_species = get_total_species_from_output(output)
-        # print(f"Total species for scenario {scenario_name}: {total_species}")
+        total_species = get_total_species_from_output(output)
+        print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
     with ThreadPoolExecutor() as executor:
         # Map process_scenario function over scenario_files
         results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
  
-    
-
-    # PlotHandler(iam_solver.get_mocat(), scenario_files, simulation_name, comparison=False)
-
     # # sammie addition: running the optimizer version of IAM Solver for shell-switching
     # optimization_solver = OptimizeADR()
 
@@ -452,6 +572,7 @@ if __name__ == "__main__":
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
+    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     multi_species = MultiSpecies(multi_species_names)
-    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species)
+    MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
