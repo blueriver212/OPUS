@@ -189,7 +189,6 @@ class IAMSolver:
 
         multi_species.get_species_position_indexes(self.MOCAT)
         multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
-    
         current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
         species_data = {sp: {year: np.zeros(self.MOCAT.scenario_properties.n_shells) for year in years} for sp in self.MOCAT.scenario_properties.species_names}
 
@@ -254,7 +253,7 @@ class IAMSolver:
                 # if species.name == constellation_sat:
                 #     continue
                 # else:
-                inital_guess = 0.05 * n.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
+                inital_guess = 0.05 * np.array(self.MOCAT.scenario_properties.x0[species.start_slice:species.end_slice])  
                 # if sum of initial guess is 0, muliply each element by 10
                 if sum(inital_guess) == 0:
                     inital_guess[:] = 5
@@ -275,31 +274,48 @@ class IAMSolver:
         #     if species.adr_params is None:
         #         species.adr_params.adr_parameter_setup(scenario_name)
 
+
+        #Finding fringe and constellation slices
+        constellation_sats_idx = None
+        constellation_start_slice = None
+        constellation_end_slice = None
+        fringe_sats_idx = None
+        fringe_start_slice = None
+        fringe_end_slice = None
+        
+        # Loop over the list of species objects
+        for sp_object in multi_species.species:
+            if sp_object.name == 'S':
+                constellation_sats_idx = sp_object.species_idx
+                constellation_start_slice = sp_object.start_slice
+                constellation_end_slice = sp_object.end_slice
+
+            if sp_object.name == 'Su':
+                fringe_sats_idx = sp_object.species_idx
+                fringe_start_slice = sp_object.start_slice
+                fringe_end_slice = sp_object.end_slice
+
+        # Check to make sure we found the slices we need
+        if fringe_start_slice is None:
+            raise ValueError("Could not find 'Su' species to determine fringe slices.")
+            
         ############################
         ### SOLVE FOR THE FIRST YEAR 
-        ############################c
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0, adr_params)
+        ############################
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0, fringe_start_slice, fringe_end_slice)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
+        # Solver returns a tuple of 5 variables
         launch_rate = open_access.solver()
 
         # sammie / joey addition: This populates the `total_funds_for_removals` available for the start of the simulation loop (Year 1).
-        for i, sp in multi_species:
-            if sp == 'S':
-                constellation_sats_idx = multi_species.species.sp.species_idx
-                constellation_start_slice = multi_species.species.sp.start_slice
-                constellation_end_slice = multi_species.species.sp.end_slice
 
-            if sp == 'Su':
-                fringe_sats_idx = multi_species.species.sp.species_idx
-                fringe_start_slice = multi_species.species.sp.start_slice
-                fringe_end_slice = multi_species.species.sp.end_slice
 
         econ_calculator.process_period_economics(
             num_actually_removed=0,
             current_environment=self.MOCAT.scenario_properties.x0,
             fringe_slices=(fringe_start_slice, fringe_end_slice),
-            new_tax_revenue=float(open_access.last_total_revenue)
+            new_tax_revenue=float(open_access._last_total_revenue)
         )
 
 
@@ -375,7 +391,7 @@ class IAMSolver:
             start_time = time.time()
             # solver guess will be lam
             solver_guess = None
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, fringe_start_slice, fringe_end_slice)
 
             # Calculate solver_guess
             solver_guess = lam.copy()
@@ -403,11 +419,11 @@ class IAMSolver:
                 else:
                     solver_guess[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice] - solver_guess[species.start_slice:species.end_slice] * (rate_of_return - collision_probability)
 
-            # sto±re the rate of return for this species
+            # store the rate of return for this species
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
             # multi_species.increase_demand()
 
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, fringe_start_slice, fringe_end_slice)
 
             # Solve for equilibrium launch rates
             launch_rate = open_access.solver()
@@ -430,12 +446,12 @@ class IAMSolver:
             welfare, leftover_revenue = econ_calculator.process_period_economics(
                 num_actually_removed=num_removed_this_period,
                 current_environment=current_environment,
-                fringe_slices=(),
+                fringe_slices=(fringe_start_slice, fringe_end_slice),
                 new_tax_revenue=new_total_tax_revenue
             )
 
             # Read revenues for storage
-            shell_revenue = open_access.last_tax_revenue.tolist()
+            shell_revenue = open_access._last_tax_revenue.tolist()
             total_tax_revenue_for_storage = float(open_access._last_total_revenue)
 
             # Save the results that will be used for plotting later
@@ -453,7 +469,7 @@ class IAMSolver:
                 "tax_revenue_total": total_tax_revenue_for_storage,
                 "tax_revenue_by_shell": shell_revenue,
                 "welfare": welfare,
-                "bond_revenue": open_access.bond_revenue,
+                "bond_revenue": np.sum(open_access.bond_revenue),
                 "leftover_revenue": leftover_revenue
             }
         
@@ -509,7 +525,7 @@ if __name__ == "__main__":
     }
     
 
-    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
     simulation_name = "sns_test_2"
     if not os.path.exists(f"./Results/{simulation_name}"):
@@ -541,12 +557,12 @@ if __name__ == "__main__":
         return totals
 
     # no parallel processing
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
-        # Get the total species from the output
-        total_species = get_total_species_from_output(output)
-        print(f"Total species for scenario {scenario_name}: {total_species}")
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+    #     # Get the total species from the output
+    #     total_species = get_total_species_from_output(output)
+    #     print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
     with ThreadPoolExecutor() as executor:

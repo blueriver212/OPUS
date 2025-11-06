@@ -11,7 +11,7 @@
     "steps": 10,
     "min_altitude": 200,
     "max_altitude": 1500,
-    "n_shells": 15,
+    "n_shells": 10,
     "launch_function": "Constant",
     "integrator": "BDF",
     "density_model": "JB2008_dens_func",
@@ -74,7 +74,7 @@
     {
         "sym_name": "Su",
         "Cd": 2.2,
-        "mass": 700,
+        "mass": 223,
         "radius": 1.718593970000002,
         "A": 9.278898840154126,
         "bstar" : 2.3515959613633724e-08,

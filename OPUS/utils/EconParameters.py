@@ -15,11 +15,13 @@ class EconParameters:
     """
     def __init__(self, econ_params_json, mocat: Model):
 
+        if econ_params_json is None:
+            params = {}
+        else:
+            params = econ_params_json.get("OPUS", econ_params_json)
+
         # Save MOCAT
         self.mocat = mocat
-
-        # self.lift_price = 5000
-        params = econ_params_json.get("OPUS", econ_params_json)
 
         # Lifetime of a satellite [years]
         # Default value is 5 years for MOCAT
@@ -182,8 +184,8 @@ class EconParameters:
         parameters = pd.read_csv(path)
         
         for i, row in parameters.iterrows():
-            parameter_type = row['parameter_type']
-            parameter_name = row['parameter_name']
+            parameter_type = row['parameter_type'].strip()
+            parameter_name = row['parameter_name'].strip()
             parameter_value = row['parameter_value']
 
             # Modify the value based on parameter_type
@@ -202,4 +204,5 @@ class EconParameters:
         path = f"./OPUS/configuration/{configuration}.csv"
         if not ((configuration).startswith("Baseline")) and (os.path.exists(path)):
             self.modify_params_for_simulation(configuration)
-        self.calculate_cost_fn_parameters()
+        
+        # self.calculate_cost_fn_parameters(pmd_rate, configuration)

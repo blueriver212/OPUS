@@ -67,23 +67,40 @@ class EconCalculations:
         return welfare, funds_left_before_new_revenue
     
 def revenue_open_access_calculations(open_access_inputs, state_next):
+    
+    # Find the fringe ('Su') species' economic parameters from the solver object
+    fringe_econ_params = None
+    for sp in open_access_inputs.multi_species.species:
+        if sp.name == 'Su':
+            fringe_econ_params = sp.econ_params
+            break
+    
+    if fringe_econ_params is None:
+        raise ValueError("Could not find 'Su' species econ_params in revenue_open_access_calculations")
+
     collision_probability = open_access_inputs._last_collision_probability
-    #J ─── Revenue collection ────────────────────────────────────────────────────
+
     fringe_total = state_next[open_access_inputs.fringe_start_slice:open_access_inputs.fringe_end_slice]
 
-    if (open_access_inputs.econ_params.bond is not None) and (open_access_inputs.econ_params.bond != 0):
+    # Use fringe_econ_params instead of open_access_inputs.econ_params
+    if (fringe_econ_params.bond is not None) and (fringe_econ_params.bond != 0):
         # vector already created inside fringe_rate_of_return()
-        revenue_by_shell = open_access_inputs.bond_revenue                      # bond
+        revenue_by_shell = (1 - fringe_econ_params.comp_rate) * fringe_total * fringe_econ_params.bond    
+        open_access_inputs.bond_revenue = revenue_by_shell                 # bond
         open_access_inputs._revenue_type = "bond"
 
-    elif getattr(open_access_inputs.econ_params, "ouf", 0) != 0:
-        revenue_by_shell = open_access_inputs.econ_params.ouf * collision_probability * fringe_total    # OUF
+    # Use fringe_econ_params
+    elif getattr(fringe_econ_params, "ouf", 0) != 0:
+        revenue_by_shell = fringe_econ_params.ouf * collision_probability * fringe_total    # OUF
         open_access_inputs._revenue_type = "ouf"
 
-    elif open_access_inputs.econ_params.tax != 0: #tax
+    # Use fringe_econ_params
+    elif fringe_econ_params.tax != 0: #tax
         Cp            = collision_probability
-        cost_per_sat  = np.asarray(open_access_inputs.econ_params.cost)
-        revenue_by_shell = open_access_inputs.econ_params.tax * Cp * cost_per_sat * fringe_total
+        # Use fringe_econ_params
+        cost_per_sat  = np.asarray(fringe_econ_params.cost)
+        # Use fringe_econ_params
+        revenue_by_shell = fringe_econ_params.tax * Cp * cost_per_sat * fringe_total
         open_access_inputs._revenue_type = "tax"
 
     else:                                                      # nothing levied
@@ -94,9 +111,11 @@ def revenue_open_access_calculations(open_access_inputs, state_next):
 
     _last_tax_revenue   = revenue_by_shell
     _last_total_revenue = float(total_revenue)
-    _dbg_tax_rate       = open_access_inputs.econ_params.tax
+    # Use fringe_econ_params
+    _dbg_tax_rate       = fringe_econ_params.tax
     _dbg_Cp             = collision_probability  
-    _dbg_cost_per_sat   = np.asarray(open_access_inputs.econ_params.cost)
+    # Use fringe_econ_params
+    _dbg_cost_per_sat   = np.asarray(fringe_econ_params.cost)
     _dbg_fringe_total   = fringe_total
 
     return _last_tax_revenue, _last_total_revenue, _dbg_tax_rate, _dbg_Cp, _dbg_cost_per_sat, _dbg_fringe_total

@@ -8,12 +8,10 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 from .PostMissionDisposal import evaluate_pmd, evaluate_pmd_elliptical
 from .Helpers import insert_launches_into_lam
-from .ADR import optimize_ADR_removal, implement_adr
 from .EconCalculations import revenue_open_access_calculations
-
 class MultiSpeciesOpenAccessSolver:
     def __init__(self, MOCAT: Model, solver_guess, x0, revenue_model, 
-                 lam, multi_species, adr_params):
+                 lam, multi_species, years, time_idx, fringe_start_slice, fringe_end_slice):
         """
         Initialize the MultiSpeciesOpenAccessSolver.
 
@@ -34,16 +32,23 @@ class MultiSpeciesOpenAccessSolver:
         self.elliptical = MOCAT.scenario_properties.elliptical
         self.tspan = np.linspace(0, 1, 2)
         self.time_idx = 0
-
-        self.adr_params = adr_params 
+        self.years = years
+        self._last_total_revenue = 0.0
+        self._last_tax_revenue = None
+        self.bond_revenue = 0.0
+        self.fringe_start_slice = fringe_start_slice
+        self.fringe_end_slice = fringe_end_slice
+        
 
         # This is the number of all objects in each shell. Starts as x0 (initial population)
         self.current_environment = x0 
 
         # This is temporary storage of each of the variables, so they can then be stored for visualisation later. 
         self._last_collision_probability = None
+        self._last_maneuvers = None
         self._last_rate_of_return = None 
         self._last_non_compliance = None
+        self._last_compliance = None
 
     def excess_return_calculator(self, launches):
         """
@@ -57,18 +62,22 @@ class MultiSpeciesOpenAccessSolver:
         # As the launches are only for the fringe, we need to add the launches to the correct slice of the lambda vector.
         self.lam = insert_launches_into_lam(self.lam, launches, self.multi_species, self.elliptical) # circ = 92, elp = 92
 
-        # Print total of self.lam, ignoring None values
-        if self.elliptical:
-            # For elliptical mode, lam is 3D: [n_sma_bins, n_species, n_ecc_bins]
-            lam_total = np.sum(self.lam[self.lam != None])
-        else:
-            # For non-elliptical mode, lam is 1D
-            lam_total = np.sum(self.lam[self.lam != None])
-        print(f"Total lam (ignoring None): {lam_total}")
+        # # Print total of self.lam, ignoring None values
+        # to_print = ""
+        # for species in self.multi_species.species:
+        #     if self.elliptical:
+        #         total = np.sum(self.lam[:, species.species_idx, 0])
+        #     else:
+        #         total = np.sum(self.lam[species.start_slice:species.end_slice])
+        #     to_print += f"{species.name} total: {total}\n"
+        # print(to_print)
 
         # Fringe_launches = self.fringe_launches # This will be the first guess by the model 
         if self.elliptical:
-            state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05)
+            if self.MOCAT.scenario_properties.density_model == "static_exp_dens_func":
+                state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05)
+            else:
+                state_next_sma, state_next_alt = self.MOCAT.propagate(self.tspan, self.x0, self.lam, self.elliptical, use_euler=True, step_size=0.05) #, density_year=self.years[self.time_idx])
         else:
             state_next_path, _ = self.MOCAT.propagate(self.tspan, self.x0, self.lam, elliptical=self.elliptical) # state_next_path: circ = 12077 elp = alt = 17763, self.x0: circ = 17914, elp = 17914
             if len(state_next_path) > 1:
@@ -79,66 +88,95 @@ class MultiSpeciesOpenAccessSolver:
 
         # Evaluate pmd
         if self.elliptical:
-            state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, self.multi_species)
+            # check if density_model has name property
+            if self.MOCAT.scenario_properties.density_model != "static_exp_dens_func":
+                try:
+                    density_model_name = self.MOCAT.scenario_properties.density_model.__name__
+                except AttributeError:
+                    raise ValueError(f"Density model {self.MOCAT.scenario_properties.density_model} does not have a name property")
+            state_next_sma, state_next_alt, multi_species = evaluate_pmd_elliptical(state_next_sma, state_next_alt, self.multi_species, 
+                self.years[self.time_idx], density_model_name, self.MOCAT.scenario_properties.HMid, self.MOCAT.scenario_properties.eccentricity_bins, 
+                self.MOCAT.scenario_properties.R0_rad_km)
         else:
             state_next_alt, multi_species = evaluate_pmd(state_next_alt, self.multi_species)
-        # 12077, elp = 18076
-
-        if self.elliptical:
-            state_next_sma, _ = optimize_ADR_removal(state_next_sma, self.MOCAT, self.adr_params)
-            state_next_alt, _ = optimize_ADR_removal(state_next_alt, self.MOCAT, self.adr_params)
-        else:
-            state_next_alt, _ = optimize_ADR_removal(state_next_alt, self.MOCAT, self.adr_params)
-
-        # Gets the final output and update the current environment matrix
-        if self.elliptical:
-            self.current_environment = state_next_sma
-            self.current_environment_alt = state_next_alt
-        else:
-            self.current_environment = state_next_alt
 
         # As excess returns is calculated on a per species basis, the launch array will need to be built.
-        excess_returns = np.array([])
+        excess_returns = {}
+        collision_probability_dict = {}
+        rate_of_return_dict = {}
+        maneuvers_dict = {}
+        cost_dict = {}
 
         # For collision calculations and fringe rate of return, we are able to use the effective state matrix for elliptical orbits. 
         for species in multi_species.species:
             # Calculate the probability of collision based on the new position
             collision_probability = self.calculate_probability_of_collision(state_next_alt, species.name)
-            # 2.1216498825008983e-05
-            # 2.54775920739587e-05
 
-            # Rate of Return
-            rate_of_return = self.fringe_rate_of_return(self.current_environment, collision_probability, species)
-            # array([0.074947  , 0.05510007, 0.0372975 , 0.02245892])
-            # array([-0.60438682, -0.58274178, -0.56332631, -0.54714337])
+            if species.maneuverable:
+                maneuvers = self.calculate_maneuvers(state_next_alt, species.name)
+                # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
+                cost = maneuvers * 12000 * 2 # $10,000 per maneuver, we double since we assume twice as many maneuvers for each collision
+                # Rate of Return
+                if self.elliptical:
+                    rate_of_return = self.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
+                else:
+                    rate_of_return = self.fringe_rate_of_return(state_next_alt, collision_probability, species, cost)
+            else:
+                if self.elliptical:
+                    rate_of_return = self.fringe_rate_of_return(state_next_sma, collision_probability, species)
+                else:
+                    rate_of_return = self.fringe_rate_of_return(state_next_alt, collision_probability, species)
 
             # Calculate the excess rate of return
-            species_excess_returns= np.array((rate_of_return - collision_probability*(1 + species.econ_params.tax)) * 100)
-            excess_returns = np.append(excess_returns, species_excess_returns)
-            # array([7.49470045, 5.51000707, 3.72974955, 2.24377018])
+            species_excess_returns=(rate_of_return - collision_probability*(1 + species.econ_params.tax)) * 100
+            
+            excess_returns[species.name] = species_excess_returns
+            collision_probability_dict[species.name] = collision_probability
+            rate_of_return_dict[species.name] = rate_of_return
+            maneuvers_dict[species.name] = maneuvers
+            cost_dict[species.name] = cost
 
         # Save the collision_probability for all species
-        self._last_collision_probability = collision_probability
+        self._last_collision_probability = collision_probability_dict
         self._last_excess_returns = excess_returns
         self._last_multi_species = multi_species
+        self._last_cost = cost_dict
+        self._last_rate_of_return = rate_of_return_dict
+        self._last_maneuvers = maneuvers_dict
+        if self.elliptical:
+            self._last_current_environment_alt = state_next_alt
+
+        # print(excess_returns)
 
         non_compliance_dict = {
             species.name: species.sum_non_compliant for species in multi_species.species
         }
+        compliance_dict = {
+            species.name: species.sum_compliant for species in multi_species.species
+        }
 
         self._last_non_compliance = non_compliance_dict
+        self._last_compliance = compliance_dict
+        if 'Su' in collision_probability_dict:
+            self._last_collision_probability = collision_probability_dict['Su']
+        else:
+            self._last_collision_probability = None # Fallback
+        
+        (
+            self._last_tax_revenue,
+            self._last_total_revenue,
+            self._dbg_tax_rate,
+            self._dbg_Cp,
+            self._dbg_cost_per_sat,
+            self._dbg_fringe_total,
+        ) = revenue_open_access_calculations(self, state_next=state_next_alt)
+        
+        # Restore the collision probability dictionary
+        self._last_collision_probability = collision_probability_dict
 
-        self._last_tax_revenue, self._last_total_revenue, self._dbg_tax_rate, self._dbg_Cp, self._dbg_cost_per_sat, self._dbg_fringe_total = revenue_open_access_calculations(self, state_next=self.current_environment)
-
-        return excess_returns 
-        # circ: array([  7.42215529,   7.60501665,   6.6453673 ,   5.73031984,
-        #      4.8622846 ,  28.42671294,  29.87327598,  26.4674035 ,
-        #     22.68498412,  19.55166743, -43.66517506, -43.67581944,
-        #    -43.72272862, -43.77695933, -43.95676902])
-        # ellip: array([  7.500798  ,   7.68455259,   6.72716597,   5.84561885,
-        #      5.01025917,  28.52251213,  29.9731395 ,  26.67021196,
-        #     23.78536816,  21.27589047, -37.91651136, -37.61854428,
-        #    -37.58261531, -37.50351418, -37.5294675 ])
+        # convert excess_returns to a flattened numpy array
+        excess_returns_flat = np.concatenate([excess_returns[species.name] for species in multi_species.species])
+        return excess_returns_flat 
 
     def calculate_probability_of_collision(self, state_matrix, opus_species_name):
         """
@@ -153,26 +191,62 @@ class MultiSpeciesOpenAccessSolver:
             # We need to convert it to the format expected by fringe_active_loss
             state_matrix = state_matrix.flatten()
 
-        evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss[opus_species_name](*state_matrix)
+        evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss['collisions'][opus_species_name](*state_matrix)
+        evaluated_value_flat = [float(value[0]) for value in evaluated_value]
+        return np.array(evaluated_value_flat)
+
+    def calculate_maneuvers(self, state_matrix, opus_species_name):
+        """
+            Calculates the maneuvers for the given state matrix and species name.
+        """
+        if self.elliptical:
+            # For elliptical orbits, state_matrix is already a 2D altitude matrix
+            # We need to convert it to the format expected by fringe_active_loss
+            state_matrix = state_matrix.flatten()
+        evaluated_value = self.MOCAT.scenario_properties.fringe_active_loss['maneuvers'][opus_species_name](*state_matrix)
         evaluated_value_flat = [float(value[0]) for value in evaluated_value]
         return np.array(evaluated_value_flat)
     
-    def fringe_rate_of_return(self, state_matrix, collision_risk, opus_species):
+    def fringe_rate_of_return(self, state_matrix, collision_risk, opus_species, congestion_costs=None):
         """
          Calcualtes the fringe rate of return. It can be only used by one species at once. 
          Currently it assumes a linear revenue model, although other models can be used in the future. 
         """
-        if self.elliptical:
-            fringe_total = state_matrix[:, opus_species.species_idx, 0]
-        else:
-            fringe_total = state_matrix[opus_species.start_slice:opus_species.end_slice]
-        # 1.59
-        # 0.87
 
-        revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * np.sum(fringe_total)
-        # 849840
-        # 849912.5
-        # revenue = revenue * opus_species.launch_mask
+        # Initialize total market population
+        market_total_sum = 0.0
+        
+        if self.elliptical:
+            # Get the population for the current species
+            current_pop = state_matrix[:, opus_species.species_idx, 0]
+            market_total_sum += np.sum(current_pop)
+
+            # Check for competitors and add their totals
+            if hasattr(opus_species.econ_params, 'competitors'):
+                for competitor_name in opus_species.econ_params.competitors:
+                    # Find the competitor species object
+                    competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
+                    if competitor_species:
+                        # Add the competitor's satellite count (elliptical)
+                        competitor_pop = state_matrix[:, competitor_species.species_idx, 0]
+                        market_total_sum += np.sum(competitor_pop)
+        else:
+            # Get the population for the current species
+            current_pop = state_matrix[opus_species.start_slice:opus_species.end_slice]
+            market_total_sum += np.sum(current_pop)
+
+            # Check for competitors and add their totals
+            if hasattr(opus_species.econ_params, 'competitors'):
+                for competitor_name in opus_species.econ_params.competitors:
+                    # Find the competitor species object
+                    competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
+                    if competitor_species:
+                        # Add the competitor's satellite count (circular)
+                        competitor_pop = state_matrix[competitor_species.start_slice:competitor_species.end_slice]
+                        market_total_sum += np.sum(competitor_pop)
+
+        # The revenue calculation now correctly uses the total market sum
+        revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * market_total_sum
 
         discount_rate = opus_species.econ_params.discount_rate
         # 0.05
@@ -181,18 +255,16 @@ class MultiSpeciesOpenAccessSolver:
         # 0.2
 
         # Equilibrium expression for rate of return.
-        rev_cost = revenue / opus_species.econ_params.cost
-        # 1.189
-
+        rev_cost = revenue / (opus_species.econ_params.cost)
+      
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate  
         else:
-            # bond_per_shell = self.econ_params.bond + (self.econ_params.bond * collision_risk)
             bond_per_shell = np.ones_like(collision_risk) * opus_species.econ_params.bond
-            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost))
+            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.intercept))
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
-        return rate_of_return # 0.189 
+        return rate_of_return
     
     def solver(self):
         """
@@ -233,21 +305,21 @@ class MultiSpeciesOpenAccessSolver:
         solver_options = {
             'method': 'trf',  # Trust Region Reflective algorithm = trf
             'verbose': 0,
-            'ftol': 5e-3,   # residual improvement threshold
-            'xtol': 10.0,   # stop when launch updates < 10 satellites
-            'gtol': 1e-3,   # gradient norm threshold
-            'max_nfev': 150 # optional evaluation cap
+            'ftol': 5e-3,   # Much tighter residual improvement threshold (was 5e-3)
+            'xtol': 0.005,   # Much tighter parameter convergence (was 0.05)
+            'gtol': 1e-3,   # Much tighter gradient norm threshold (was 1e-3)
+            # 'max_nfev': 1000  # Higher evaluation limit for stricter convergence
         }
 
         # Solve the system of equations
-        # circ = ([ 5.,  5.,  5.,  5.,  5.,  0.,  0.,  5.,  6.,  4.,  0.,  2.,  5., 8., 13.])
-        # array([ 5.,  5.,  5.,  5.,  5.,  0.,  0.,  5.,  6.,  4.,  0.,  2.,  5., 8., 13.])
         result = least_squares(
             fun=lambda launches: self.excess_return_calculator(launches),
             x0=launch_rate_init,
             bounds=(lower_bound, np.inf),  # No upper bound
             **solver_options
         )
+
+        # print(f" last excess returns: {self._last_excess_returns}")
 
         # Extract the launch rate from the solver result, this will just be for the species
         launch_rate = result.x
@@ -259,34 +331,9 @@ class MultiSpeciesOpenAccessSolver:
 
         # Calculate the UMPY value
         if self.elliptical:
-            state_for_umpy = self.current_environment_alt.flatten()
-            umpy = self.MOCAT.opus_umpy_calculation(state_for_umpy).flatten().tolist()
+            state_for_umpy = self._last_current_environment_alt.flatten()
+            self.umpy = self.MOCAT.opus_umpy_calculation(state_for_umpy).flatten().tolist()
         else:      
-            umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()  # 120765
+            self.umpy = self.MOCAT.opus_umpy_calculation(self.current_environment).flatten().tolist()  # 120765
 
-        return launch_rate, self._last_collision_probability, umpy, self._last_excess_returns, self._last_non_compliance
-    
-    #Joey - Tax revenue properties (had to add these in for access to them in Main)
-    @property
-    def last_tax_revenue(self):
-        return getattr(self,"_last_tax_revenue", None)
-    
-    @property
-    def last_total_revenue(self):
-        return getattr(self, '_last_total_revenue', 0.0)
-    
-    @property
-    def dbg_tax_rate(self):
-        return getattr(self, "_dbg_tax_rate", None)
-
-    @property
-    def dbg_Cp(self):
-        return getattr(self, "_dbg_Cp", None)
-
-    @property
-    def dbg_cost_per_sat(self):
-        return getattr(self, "_dbg_cost_per_sat", None)
-
-    @property
-    def dbg_fringe_total(self):
-        return getattr(self, "_dbg_fringe_total", None)
+        return launch_rate
