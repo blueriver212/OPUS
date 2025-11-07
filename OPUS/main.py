@@ -587,7 +587,7 @@ if __name__ == "__main__":
     # rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
     # # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
-    # opt, MOCAT, scenario_files, best_umpy = OptimizeADR.fit(optimization_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
+    # opt, MOCAT, scenario_files, best_umpy = OptimizeADR.grid_setup(optimization_solver, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
 
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
