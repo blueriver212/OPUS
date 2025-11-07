@@ -382,10 +382,10 @@ class IAMSolver:
                 # 0 based index 
                 if self.elliptical:
                     # For elliptical orbits, propagated_environment is a 2D array (n_shells, n_species)
-                    species_data[sp][years[time_idx - 1]] = state_next_alt[:, i]
+                    species_data[sp][years[time_idx]] = state_next_alt[:, i]
                 else:
                     # For circular orbits, propagated_environment is a 1D array
-                    species_data[sp][years[time_idx - 1]] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
+                    species_data[sp][years[time_idx]] = state_next_alt[i * self.MOCAT.scenario_properties.n_shells:(i + 1) * self.MOCAT.scenario_properties.n_shells]
 
             # Fringe Equilibrium Controller
             start_time = time.time()
@@ -454,17 +454,22 @@ class IAMSolver:
             shell_revenue = open_access._last_tax_revenue.tolist()
             total_tax_revenue_for_storage = float(open_access._last_total_revenue)
 
+
+            launch_rate_by_species = {}
+            for sp in multi_species.species:
+                launch_rate_by_species[sp.name] = launch_rate[sp.start_slice:sp.end_slice].tolist()
+
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
                 "ror": rate_of_return,
                 "collision_probability": collision_probability,
-                "launch_rate" : launch_rate, 
+                "launch_rate" : launch_rate_by_species, 
                 "collision_probability_all_species": open_access._last_collision_probability,
                 "umpy": open_access.umpy, 
                 "excess_returns": open_access._last_excess_returns,
                 "non_compliance": open_access._last_non_compliance, 
                 "maneuvers": open_access._last_maneuvers,
-                "cost": open_access._last_cost,
+                "cost of maneuvers": open_access._last_cost, 
                 "rate_of_return": open_access._last_rate_of_return,
                 "tax_revenue_total": total_tax_revenue_for_storage,
                 "tax_revenue_by_shell": shell_revenue,
@@ -591,4 +596,4 @@ if __name__ == "__main__":
     # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
-    PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)
+    # PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

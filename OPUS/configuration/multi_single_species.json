@@ -101,7 +101,7 @@
           "delta_v_cost": 1000,
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
-          "mass": 700,
+          "mass": 223,
           "controlled_pmd" : 0.6,
           "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,

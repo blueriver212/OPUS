@@ -23,7 +23,7 @@ class PlotData:
                 self.n_shells = MOCAT.scenario_properties.n_shells
                 self.n_species = MOCAT.scenario_properties.species_length
                 self.HMid = MOCAT.scenario_properties.HMid
-                
+
                 # Get derelict species names from the species configuration
                 try:
                         self.derelict_species_names = MOCAT.scenario_properties.pmd_debris_names
@@ -79,7 +79,7 @@ class PlotData:
                 # Convert new data structure to expected format if needed
                 if data is not None:
                         data = self._convert_data_structure(data)
-
+                
                 return data, other_data, econ_params
 
         def _convert_data_structure(self, data):
@@ -165,17 +165,17 @@ class PlotHandler:
                                 econ_params_list.append(econ_data)
 
                                 # If the plot_types is None, then generate all plots
-                                if "all_plots" in self.plot_types:
-                                        self.all_plots(plot_data, other_data, econ_data)
-                                else:
-                                        # Dynamically generate plots
-                                        for plot_name in self.plots:
-                                                plot_method = getattr(self, plot_name, None)
-                                                if callable(plot_method):
-                                                        print(f"Creating plot: {plot_name}")
-                                                        plot_method()
-                                                else:
-                                                        print(f"Warning: Plot '{plot_name}' not found. Skipping...")
+                                # if "all_plots" in self.plot_types:
+                                #         self.all_plots(plot_data, other_data, econ_data)
+                                # else:
+                                #         # Dynamically generate plots
+                                #         for plot_name in self.plots:
+                                #                 plot_method = getattr(self, plot_name, None)
+                                #                 if callable(plot_method):
+                                #                         print(f"Creating plot: {plot_name}")
+                                #                         plot_method()
+                                #                 else:
+                                #                         print(f"Warning: Plot '{plot_name}' not found. Skipping...")
 
                 if comparison:
                         self._comparison_plots(plot_data_list, other_data_list)
@@ -185,7 +185,7 @@ class PlotHandler:
                 Run all plot functions that start with 'comparison_', ignoring others.
                 """
                 for attr_name in dir(self):
-                        # Grab the attribute; see if it’s a callable (method)
+                        # Grab the attribute; see if it's a callable (method)
                         attr = getattr(self, attr_name)
                         if callable(attr):
                                 # Skip known special methods
@@ -572,7 +572,7 @@ class PlotHandler:
                 # 4) Labels, legend, and layout
                 plt.xlabel("Year (timestep)")
                 plt.ylabel("UMPY (kg/year)")
-                plt.title("UMPY Evolution Over Time (All Scenarios)")
+                # plt.title("UMPY Evolution Over Time (All Scenarios)")  # Removed overall title
                 plt.legend()
                 plt.tight_layout()
 
@@ -1295,7 +1295,7 @@ class PlotHandler:
                 # 4) Labels and title
                 plt.xlabel("Year (timestep)")
                 plt.ylabel("UMPY (kg/year)")
-                plt.title("UMPY Evolution Over Time")
+                # plt.title("UMPY Evolution Over Time")  # Removed overall title
                 plt.legend()
                 plt.tight_layout()
 
@@ -1384,7 +1384,7 @@ class PlotHandler:
                 combined_file_path = os.path.join(plot_data.path, "combined_species_heatmaps.png")
                 plt.savefig(combined_file_path, dpi=300, bbox_inches='tight')
                 plt.close()
-
+        
         def total_objects_over_time(self, plot_data, other_data):
                 """
                 Creates a plot showing the sum of each species type over time.
@@ -1744,206 +1744,478 @@ class PlotHandler:
 
         #         plt.close()
 
-
-        # sammie addition
-        def comparison_evolution_umpy_over_time(self, plot_data_lists, other_data_lists):
-                # Create a "comparisons" folder under the main simulation folder
-                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(comparison_folder, exist_ok=True)
-
-                # Dictionary to store time series data for each species across scenarios
-                # Structure: species_totals[species][scenario_name] = np.array of total counts over time
-                umpy_dict = {}
-
-
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # We assume `plot_data.scenario` holds the scenario name
-                        # If it doesn't, change the attribute name or use a default label.
-                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
-
-                        # Retrieve the dictionary of species -> data arrays
-                        # e.g., {species: np.array(time, shells), ...
-
-                        
-                        for j, year in enumerate(other_data):
-                                umpy = other_data[year]['umpy']
-                                if scenario_name not in umpy_dict:
-                                        umpy_dict[scenario_name] = np.zeros(len(other_data))
-                                umpy_dict[scenario_name][j] = np.sum(umpy)
+        def _create_3d_maneuver_plots(self, plot_data, other_data):
+                """
+                Create 3D maneuver plots for each species over time.
+                """
+                # Create maneuvers folder
+                maneuvers_dir = os.path.join(plot_data.path, "maneuvers")
+                os.makedirs(maneuvers_dir, exist_ok=True)
                 
-                for idx, scenario_name in enumerate(umpy_dict):
-                        umpy = umpy_dict[scenario_name]
-                        x_axis = range(len(umpy)) + np.ones(len(umpy))
-                        if idx <= 9:
-                                plt.plot(x_axis, umpy, label=scenario_name, marker='o')
-                        elif (idx > 9) and (idx <= 19):
-                                plt.plot(x_axis, umpy, label=scenario_name, marker='X')
-                        else:
-                                plt.plot(x_axis, umpy, label=scenario_name, marker='>')
-                # 1) Sort the timesteps and prepare arrays
-
-                # plt.figure(figsize=(16,6))
-
-                # 4) Labels and title
-                plt.xlabel("Year (timestep)")
-                plt.ylabel("UMPY (kg/year)")
-                # plt.title(f"UMPY Evolution Over Time")
-                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-                plt.tight_layout()
-                plt.grid(True)
-
-                # 5) Save the figure
-                save_path = os.path.join(comparison_folder, "comparison_umpy_time_evolution.png")
-                plt.savefig(save_path, dpi=300, bbox_inches="tight")
-                plt.close()
-                print(f"Comparison plot saved to {save_path}")
-
-        # def comparison_launches_time(self, plot_data_lists, other_data_lists):
-        #         """
-        #         Creates a comparison plot of total species count over time.
-        #         Each species is plotted in its own subplot, comparing across all scenarios.
-        #         """
-
-        #         # Create a "comparisons" folder under the main simulation folder
-        #         comparison_folder = os.path.join(self.simulation_folder, "comparisons")
-        #         os.makedirs(comparison_folder, exist_ok=True)
-
-        #         # Dictionary to store time series data for each species across scenarios
-        #         # Structure: species_totals[species][scenario_name] = np.array of total counts over time
-        #         launch_totals = {}
-
-        #         # Loop over each PlotData to extract data
-        #         for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-        #                 # We assume `plot_data.scenario` holds the scenario name
-        #                 # If it doesn't, change the attribute name or use a default label.
-        #                 scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
-
-        #                 # Retrieve the dictionary of species -> data arrays
-        #                 # e.g., {species: np.array(time, shells), ...
-                        
-        #                 for j, year in enumerate(other_data):
-        #                         launches = other_data[year]['launch_rate']
-        #                         if scenario_name not in launch_totals:
-        #                                 launch_totals[scenario_name] = np.zeros(len(other_data))
-        #                         launch_totals[scenario_name][j] = np.sum(launches)
-                
-        #         for idx, scenario_name in enumerate(launch_totals):
-        #                 launches = launch_totals[scenario_name]
-        #                 x_axis = range(len(launches)) + np.ones(len(launches))
-        #                 if idx <= 9:
-        #                         plt.plot(x_axis, launches, label=scenario_name, marker='o')
-        #                 elif (idx > 9) and (idx <= 19):
-        #                         plt.plot(x_axis, launches, label=scenario_name, marker='X')
-        #                 else:
-        #                         plt.plot(x_axis, launches, label=scenario_name, marker='>')
-                        
-        #         # plt.title(f"Total Launches across all shells")
-        #         plt.xlabel("Time Steps (Years)")
-        #         plt.ylabel("Total Launches")
-        #         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        #         plt.grid(True)
-
-        #         out_path = os.path.join(comparison_folder, "total_launches_comparison.png")
-        #         plt.savefig(out_path, dpi=300, bbox_inches='tight')
-        #         plt.close()
-
-        #         print(f"Comparison launch plot saved to {out_path}")
-
-        def comparison_umpy_vs_welfare(self, plot_data_lists, other_data_lists):
-                # Create folder for comparison plots
-                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(scatter_folder, exist_ok=True)
-                scatter_file_path = os.path.join(scatter_folder, "scatter_final_umpy_vs_welfare.png")
-                
-                final_umpy_values = []
-                final_welfare_values = []
-                labels = []
-                
-                # Loop over each scenario's data
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # --- Calculate final UMPY value ---
+                try:
+                        # Get time steps
                         timesteps = sorted(other_data.keys(), key=int)
-                        last_timestep = timesteps[-1]
-                        # Sum the "umpy" list at the final timestep
-                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
-                        final_welfare = other_data[last_timestep]["welfare"]
-
-                        final_umpy_values.append(final_umpy)
-                        final_welfare_values.append(final_welfare)
-                        scenario_label = getattr(plot_data, "scenario", f"Scenario {i+1}")
-                        labels.append(scenario_label)
-                
-                # --- Create scatter plot ---
-                plt.figure(figsize=(8, 6))
-                for idx, scenario in enumerate(labels):
-                        if (idx < 10):
-                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 9) and (idx <= 19):
-                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        elif (idx > 19) and (idx <= 29):
-                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-                        else:
-                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
-
-                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-                
-                # # Annotate each point with its scenario label
-                # for x, y, label in zip(final_umpy_values, final_welfare_values, labels):
-                #         plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
                         
-                plt.xlabel("Final UMPY (kg/year)")
-                plt.ylabel("Final Welfare ($)")
-                # plt.title("Final UMPY vs Final Welfare by Scenario")
-                plt.grid(True)
-                plt.tight_layout()
-                plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
-                plt.close()
-                print(f"Scatter plot saved to {scatter_file_path}")
-        def comparison_time_welfare(self, plot_data_lists, other_data_lists):
+                        # Create 3D plot for each species
+                        for species_name in plot_data.species_names:
+                                if species_name.startswith('S'):  # Only active species
+                                        # Extract maneuver data over time
+                                        maneuver_data = []
+                                        for timestep in timesteps:
+                                                if 'maneuvers' in other_data[timestep] and other_data[timestep]['maneuvers'] is not None:
+                                                        if isinstance(other_data[timestep]['maneuvers'], dict) and species_name in other_data[timestep]['maneuvers']:
+                                                                maneuver_data.append(other_data[timestep]['maneuvers'][species_name])
+                                                        else:
+                                                                maneuver_data.append([0] * self.n_shells)  # Default to zeros
+                                                else:
+                                                        maneuver_data.append([0] * self.n_shells)  # Default to zeros
+                                        
+                                        if maneuver_data:
+                                                # Convert to numpy array
+                                                maneuver_array = np.array(maneuver_data)
+                                                
+                                                # Create 3D plot
+                                                fig = plt.figure(figsize=(12, 10))
+                                                ax = fig.add_subplot(111, projection='3d')
+                                                
+                                                # Create meshgrid for 3D surface
+                                                time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                                
+                                                # Create 3D surface plot
+                                                surf = ax.plot_surface(time_mesh, shell_mesh, maneuver_array, 
+                                                                      cmap='viridis', alpha=0.8, linewidth=0, antialiased=True)
+                                                
+                                                ax.set_xlabel('Time Step')
+                                                ax.set_ylabel('Shell Index')
+                                                ax.set_zlabel('Number of Maneuvers')
+                                                ax.set_title(f'3D Maneuver Heatmap - Species {species_name}')
+                                                
+                                                # Add colorbar
+                                                fig.colorbar(surf, shrink=0.5, aspect=5)
+                                                
+                                                # Save plot
+                                                filename = f'{species_name}_maneuvers.png'
+                                                filepath = os.path.join(maneuvers_dir, filename)
+                                                plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                                                plt.close()
+                                                
+                                                print(f"Saved 3D maneuver plot: {filename}")
+                        
+                        # Create combined maneuver plot
+                        self._create_combined_maneuver_plot(plot_data, other_data, maneuvers_dir)
+                        
+                except Exception as e:
+                        print(f"Error creating 3D maneuver plots: {e}")
+
+        def _create_3d_collision_plots(self, plot_data, other_data):
+                """
+                Create 3D collision plots for each species over time.
+                """
+                # Create collisions folder
+                collisions_dir = os.path.join(plot_data.path, "collisions")
+                os.makedirs(collisions_dir, exist_ok=True)
+                
+                try:
+                        # Get time steps
+                        timesteps = sorted(other_data.keys(), key=int)
+                        
+                        # Create 3D plot for each species
+                        for species_name in plot_data.species_names:
+                                if species_name.startswith('S'):  # Only active species
+                                        # Extract collision probability data over time
+                                        collision_data = []
+                                        for timestep in timesteps:
+                                                if 'collision_probability_all_species' in other_data[timestep]:
+                                                        collision_probs = other_data[timestep]['collision_probability_all_species']
+                                                        if isinstance(collision_probs, dict) and species_name in collision_probs:
+                                                                collision_data.append(collision_probs[species_name])
+                                                        else:
+                                                                collision_data.append([0] * self.n_shells)  # Default to zeros
+                                                else:
+                                                        collision_data.append([0] * self.n_shells)  # Default to zeros
+                                        
+                                        if collision_data:
+                                                # Convert to numpy array
+                                                collision_array = np.array(collision_data)
+                                                
+                                                # Create 3D plot
+                                                fig = plt.figure(figsize=(12, 10))
+                                                ax = fig.add_subplot(111, projection='3d')
+                                                
+                                                # Create meshgrid for 3D surface
+                                                time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                                
+                                                # Create 3D surface plot
+                                                surf = ax.plot_surface(time_mesh, shell_mesh, collision_array, 
+                                                                      cmap='plasma', alpha=0.8, linewidth=0, antialiased=True)
+                                                
+                                                ax.set_xlabel('Time Step')
+                                                ax.set_ylabel('Shell Index')
+                                                ax.set_zlabel('Collision Probability')
+                                                ax.set_title(f'3D Collision Probability Heatmap - Species {species_name}')
+                                                
+                                                # Add colorbar
+                                                fig.colorbar(surf, shrink=0.5, aspect=5)
+                                                
+                                                # Save plot
+                                                filename = f'{species_name}_collisions.png'
+                                                filepath = os.path.join(collisions_dir, filename)
+                                                plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                                                plt.close()
+                                                
+                                                print(f"Saved 3D collision plot: {filename}")
+                        
+                        # Create combined collision plot
+                        self._create_combined_collision_plot(plot_data, other_data, collisions_dir)
+                        
+                except Exception as e:
+                        print(f"Error creating 3D collision plots: {e}")
+
+        def _create_combined_maneuver_plot(self, plot_data, other_data, maneuvers_dir):
+                """
+                Create a combined 3D maneuver plot showing all species together.
+                """
+                try:
+                        timesteps = sorted(other_data.keys(), key=int)
+                        active_species = [sp for sp in plot_data.species_names if sp.startswith('S')]
+                        
+                        if not active_species:
+                                return
+                        
+                        # Create subplot grid
+                        n_species = len(active_species)
+                        n_cols = min(3, n_species)
+                        n_rows = (n_species + n_cols - 1) // n_cols
+                        
+                        fig = plt.figure(figsize=(6 * n_cols, 5 * n_rows))
+                        
+                        for i, species_name in enumerate(active_species):
+                                ax = fig.add_subplot(n_rows, n_cols, i + 1, projection='3d')
+                                
+                                # Extract maneuver data for this species
+                                maneuver_data = []
+                                for timestep in timesteps:
+                                        if 'maneuvers' in other_data[timestep] and other_data[timestep]['maneuvers'] is not None:
+                                                if isinstance(other_data[timestep]['maneuvers'], dict) and species_name in other_data[timestep]['maneuvers']:
+                                                        maneuver_data.append(other_data[timestep]['maneuvers'][species_name])
+                                                else:
+                                                        maneuver_data.append([0] * self.n_shells)
+                                        else:
+                                                maneuver_data.append([0] * self.n_shells)
+                                
+                                if maneuver_data:
+                                        maneuver_array = np.array(maneuver_data)
+                                        time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                        
+                                        surf = ax.plot_surface(time_mesh, shell_mesh, maneuver_array, 
+                                                              cmap='viridis', alpha=0.8, linewidth=0, antialiased=True)
+                                        
+                                        ax.set_xlabel('Time Step')
+                                        ax.set_ylabel('Shell Index')
+                                        ax.set_zlabel('Maneuvers')
+                                        ax.set_title(f'{species_name} Maneuvers')
+                        
+                        plt.tight_layout()
+                        
+                        # Save combined plot
+                        filepath = os.path.join(maneuvers_dir, 'combined_maneuvers_3d.png')
+                        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                        plt.close()
+                        
+                        print(f"Saved combined maneuver plot: combined_maneuvers_3d.png")
+                        
+                except Exception as e:
+                        print(f"Error creating combined maneuver plot: {e}")
+
+        def _create_combined_collision_plot(self, plot_data, other_data, collisions_dir):
+                """
+                Create a combined 3D collision plot showing all species together.
+                """
+                try:
+                        timesteps = sorted(other_data.keys(), key=int)
+                        active_species = [sp for sp in plot_data.species_names if sp.startswith('S')]
+                        
+                        if not active_species:
+                                return
+                        
+                        # Create subplot grid
+                        n_species = len(active_species)
+                        n_cols = min(3, n_species)
+                        n_rows = (n_species + n_cols - 1) // n_cols
+                        
+                        fig = plt.figure(figsize=(6 * n_cols, 5 * n_rows))
+                        
+                        for i, species_name in enumerate(active_species):
+                                ax = fig.add_subplot(n_rows, n_cols, i + 1, projection='3d')
+                                
+                                # Extract collision data for this species
+                                collision_data = []
+                                for timestep in timesteps:
+                                        if 'collision_probability_all_species' in other_data[timestep]:
+                                                collision_probs = other_data[timestep]['collision_probability_all_species']
+                                                if isinstance(collision_probs, dict) and species_name in collision_probs:
+                                                        collision_data.append(collision_probs[species_name])
+                                                else:
+                                                        collision_data.append([0] * self.n_shells)
+                                        else:
+                                                collision_data.append([0] * self.n_shells)
+                                
+                                if collision_data:
+                                        collision_array = np.array(collision_data)
+                                        time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                        
+                                        surf = ax.plot_surface(time_mesh, shell_mesh, collision_array, 
+                                                              cmap='plasma', alpha=0.8, linewidth=0, antialiased=True)
+                                        
+                                        ax.set_xlabel('Time Step')
+                                        ax.set_ylabel('Shell Index')
+                                        ax.set_zlabel('Collision Probability')
+                                        ax.set_title(f'{species_name} Collisions')
+                        
+                        plt.tight_layout()
+                        
+                        # Save combined plot
+                        filepath = os.path.join(collisions_dir, 'combined_collisions_3d.png')
+                        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                        plt.close()
+                        
+                        print(f"Saved combined collision plot: combined_collisions_3d.png")
+                        
+                except Exception as e:
+                        print(f"Error creating combined collision plot: {e}")
+
+        def _create_economic_metrics_plots(self, plot_data, other_data, econ_params):
+                """
+                Create plots for cost and rate of return over time for each species.
+                """
+                # Create economic_metrics folder
+                econ_metrics_dir = os.path.join(plot_data.path, "economic_metrics")
+                os.makedirs(econ_metrics_dir, exist_ok=True)
+                
+                try:
+                        # Get time steps
+                        timesteps = sorted(other_data.keys(), key=int)
+                        
+                        # Create plots for each species
+                        for species_name in plot_data.species_names:
+                                if species_name.startswith('S'):  # Only active species
+                                        # Extract rate of return data over time
+                                        ror_data = []
+                                        for timestep in timesteps:
+                                                if 'ror' in other_data[timestep]:
+                                                        ror_data.append(other_data[timestep]['ror'])
+                                                else:
+                                                        ror_data.append([0] * self.n_shells)  # Default to zeros
+                                        
+                                        # Extract cost data over time from other_data
+                                        cost_data = []
+                                        for timestep in timesteps:
+                                                if 'cost' in other_data[timestep] and species_name in other_data[timestep]['cost']:
+                                                        cost_data.append(other_data[timestep]['cost'][species_name])
+                                                else:
+                                                        cost_data.append([0] * self.n_shells)  # Default to zeros
+                                        
+                                        if ror_data and cost_data:
+                                                # Convert to numpy arrays
+                                                ror_array = np.array(ror_data)
+                                                cost_array = np.array(cost_data)
+                                                
+                                                # Create figure with subplots
+                                                fig = plt.figure(figsize=(15, 6))
+                                                ax1 = fig.add_subplot(121, projection='3d')
+                                                ax2 = fig.add_subplot(122, projection='3d')
+                                                
+                                                # Create year labels (assuming start year 2017)
+                                                start_year = 2017
+                                                year_labels = [start_year + i for i in range(len(timesteps))]
+                                                
+                                                # Plot 1: Rate of Return over time
+                                                time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                                surf1 = ax1.plot_surface(time_mesh, shell_mesh, ror_array, 
+                                                                        cmap='viridis', alpha=0.8, linewidth=0, antialiased=True)
+                                                ax1.set_xlabel('Year')
+                                                ax1.set_ylabel('Altitude (km)')
+                                                ax1.set_zlabel('Rate of Return')
+                                                ax1.set_title(f'Rate of Return Over Time - {species_name}')
+                                                # Set custom tick labels
+                                                ax1.set_xticks(range(len(timesteps)))
+                                                ax1.set_xticklabels(year_labels)
+                                                ax1.set_yticks(range(self.n_shells))
+                                                ax1.set_yticklabels([f'{alt:.0f}' for alt in self.HMid])
+                                                fig.colorbar(surf1, ax=ax1, shrink=0.5, aspect=5)
+                                                
+                                                # Plot 2: Cost over time (3D surface plot)
+                                                surf2 = ax2.plot_surface(time_mesh, shell_mesh, cost_array, 
+                                                                        cmap='plasma', alpha=0.8, linewidth=0, antialiased=True)
+                                                ax2.set_xlabel('Year')
+                                                ax2.set_ylabel('Altitude (km)')
+                                                ax2.set_zlabel('Cost ($)')
+                                                ax2.set_title(f'Cost Over Time - {species_name}')
+                                                # Set custom tick labels
+                                                ax2.set_xticks(range(len(timesteps)))
+                                                ax2.set_xticklabels(year_labels)
+                                                ax2.set_yticks(range(self.n_shells))
+                                                ax2.set_yticklabels([f'{alt:.0f}' for alt in self.HMid])
+                                                fig.colorbar(surf2, ax=ax2, shrink=0.5, aspect=5)
+                                                
+                                                plt.tight_layout()
+                                                
+                                                # Save individual species plot
+                                                filename = f'{species_name}_economic_metrics.png'
+                                                filepath = os.path.join(econ_metrics_dir, filename)
+                                                plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                                                plt.close()
+                                                
+                                                print(f"Saved economic metrics plot: {filename}")
+                        
+                        # Create combined economic metrics plot
+                        self._create_combined_economic_metrics_plot(plot_data, other_data, econ_params, econ_metrics_dir)
+                        
+                except Exception as e:
+                        print(f"Error creating economic metrics plots: {e}")
+
+        def _create_combined_economic_metrics_plot(self, plot_data, other_data, econ_params, econ_metrics_dir):
+                """
+                Create a combined plot showing cost and rate of return for all species.
+                """
+                try:
+                        timesteps = sorted(other_data.keys(), key=int)
+                        active_species = [sp for sp in plot_data.species_names if sp.startswith('S')]
+                        
+                        if not active_species:
+                                return
+                        
+                        # Create figure with subplots
+                        fig = plt.figure(figsize=(20, 12))
+                        
+                        # Create subplot grid: 2 rows (RoR and Cost) x number of species columns
+                        n_species = len(active_species)
+                        
+                        # Create year labels (assuming start year 2017)
+                        start_year = 2017
+                        year_labels = [start_year + i for i in range(len(timesteps))]
+                        
+                        # Row 1: Rate of Return plots
+                        for i, species_name in enumerate(active_species):
+                                ax = fig.add_subplot(2, n_species, i + 1, projection='3d')
+                                
+                                # Extract rate of return data for this species
+                                ror_data = []
+                                for timestep in timesteps:
+                                        if 'ror' in other_data[timestep]:
+                                                ror_data.append(other_data[timestep]['ror'])
+                                        else:
+                                                ror_data.append([0] * self.n_shells)
+                                
+                                if ror_data:
+                                        ror_array = np.array(ror_data)
+                                        time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                        
+                                        surf = ax.plot_surface(time_mesh, shell_mesh, ror_array, 
+                                                              cmap='viridis', alpha=0.8, linewidth=0, antialiased=True)
+                                        
+                                        ax.set_xlabel('Year')
+                                        ax.set_ylabel('Altitude (km)')
+                                        ax.set_zlabel('Rate of Return')
+                                        ax.set_title(f'{species_name} - Rate of Return')
+                                        # Set custom tick labels
+                                        ax.set_xticks(range(len(timesteps)))
+                                        ax.set_xticklabels(year_labels)
+                                        ax.set_yticks(range(self.n_shells))
+                                        ax.set_yticklabels([f'{alt:.0f}' for alt in self.HMid])
+                        
+                        # Row 2: Cost plots
+                        for i, species_name in enumerate(active_species):
+                                ax = fig.add_subplot(2, n_species, n_species + i + 1, projection='3d')
+                                
+                                # Extract cost data over time for this species
+                                cost_data = []
+                                for timestep in timesteps:
+                                        if 'cost' in other_data[timestep] and species_name in other_data[timestep]['cost']:
+                                                cost_data.append(other_data[timestep]['cost'][species_name])
+                                        else:
+                                                cost_data.append([0] * self.n_shells)
+                                
+                                if cost_data:
+                                        cost_array = np.array(cost_data)
+                                        time_mesh, shell_mesh = np.meshgrid(range(len(timesteps)), range(self.n_shells), indexing='ij')
+                                        
+                                        surf = ax.plot_surface(time_mesh, shell_mesh, cost_array, 
+                                                              cmap='plasma', alpha=0.8, linewidth=0, antialiased=True)
+                                        
+                                        ax.set_xlabel('Year')
+                                        ax.set_ylabel('Altitude (km)')
+                                        ax.set_zlabel('Cost ($)')
+                                        ax.set_title(f'{species_name} - Cost Over Time')
+                                        # Set custom tick labels
+                                        ax.set_xticks(range(len(timesteps)))
+                                        ax.set_xticklabels(year_labels)
+                                        ax.set_yticks(range(self.n_shells))
+                                        ax.set_yticklabels([f'{alt:.0f}' for alt in self.HMid])
+                        
+                        plt.tight_layout()
+                        
+                        # Save combined plot
+                        filepath = os.path.join(econ_metrics_dir, 'combined_economic_metrics.png')
+                        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                        plt.close()
+                        
+                        print(f"Saved combined economic metrics plot: combined_economic_metrics.png")
+                        
+                except Exception as e:
+                        print(f"Error creating combined economic metrics plot: {e}")
+
+        def comparison_total_bond_revenue_vs_time(self, plot_data_lists, other_data_lists):
+                """
+                Plots the total bond revenue collected over time for each scenario.
+                Revenue = (bond amount) * (number of non-compliant satellites).
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                
+                plt.figure(figsize=(10, 6))
                 comparison_folder = os.path.join(self.simulation_folder, "comparisons")
                 os.makedirs(comparison_folder, exist_ok=True)
-                
-                welfare_dict = {}
-                
-                # Loop over each scenario's data
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        # We assume `plot_data.scenario` holds the scenario name
-                        # If it doesn't, change the attribute name or use a default label.
-                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
 
-                        # Retrieve the dictionary of species -> data arrays
-                        # e.g., {species: np.array(time, shells), ...
-
-                        for j, year in enumerate(other_data):
-                                welfare = other_data[year]['welfare']
-                                if scenario_name not in welfare_dict:
-                                        welfare_dict[scenario_name] = np.zeros(len(other_data))
-                                welfare_dict[scenario_name][j] = welfare
-                counter = 0
-                labels = []
-                for idx, scenario_name in enumerate(welfare_dict):
-                        welfare_list = welfare_dict[scenario_name]
-                        x_axis = range(len(welfare_list)) + np.ones(len(welfare_list))
-                        if idx <= 9:
-                                plt.plot(x_axis, welfare_list, label=scenario_name, marker='o')
-                                counter = counter + 1
-                        elif (idx > 9) and (idx <= 19):
-                                plt.plot(x_axis, welfare_list, label=scenario_name, marker='X')
-                                counter = counter + 1
-                        else:
-                                counter = counter + 1
-                                plt.plot(x_axis, welfare_list, label=scenario_name, marker='>')
-                        labels.append(scenario_name)
+                for plot_data, other_data in zip(plot_data_lists, other_data_lists):
+                        scenario_label = getattr(plot_data, 'scenario', 'Unnamed Scenario')
                         
-                # plt.title(f"Welfare Over Time")
-                plt.xlabel("Time Steps (Years)")
-                plt.ylabel("Welfare ($)")
-                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                        # Get the loaded econ_params dictionary, e.g., { "SA": {...}, "SB": {...}, ... }
+                        econ_params_dict = plot_data.econ_params
+                        
+                        # Find the S-species to check for the bond amount
+                        # We use plot_data.data.keys() to get the list of species
+                        s_species_names = [sp for sp in plot_data.data.keys() if sp.startswith("S")]
+                        
+                        # Get bond amount from the first S-species. Default to 0 if no bond.
+                        bond_amount = 0.0
+                        if s_species_names and s_species_names[0] in econ_params_dict:
+                                bond_amount = econ_params_dict[s_species_names[0]].get("bond") or 0.0
+                        
+                        # Get sorted timesteps (e.g., '1', '2', ..., '9')
+                        timesteps = sorted(other_data.keys(), key=int)
+                        
+                        # 0 for the initial year (year 0)
+                        bond_revenues = [0.0] 
+                        
+                        for ts in timesteps:
+                                # Get the non-compliance dictionary {species: count}
+                                non_compliance_data = other_data[ts].get("non_compliance", {})
+                                # Sum the counts of non-compliant sats across all species
+                                total_non_compliant = sum(non_compliance_data.values())
+                                bond_revenues.append(total_non_compliant * bond_amount)
+
+                        time_axis = range(len(bond_revenues))
+                        plt.plot(time_axis, bond_revenues, label=scenario_label, linewidth=2, marker='o', markersize=4)
+
+                plt.xlabel("Year", fontsize=12)
+                plt.ylabel("Total Bond Revenue ($)", fontsize=12)
+                plt.legend(title="Scenario", fontsize=10)
                 plt.grid(True)
+                plt.tight_layout()
 
-                out_path = os.path.join(comparison_folder, "welfare_comparison.png")
-                plt.savefig(out_path, dpi=300, bbox_inches='tight')
+                file_path = os.path.join(comparison_folder, "total_bond_revenue_vs_time.png")
+                plt.savefig(file_path, dpi=300)
                 plt.close()
-
-                print(f"Comparison launch plot saved to {out_path}")
+                print(f"Bond revenue plot saved to {file_path}")

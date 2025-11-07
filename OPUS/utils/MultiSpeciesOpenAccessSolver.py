@@ -115,7 +115,7 @@ class MultiSpeciesOpenAccessSolver:
             if species.maneuverable:
                 maneuvers = self.calculate_maneuvers(state_next_alt, species.name)
                 # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
-                cost = maneuvers * 12000 * 2 # $10,000 per maneuver, we double since we assume twice as many maneuvers for each collision
+                cost = maneuvers * 10000 * 2 # $10,000 per maneuver, we double since we assume twice as many maneuvers for each collision
                 # Rate of Return
                 if self.elliptical:
                     rate_of_return = self.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
@@ -207,7 +207,7 @@ class MultiSpeciesOpenAccessSolver:
         evaluated_value_flat = [float(value[0]) for value in evaluated_value]
         return np.array(evaluated_value_flat)
     
-    def fringe_rate_of_return(self, state_matrix, collision_risk, opus_species, congestion_costs=None):
+    def fringe_rate_of_return(self, state_matrix, collision_risk, opus_species, cost=None):
         """
          Calcualtes the fringe rate of return. It can be only used by one species at once. 
          Currently it assumes a linear revenue model, although other models can be used in the future. 
@@ -254,14 +254,19 @@ class MultiSpeciesOpenAccessSolver:
         depreciation_rate = 1 / opus_species.econ_params.sat_lifetime
         # 0.2
 
-        # Equilibrium expression for rate of return.
-        rev_cost = revenue / (opus_species.econ_params.cost)
+        # Equilibrium expression for rate of return including maneuver costs.
+        base_cost = opus_species.econ_params.cost
+        if cost is not None:
+            total_cost = base_cost + cost
+        else:
+            total_cost = base_cost
+        rev_cost = revenue / total_cost
       
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate  
         else:
-            bond_per_shell = np.ones_like(collision_risk) * opus_species.econ_params.bond
-            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.intercept))
+            bond_per_shell = np.ones_like(collision_risk) * opus_species.econ_params.bond #<- Set in econ parameters
+            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost)) #<- This is likely causing the issue (was intercept), make sure how the bond is set per species
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
 
         return rate_of_return
