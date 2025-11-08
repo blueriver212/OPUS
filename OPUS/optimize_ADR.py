@@ -45,16 +45,16 @@ class OptimizeADR:
                 constellation_sats: The name of the constellation satellites
                 fringe_sats: The name of the fringe satellites
         """
-        for i, sp in multi_species:
-            if sp == 'S':
-                constellation_sats_idx = multi_species.species.sp.species_idx
-                constellation_start_slice = multi_species.species.sp.start_slice
-                constellation_end_slice = multi_species.species.sp.end_slice
+        for i, sp in enumerate(multi_species.species):
+            if sp.name == 'S':
+                constellation_sats_idx = sp.species_idx
+                constellation_start_slice = sp.start_slice
+                constellation_end_slice = sp.end_slice
 
-            if sp == 'Su':
-                fringe_sats_idx = multi_species.species.sp.species_idx
-                fringe_start_slice = multi_species.species.sp.start_slice
-                fringe_end_slice = multi_species.species.sp.end_slice
+            if sp.name == 'Su':
+                fringe_sats_idx = sp.species_idx
+                fringe_start_slice = sp.start_slice
+                fringe_end_slice = sp.end_slice
 
         return constellation_start_slice, constellation_end_slice, fringe_start_slice, fringe_end_slice
 
@@ -103,16 +103,19 @@ class OptimizeADR:
         _, _, fringe_start_slice, fringe_end_slice = self.optimizer_get_species_position_indexes(MOCAT=self.MOCAT, multi_species=multi_species)
 
         shells = np.arange(1, self.MOCAT.scenario_properties.n_shells +1)
-        if MOCAT_config['OPUS']['disposal_time'] == 5:
-            mids = self.MOCAT.scenario_properties.HMid
-            mids = [abs(x - 400) for x in mids]
-            natrually_compliant_idx = mids.index(min(mids))
-            not_naturally_compliant_shells = shells[(natrually_compliant_idx+1):-1]
-        elif MOCAT_config['OPUS']['disposal_time'] == 25:
-            mids = self.MOCAT.scenario_properties.HMid
-            mids = [abs(x - 520) for x in mids]
-            natrually_compliant_idx = mids.index(min(mids))
-            not_naturally_compliant_shells = shells[(natrually_compliant_idx+1):-1]
+        for sp in MOCAT_config['species']:
+            if "OPUS" in sp:
+                # sammie: adjust to figure out naturally_compliant for different species potentially?
+                if sp['OPUS']['disposal_time'] == 5:
+                    mids = self.MOCAT.scenario_properties.HMid
+                    mids = [abs(x - 400) for x in mids]
+                    natrually_compliant_idx = mids.index(min(mids))
+                    not_naturally_compliant_shells = shells[(natrually_compliant_idx+1):-1]
+                elif sp['OPUS']['disposal_time'] == 25:
+                    mids = self.MOCAT.scenario_properties.HMid
+                    mids = [abs(x - 520) for x in mids]
+                    natrually_compliant_idx = mids.index(min(mids))
+                    not_naturally_compliant_shells = shells[(natrually_compliant_idx+1):-1]
 
         #################################
         ### CONFIGURE ECONOMIC PARAMETERS
@@ -138,7 +141,8 @@ class OptimizeADR:
                 econ_params.bond = None
             econ_params.ouf = float(current_params[7])
 
-            econ_params.calculate_cost_fn_parameters()
+            # econ_params.calculate_cost_fn_parameters()
+            # sammie / joey: i think we need the above line to run this but i'm not sure what the inputs would be
             self.econ_params = econ_params
         
         # sammie addition:
@@ -455,10 +459,10 @@ class OptimizeADR:
 
         return current_trial_results, opt_shell
 
-    def run_optimizer_loop(self, scenario_name, simulation_name, MOCAT_config):
+    def run_optimizer_loop(self, scenario_name, simulation_name, MOCAT_config, params):
         simulation_results = {}
         opt_path = {}
-        tf, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False)
+        tf, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, MOCAT_config=MOCAT_config, scenario_name=scenario_name, simulation_name=simulation_name, grid_search=False)
         for time_idx in tf:
             optimization_trial_results, opt_shell = OptimizeADR.optimize_adr_loop(self, time_idx, species_data, econ_calculator, current_environment=current_environment, lam=lam, shells=shells, fringe_start_slice=fringe_start_slice, fringe_end_slice=fringe_end_slice)
             
@@ -551,7 +555,7 @@ class OptimizeADR:
         # scenario_files.append("Baseline")
         # setting up solver and MOCAT configuration
         solver = OptimizeADR()
-        MOCAT_config = json.load(open("./OPUS/configuration/three_species.json"))
+        MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
         solver.params = params
 
         with ProcessPoolExecutor() as executor:
@@ -636,5 +640,5 @@ class OptimizeADR:
 def process_optimizer_scenario(scenario_name, MOCAT_config, simulation_name, params):
         iam_solver_optimize = OptimizeADR()
         iam_solver_optimize.params = params
-        iam_solver_optimize.run_optimizer_loop(iam_solver_optimize, scenario_name, simulation_name, MOCAT_config)
+        iam_solver_optimize.run_optimizer_loop(scenario_name, simulation_name, MOCAT_config, params)
         return iam_solver_optimize.get_mocat_from_optimizer(), iam_solver_optimize.adr_dict, iam_solver_optimize.welfare_dict
