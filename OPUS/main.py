@@ -510,7 +510,7 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name):
 
 if __name__ == "__main__":
     baseline = True
-    bond_amounts = [100000]
+    bond_amounts = [100000, 200000, 300000, 400000]
     lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content

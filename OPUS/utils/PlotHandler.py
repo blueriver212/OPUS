@@ -212,10 +212,16 @@ class PlotHandler:
                                         plot_method = getattr(self, attr_name)
                                         plot_method(plot_data, other_data)
                                 elif attr_name.startswith("econ_"):
-                                        print(f"Creating plot: {attr_name}")
+                                        print(f"Creating economic plots for {attr_name}...")
                                         plot_method = getattr(self, attr_name)
-                                        plot_method(plot_data.path, econ_params)
-                
+                                        # Loop through each species in the econ_params dict
+                                        for species_name, species_econ_data in econ_params.items():
+                                                print(f"  ... for species: {species_name}")
+                                                # Create a species-specific path
+                                                species_plot_path = os.path.join(plot_data.path, species_name)
+                                                # Pass the inner dictionary (species_econ_data)
+                                                plot_method(species_plot_path, species_econ_data)
+                                                        
                 # Create 3D plots for maneuvers and collisions
                 self._create_3d_maneuver_plots(plot_data, other_data)
                 self._create_3d_collision_plots(plot_data, other_data)
@@ -640,67 +646,6 @@ class PlotHandler:
                 plt.savefig(file_path, dpi=300)
                 print(f"Scatter plot saved to {file_path}")
         
-        def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
-                """
-                Create a scatter plot showing:
-                - X-axis: bond amount (£)
-                - Y-axis: non-compliance (%)
-                - Point color or size: total money paid (non_compliance × bond)
-                Labels now show total money in millions with a $ sign.
-                """
-                import matplotlib.pyplot as plt
-                import numpy as np
-                import os
-                import re
-
-                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(scatter_folder, exist_ok=True)
-                file_path = os.path.join(scatter_folder, "scatter_noncompliance_vs_bond.png")
-
-                bond_vals = []
-                noncompliance_vals = []
-                total_money_vals = []
-
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-                        timesteps = sorted(other_data.keys(), key=int)
-                        first_timestep = timesteps[-1]
-                        nc = other_data[first_timestep]["non_compliance"]
-                        
-                        # Sum all non-compliance values if it's a dictionary
-                        if isinstance(nc, dict):
-                                nc_total = sum(nc.values())
-                        else:
-                                nc_total = nc
-
-                        # Extract bond amount from name (e.g., "bond_800k" → 800000)
-                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
-                        if match:
-                                bond = int(match.group(1)) * 1_000
-                        else:
-                                bond = 0  # e.g., for "baseline"
-
-                        total = bond * nc_total
-                        bond_vals.append(bond)
-                        noncompliance_vals.append(nc_total)
-                        total_money_vals.append(total)
-
-                plt.figure(figsize=(10, 6))
-                scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
-                plt.colorbar(scatter, label="Total Money Paid (£)")
-
-                # Annotate with rounded money values in millions
-                for x, y, total in zip(bond_vals, noncompliance_vals, total_money_vals):
-                        label = f"${round(total / 1_000_000):,}M"
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
-
-                plt.xlabel("Bond Amount (£)")
-                plt.ylabel("Count of Derelicts")
-                plt.title("Final Year: Derelict Count vs Bond Pot")
-                plt.grid(True, zorder=0)
-                plt.tight_layout()
-                plt.savefig(file_path, dpi=300)
-                print(f"Scatter plot saved to {file_path}")
 
         def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
                 """
@@ -1456,8 +1401,9 @@ class PlotHandler:
                 
                 # Calculate and plot grand total
                 grand_total = np.zeros_like(list(group_totals.values())[0])
-                for total_data in group_totals.values():
-                        grand_total += total_data
+                for group_name, total_data in group_totals.items():
+                        if group_name != 'D': # Exclude the 'D' group from the grand total
+                                grand_total += total_data
                 
                 plt.plot(time_steps, grand_total, label='Grand Total', 
                         color='black', linewidth=3, linestyle='--')
