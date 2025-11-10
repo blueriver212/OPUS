@@ -84,9 +84,13 @@ def revenue_open_access_calculations(open_access_inputs, state_next):
 
     # Use fringe_econ_params instead of open_access_inputs.econ_params
     if (fringe_econ_params.bond is not None) and (fringe_econ_params.bond != 0):
-        # vector already created inside fringe_rate_of_return()
-        revenue_by_shell = (1 - fringe_econ_params.comp_rate) * fringe_total * fringe_econ_params.bond    
-        open_access_inputs.bond_revenue = revenue_by_shell                 # bond
+        # Calculate revenue ONLY from sats at end-of-life
+        sats_at_eol = fringe_total / fringe_econ_params.sat_lifetime
+        
+        # Calculate bond revenue: (non-compliance rate) * (sats at EOL) * (bond value)
+        revenue_by_shell = (1 - fringe_econ_params.comp_rate) * sats_at_eol * fringe_econ_params.bond
+        # SET the attribute on the solver object instead of reading it
+        open_access_inputs.bond_revenue = revenue_by_shell                # bond
         open_access_inputs._revenue_type = "bond"
 
     # Use fringe_econ_params

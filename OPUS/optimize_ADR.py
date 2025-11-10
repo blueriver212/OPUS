@@ -150,8 +150,8 @@ class OptimizeADR:
             econ_calculator = EconCalculations(self.econ_params, initial_removal_cost=5000000)
         else:
             self.econ_params = EconParameters(self.econ_params_json, mocat=self.MOCAT)
-            self.econ_params_gen.econ_params_for_ADR(scenario_name)
-            econ_calculator = EconCalculations(self.econ_params_gen, initial_removal_cost=5000000)
+            self.econ_params.econ_params_for_ADR(scenario_name)
+            econ_calculator = EconCalculations(self.econ_params, initial_removal_cost=5000000)
 
 
         # For each simulation - we will need to modify the base economic parameters for the species. 
@@ -256,7 +256,7 @@ class OptimizeADR:
         ############################
         ### SOLVE FOR THE FIRST YEAR
         ############################c
-        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0, self.adr_params)
+        open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, self.MOCAT.scenario_properties.x0, "linear", lam, multi_species, years, 0, fringe_start_slice, fringe_end_slice)
 
         # This is now the first year estimate for the number of fringe satellites that should be launched.
         launch_rate = open_access.solver()
@@ -268,7 +268,7 @@ class OptimizeADR:
             num_actually_removed=0,
             current_environment=self.MOCAT.scenario_properties.x0,
             fringe_slices=(fringe_start_slice, fringe_end_slice),
-            new_tax_revenue=float(open_access.last_total_revenue)
+            new_total_revenue=float(open_access._last_total_revenue)
         )
 
         lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
@@ -286,7 +286,7 @@ class OptimizeADR:
         species_data = {sp: np.zeros((self.MOCAT.scenario_properties.simulation_duration, self.MOCAT.scenario_properties.n_shells)) for sp in self.MOCAT.scenario_properties.species_names}
 
         
-        return tf, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice
+        return tf, years, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice
 
     def optimize_adr_loop(self, years, time_idx, species_data, econ_calculator, shells, current_environment, lam, fringe_start_slice, fringe_end_slice):
         current_trial_results = {}
@@ -364,7 +364,7 @@ class OptimizeADR:
             start_time = time.time()
             # solver guess will be lam
             solver_guess = None
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, self.adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, fringe_start_slice, fringe_end_slice)
 
             # Calculate solver_guess
             solver_guess = lam.copy()
@@ -396,7 +396,7 @@ class OptimizeADR:
             # Check if there are any economic parameters that need to change (e.g demand growth of revenue)
             # multi_species.increase_demand()
 
-            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, self.adr_params)
+            open_access = MultiSpeciesOpenAccessSolver(self.MOCAT, solver_guess, environment_for_solver, "linear", lam, multi_species, years, time_idx, fringe_start_slice, fringe_end_slice)
 
             # Solve for equilibrium launch rates
             launch_rate = open_access.solver()
@@ -414,8 +414,8 @@ class OptimizeADR:
                 current_environment = state_next_alt
 
             # # ---- Process Economics ---- # #
-            trial_total_tax_revenue = float(open_access._last_total_revenue)
-            trial_shell_revenue = open_access.last_tax_revenue.tolist()
+            trial_total_revenue = float(open_access._last_total_revenue)
+            trial_revenue_by_shell = open_access._last_tax_revenue.tolist()
             trial_species_data = species_data
             trial_launch_rate = launch_rate
 
@@ -430,7 +430,7 @@ class OptimizeADR:
             current_trial_results[cs] = {
                 "environment": trial_environment_for_solver.copy(),
                 "num_removed": trial_num_removed,
-                "new_tax_revenue": trial_total_tax_revenue,
+                "new_total_revenue": trial_total_revenue,
                 "launch_rate": trial_launch_rate,
                 "removal_dict": removal_dict,
                 "species_data": trial_species_data,
@@ -446,8 +446,8 @@ class OptimizeADR:
                     "maneuvers": open_access._last_maneuvers,
                     "cost": open_access._last_cost,
                     "rate_of_return": open_access._last_rate_of_return,
-                    "tax_revenue_total": trial_total_tax_revenue,
-                    "tax_revenue_by_shell": trial_shell_revenue,
+                    "revenue_total": trial_total_revenue,
+                    "revenue_by_shell": trial_revenue_by_shell,
                     "welfare": welfare,
                     "bond_revenue": open_access.bond_revenue,
                 }
@@ -462,16 +462,16 @@ class OptimizeADR:
     def run_optimizer_loop(self, scenario_name, simulation_name, MOCAT_config, params):
         simulation_results = {}
         opt_path = {}
-        tf, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, MOCAT_config=MOCAT_config, scenario_name=scenario_name, simulation_name=simulation_name, grid_search=False)
+        tf, years, current_environment, multi_species, species_data, econ_calculator, shells, lam, fringe_start_slice, fringe_end_slice = OptimizeADR.solve_year_zero(self, MOCAT_config=MOCAT_config, scenario_name=scenario_name, simulation_name=simulation_name, grid_search=False)
         for time_idx in tf:
-            optimization_trial_results, opt_shell = OptimizeADR.optimize_adr_loop(self, time_idx, species_data, econ_calculator, current_environment=current_environment, lam=lam, shells=shells, fringe_start_slice=fringe_start_slice, fringe_end_slice=fringe_end_slice)
+            optimization_trial_results, opt_shell = OptimizeADR.optimize_adr_loop(self, years, time_idx, species_data, econ_calculator, current_environment=current_environment, lam=lam, shells=shells, fringe_start_slice=fringe_start_slice, fringe_end_slice=fringe_end_slice)
             
             if opt_shell is not None:
                 best_trial_results = optimization_trial_results[opt_shell]
 
                 current_environment = best_trial_results['environment']
                 num_actually_removed = best_trial_results['num_removed']
-                new_tax_revenue = best_trial_results['new_tax_revenue']
+                new_total_revenue = best_trial_results['new_total_revenue']
                 lam[fringe_start_slice:fringe_end_slice] = best_trial_results['launch_rate']
 
                 # Now we call process_period_economics to finalize the year's state and prepare the funds for the next period.
@@ -479,7 +479,7 @@ class OptimizeADR:
                     num_actually_removed,
                     current_environment,
                     (fringe_start_slice, fringe_end_slice),
-                    new_tax_revenue
+                    new_total_revenue
                         )
                 # Save the results of the best trial
                 simulation_results[time_idx] = best_trial_results['simulation_data']
@@ -489,10 +489,10 @@ class OptimizeADR:
                     species_data[sp][time_idx - 1] = best_trial_results['species_data'][sp]
             else:
                 welfare, _ = econ_calculator.process_period_economics(
-                    0,
-                    self.environment_before_adr,
-                    (fringe_start_slice, fringe_end_slice),
-                    0,
+                    num_actually_removed = 0,
+                    current_environment=self.environment_before_adr,
+                    fringe_slices = (fringe_start_slice, fringe_end_slice),
+                    new_total_revenue = 0,
                 )
                 pass 
             
