@@ -2,6 +2,7 @@ import numpy as np
 from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
 import pandas as pd
+import os
 
 class EconParameters:
     """
@@ -18,8 +19,11 @@ class EconParameters:
         self.mocat = mocat
         self.maneuverable = False
 
-        # self.lift_price = 5000
-        params = econ_params_json.get("OPUS", econ_params_json)
+        # Updated logic from EconParameters1.py for safety
+        if econ_params_json is None:
+            params = {}
+        else:
+            params = econ_params_json.get("OPUS", econ_params_json)
 
         # Lifetime of a satellite [years]
         # Default value is 5 years for MOCAT
@@ -46,7 +50,7 @@ class EconParameters:
         self.base_delta_v_cost = params.get("delta_v_cost", 1000)
 
         #Toggle the congestion switch to turn on congestion pricing for delta_v
-        self.congestion_switch = 1
+        self.congestion_switch = 0 
         self.delta_v_cost = np.full(self.mocat.scenario_properties.n_shells, self.base_delta_v_cost)
         
         #Competitors for bonded and unbonded species
@@ -145,17 +149,20 @@ class EconParameters:
         self.deorbit_maneuver_cost = self.total_deorbit_delta_v * self.delta_v_cost
         self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
 
-        # self.cost = (self.total_lift_price + self.stationkeeping_cost + self.lifetime_loss_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist() # should be self.mocat.scenario_properties.P which is the probability of regulatory non-compliance. 
-        self.cost = (self.total_lift_price + self.stationkeeping_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
+        # Cost calculation moved from here
+        # self.cost = (self.total_lift_price + self.stationkeeping_cost + self.lifetime_loss_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
         self.v_drag = v_drag
         self.k_star = k_star 
 
 
         #BOND CALCULATIONS - compliance rate is defined in MOCAT json
-        self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
+        self.comp_rate = np.ones_like(self.total_lift_price) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
         
         if self.bond is None:
             self.comp_rate = np.where(self.naturally_compliant_vector != 1, pmd_rate, self.comp_rate)
+            # Calculate expected cost for baseline
+            expected_deorbit_costs = (self.lifetime_loss_cost + self.deorbit_maneuver_cost) * self.comp_rate
+            self.cost = (self.total_lift_price + self.stationkeeping_cost + expected_deorbit_costs)
             return 
 
         # Scale the bond with the mass of the satellite. Full bond cost = bond/700 kg
@@ -171,15 +178,19 @@ class EconParameters:
 
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
+        
+        # Updated logic from EconParameters1.py
         # non_comp_rate = 1 - pmd_rate
         # self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
 
-        # With Option 1 quation 
         A = 57
         k = np.log(12) / 75
-
         scaled_effort = (self.bond / self.bstar[mask]) * 100
         self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
+
+        # Calculate expected cost for bond scenario 
+        expected_deorbit_costs = (self.lifetime_loss_cost + self.deorbit_maneuver_cost) * self.comp_rate
+        self.cost = (self.total_lift_price + self.stationkeeping_cost + expected_deorbit_costs)
 
         return       
 
@@ -200,8 +211,9 @@ class EconParameters:
         parameters = pd.read_csv(path)
         
         for i, row in parameters.iterrows():
-            parameter_type = row['parameter_type']
-            parameter_name = row['parameter_name']
+            # Added .strip() from EconParameters1.py
+            parameter_type = row['parameter_type'].strip()
+            parameter_name = row['parameter_name'].strip()
             parameter_value = row['parameter_value']
 
             # Modify the value based on parameter_type
@@ -257,7 +269,7 @@ class EconParameters:
             self.stationkeeping_cost = delta_v_budget * self.delta_v_cost
             
             # Recalculate the final cost list
-            self.cost = (self.total_lift_price + self.stationkeeping_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
+            self.cost = (self.total_lift_price + self.stationkeeping_cost + self.lifetime_loss_cost + self.deorbit_maneuver_cost * (1 - 0)).tolist()
             return self.cost
 
     def return_congestion_costs(self, current_environment, initial_environment):
@@ -297,5 +309,5 @@ class EconParameters:
         stationkeeping_cost = delta_v_budget * delta_v_cost
         
         # Recalculate the final cost list
-        cost = (self.total_lift_price + stationkeeping_cost + deorbit_maneuver_cost * (1 - 0)).tolist()
+        cost = (self.total_lift_price + stationkeeping_cost + self.lifetime_loss_cost + deorbit_maneuver_cost * (1 - 0)).tolist()
         return cost

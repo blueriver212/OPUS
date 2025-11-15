@@ -6,12 +6,12 @@
   "created": "2024-01-01T12:00:00Z",
   "modified": "2024-01-01T12:00:00Z",
   "scenario_properties": {
-    "start_date": "01/01/2025",
-    "simulation_duration": 9,
-    "steps": 9,
+    "start_date": "01/01/2017",
+    "simulation_duration": 10,
+    "steps": 10,
     "min_altitude": 200,
     "max_altitude": 1500,
-    "n_shells": 2,
+    "n_shells": 10,
     "launch_function": "Constant",
     "integrator": "BDF",
     "density_model": "static_exp_dens_func",
@@ -54,6 +54,7 @@
       "pmd_func": "pmd_func_opus",
       "drag_func": "drag_func_exp",
       "OPUS" :{
+          "competitors": ["SB", "SC"],
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -91,6 +92,7 @@
       "pmd_func": "pmd_func_opus",
       "drag_func": "drag_func_exp",
       "OPUS" :{
+          "competitors": ["SA", "SC"],
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -128,6 +130,7 @@
       "pmd_func": "pmd_func_opus",
       "drag_func": "drag_func_exp",
       "OPUS" :{
+          "competitors": ["SA", "SB"],
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -165,6 +168,7 @@
         "pmd_func": "pmd_func_opus",
         "drag_func": "drag_func_exp",
         "OPUS" :{
+          "competitors": ["SuB", "SuC"],
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -202,6 +206,7 @@
         "pmd_func": "pmd_func_opus",
         "drag_func": "drag_func_exp",
         "OPUS" :{
+          "competitors": ["SuA", "SuC"],
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -239,6 +244,7 @@
         "pmd_func": "pmd_func_opus",
         "drag_func": "drag_func_exp",
         "OPUS" :{
+          "competitors": ["SuA", "SuB"],
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
