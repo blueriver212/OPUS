@@ -108,40 +108,6 @@ class IAMSolver:
 
         return constellation_start_slice, constellation_end_slice
 
-    # Added
-    def _apply_replacement_floor(self, solver_guess_array, environment_array, multi_species):
-        """
-            Ensure each species starts the solve with at least the replacement launches
-            implied by the active population removed via PMD.
-        """
-        replacement_caps = {"Sns": 1000}
-
-        for species in multi_species.species:
-            if self.elliptical:
-                active_population = environment_array[:, species.species_idx, 0]
-                replacement_floor = active_population / species.deltat
-                cap = replacement_caps.get(species.name)
-                if cap is not None:
-                    total_floor = np.sum(replacement_floor)
-                    if total_floor > cap and total_floor > 0:
-                        replacement_floor = replacement_floor * (cap / total_floor)
-                solver_guess_array[:, species.species_idx, 0] = np.maximum(
-                    solver_guess_array[:, species.species_idx, 0], replacement_floor
-                )
-            else:
-                active_population = environment_array[species.start_slice:species.end_slice]
-                replacement_floor = active_population / species.deltat
-                cap = replacement_caps.get(species.name)
-                if cap is not None:
-                    total_floor = np.sum(replacement_floor)
-                    if total_floor > cap and total_floor > 0:
-                        replacement_floor = replacement_floor * (cap / total_floor)
-                solver_guess_array[species.start_slice:species.end_slice] = np.maximum(
-                    solver_guess_array[species.start_slice:species.end_slice], replacement_floor
-                )
-
-        return solver_guess_array
-
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name, multi_species_names, grid_search=False):
         """
             The main function that runs the IAM solver.
@@ -234,8 +200,6 @@ class IAMSolver:
                     inital_guess[:] = 5
                 solver_guess[species.start_slice:species.end_slice] = inital_guess
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
-
-        # solver_guess = self._apply_replacement_floor(solver_guess, self.MOCAT.scenario_properties.x0, multi_species)
 
         if self.elliptical:
             for species in multi_species.species:
@@ -470,10 +434,9 @@ if __name__ == "__main__":
         "lifetimes": lifetimes
     }
     
-
     MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
 
-    simulation_name = "sns_test_2"
+    simulation_name = "sns_test_3"
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
