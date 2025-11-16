@@ -128,7 +128,6 @@ class IAMSolver:
         # Define the species that are part of the constellation and fringe
         # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
         multi_species_names = ["S", "Su", "Sns"]
-        # multi_species_names = ["S"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -172,7 +171,7 @@ class IAMSolver:
         # For each simulation - we will need to modify the base economic parameters for the species. 
         for species in multi_species.species:
             species.econ_params.modify_params_for_simulation(scenario_name)
-            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)        
+            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name, species.name)        
             # species.econ_params.update_congestion_costs(multi_species, self.MOCAT.scenario_properties.x0)    
 
         # For now make all satellites circular if elliptical
@@ -379,7 +378,7 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name):
 
 if __name__ == "__main__":
     baseline = True
-    bond_amounts = [100000, 500000, 1000000, 1500000, 2000000]
+    bond_amounts = [100000] #, 500000, 1000000, 1500000, 2000000]
     lifetimes = [5, 25]
     
     # Ensure all bond configuration files exist with correct content
@@ -401,7 +400,10 @@ if __name__ == "__main__":
 
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "sns_test_2"
+    simulation_name = "intensive"
+    # check if Results/{simulation_name} exists
+    if not os.path.exists(f"./Results/{simulation_name}"):
+        os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
@@ -431,7 +433,7 @@ if __name__ == "__main__":
     # # no parallel processing
     # for scenario_name in scenario_files:
     #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=True)
+    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
     #     # Get the total species from the output
     #     total_species = get_total_species_from_output(output)
     #     print(f"Total species for scenario {scenario_name}: {total_species}")

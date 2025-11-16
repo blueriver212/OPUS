@@ -165,17 +165,17 @@ class PlotHandler:
                                 econ_params_list.append(econ_data)
 
                                 # If the plot_types is None, then generate all plots
-                                # if "all_plots" in self.plot_types:
-                                #         self.all_plots(plot_data, other_data, econ_data)
-                                # else:
-                                #         # Dynamically generate plots
-                                #         for plot_name in self.plots:
-                                #                 plot_method = getattr(self, plot_name, None)
-                                #                 if callable(plot_method):
-                                #                         print(f"Creating plot: {plot_name}")
-                                #                         plot_method()
-                                #                 else:
-                                #                         print(f"Warning: Plot '{plot_name}' not found. Skipping...")
+                                if "all_plots" in self.plot_types:
+                                        self.all_plots(plot_data, other_data, econ_data)
+                                else:
+                                        # Dynamically generate plots
+                                        for plot_name in self.plots:
+                                                plot_method = getattr(self, plot_name, None)
+                                                if callable(plot_method):
+                                                        print(f"Creating plot: {plot_name}")
+                                                        plot_method()
+                                                else:
+                                                        print(f"Warning: Plot '{plot_name}' not found. Skipping...")
 
                 if comparison:
                         self._comparison_plots(plot_data_list, other_data_list)
@@ -701,6 +701,179 @@ class PlotHandler:
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
                 print(f"Scatter plot saved to {file_path}")
+
+
+        def comparison_species_and_derelicts_response_to_bonds(self, plot_data_lists, other_data_lists):
+                """
+                Generate a 2x3 comparison figure that shows how counts respond to bond levels
+                for two PMD lifetimes (5yr solid, 25yr dashed):
+                  - Top row: S, Su, Sns totals (final year)
+                  - Bottom row: selected derelict mass classes (final year)
+
+                Notes
+                - Derelicts are pulled from N_* species present in the data. We try to
+                  select the closest available mass buckets to 521kg, 700kg and 20kg.
+                - Uses the linked-species compliant split infrastructure already present
+                  elsewhere in this module to access scenario data; here we only need final
+                  totals per species at the final timestep.
+                - Scenarios are expected to include pattern "bond_{K}k_{Y}yr" in their
+                  names to infer the bond and the PMD lifetime.
+                """
+                import os
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Targets for derelict buckets (kg). We'll choose the closest available N_{mass}kg
+                target_der_mass = [521.0, 700.0, 20.0]
+
+                # Helpers ----------------------------------------------------
+                def parse_der_mass(name: str):
+                        m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
+                        return float(m.group(1)) if m else None
+
+                def sum_species_final(plot_data, selector) -> float:
+                        total = 0.0
+                        for sp_name, sp_data in plot_data.data.items():
+                                if selector(sp_name):
+                                        arr = np.array(sp_data)
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                total += float(np.sum(arr[-1, :]))
+                        return total
+
+                # First pass: discover available derelict masses across scenarios
+                available_masses = set()
+                for plot_data in plot_data_lists:
+                        for sp_name in plot_data.data.keys():
+                                if sp_name.startswith('N_'):
+                                        mass = parse_der_mass(sp_name)
+                                        if mass is not None:
+                                                available_masses.add(mass)
+                available_masses = sorted(list(available_masses))
+
+                # Map each target (521, 700, 20) to the closest available mass
+                chosen_der_masses = {}
+                for target in target_der_mass:
+                        if not available_masses:
+                                continue
+                        idx = int(np.argmin(np.abs(np.array(available_masses) - target)))
+                        chosen_der_masses[target] = available_masses[idx]
+
+                # Data buckets by lifetime
+                series_keys = ['S', 'Su', 'Sns']
+                # Create keys like 'N_521kg', etc., based on chosen masses
+                der_keys = []
+                for target in target_der_mass:
+                        if target in chosen_der_masses:
+                                chosen = chosen_der_masses[target]
+                                der_keys.append(f"N_{int(chosen) if chosen.is_integer() else chosen}kg")
+
+                data_5 = {k: {'bond': [], 'y': []} for k in series_keys + der_keys}
+                data_25 = {k: {'bond': [], 'y': []} for k in series_keys + der_keys}
+
+                # Collect ----------------------------------------------------
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        m = re.search(r"bond_(\d+)k_(\d+)yr", scenario_label.lower())
+                        if not m:
+                                # Treat as baseline ($0 bond). Infer lifetime from name if present, default 5yr
+                                bond_k = 0
+                                m_life = re.search(r"(?:^|_)(5|25)yr", scenario_label.lower())
+                                lifetime = int(m_life.group(1)) if m_life else 5
+                        else:
+                                bond_k = int(m.group(1))
+                                lifetime = int(m.group(2))
+
+                        # Final timestep
+                        timesteps = sorted(other_data.keys(), key=int)
+                        if not timesteps:
+                                continue
+                        # Species totals (final year)
+                        total_S   = sum_species_final(plot_data, lambda n: n.startswith('S') and not n.startswith('Su') and not n.startswith('Sns'))
+                        total_Su  = sum_species_final(plot_data, lambda n: n == 'Su')
+                        total_Sns = sum_species_final(plot_data, lambda n: n == 'Sns')
+
+                        # Derelict buckets by chosen closest mass
+                        der_totals = {}
+                        for target in target_der_mass:
+                                if target not in chosen_der_masses:
+                                        continue
+                                chosen = chosen_der_masses[target]
+                                # species name we will look for (exact match if exists)
+                                sp_key_exact = f"N_{int(chosen) if float(chosen).is_integer() else chosen}kg"
+                                total = sum_species_final(plot_data, lambda n, key=sp_key_exact: n == key)
+                                # If exact not found, sum all derelicts whose parsed mass is within 1 kg of the chosen
+                                if total == 0.0:
+                                        total = sum_species_final(plot_data, lambda n, ch=chosen: (n.startswith('N_') and (parse_der_mass(n) is not None) and abs(parse_der_mass(n) - ch) <= 1.0))
+                                der_totals[sp_key_exact] = total
+
+                        bucket = data_5 if lifetime == 5 else data_25
+                        # Add S, Su, Sns
+                        bucket['S']['bond'].append(bond_k);   bucket['S']['y'].append(total_S)
+                        bucket['Su']['bond'].append(bond_k);  bucket['Su']['y'].append(total_Su)
+                        bucket['Sns']['bond'].append(bond_k); bucket['Sns']['y'].append(total_Sns)
+                        # Add derelicts
+                        for k, v in der_totals.items():
+                                if k not in bucket:
+                                        bucket[k] = {'bond': [], 'y': []}
+                                bucket[k]['bond'].append(bond_k)
+                                bucket[k]['y'].append(v)
+
+                # Sort by bond for each series
+                def sort_series(dct):
+                        for k, obj in dct.items():
+                                if obj.get('bond'):
+                                        order = np.argsort(obj['bond'])
+                                        obj['bond'] = [obj['bond'][idx] for idx in order]
+                                        obj['y']    = [obj['y'][idx] for idx in order]
+                        return dct
+
+                data_5 = sort_series(data_5)
+                data_25 = sort_series(data_25)
+
+                # Figure -----------------------------------------------------
+                fig, axes = plt.subplots(2, 3, figsize=(16, 10))
+                panels = [
+                        ('S',   'S Species Response to Bonds', 0, 0),
+                        ('Su',  'Su Species Response to Bonds', 0, 1),
+                        ('Sns', 'Sns Species Response to Bonds',0, 2),
+                ]
+                # Fill bottom row with chosen derelict keys; pad with blanks if <3
+                der_for_panels = der_keys[:3] if len(der_keys) >= 3 else der_keys + ['']*(3-len(der_keys))
+                for j, dk in enumerate(der_for_panels):
+                        title = f"{dk} Derelicts Response to Bonds" if dk else ""
+                        panels.append((dk, title, 1, j))
+
+                # Plot helper
+                def plot_series(ax, key, title):
+                        if not key:
+                                ax.axis('off'); return
+                        # 5-year
+                        if key in data_5 and data_5[key]['bond']:
+                                ax.plot(data_5[key]['bond'], data_5[key]['y'], color='C0', marker='o', linestyle='-', label='5-year PMD')
+                                for x, y in zip(data_5[key]['bond'], data_5[key]['y']):
+                                        ax.text(x, y, f"{y:,.0f}", fontsize=8, va='bottom', ha='center')
+                        # 25-year
+                        if key in data_25 and data_25[key]['bond']:
+                                ax.plot(data_25[key]['bond'], data_25[key]['y'], color='C0', marker='o', linestyle='--', alpha=0.8, label='25-year PMD')
+                        ax.set_title(title)
+                        ax.set_xlabel('Bond Amount ($)')
+                        ax.set_ylabel(f"{key} Species Count")
+                        ax.grid(True, alpha=0.3)
+                        ax.legend(loc='best', fontsize=8)
+
+                # Draw panels
+                for key, title, r, c in panels:
+                        plot_series(axes[r][c], key, title)
+
+                plt.tight_layout()
+                out_path = os.path.join(comparison_folder, 'species_and_derelicts_response_to_bonds.png')
+                plt.savefig(out_path, dpi=300)
+                plt.close()
+                print(f"Comparison plot saved to {out_path}")
 
         def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
                 """

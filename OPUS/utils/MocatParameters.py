@@ -39,7 +39,9 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None, grid
         baseline=scenario_props.get("baseline", False),
         indicator_variables=scenario_props.get("indicator_variables", None),
         launch_scenario=scenario_props["launch_scenario"],
-        SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None
+        SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None, 
+        elliptical=scenario_props.get("elliptical", False),
+        eccentricity_bins=scenario_props.get("eccentricity_bins", None)
     )
 
     species = MOCAT_config["species"]
@@ -48,19 +50,18 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None, grid
     # Create an active_loss_setup for each of the species in the model.
     if multi_species != None:
         # Commented out opus_collisions_setup as it doesn't exist in current pyssem version
-        # for species in multi_species.species:
-        #     # get maneuverability from species, where ['active'] list has sym_name of the species
-        #     mocat_species = next((mocat_species for mocat_species in MOCAT.scenario_properties.species['active'] if mocat_species.sym_name == species.name), None)
-        #     if mocat_species.maneuverable:
-        #         MOCAT.opus_collisions_setup(species.name, maneuvers=True)
-        #         species.maneuverable = True
-        #     else:
-        #         MOCAT.opus_collisions_setup(species.name, maneuvers=False)
-        #         species.maneuverable = False
+        for species in multi_species.species:
+            # get maneuverability from species, where ['active'] list has sym_name of the species
+            mocat_species = next((mocat_species for mocat_species in MOCAT.scenario_properties.species['active'] if mocat_species.sym_name == species.name), None)
+            if mocat_species.maneuverable:
+                MOCAT.opus_collisions_setup(species.name, maneuvers=True)
+                species.maneuverable = True
+            else:
+                MOCAT.opus_collisions_setup(species.name, maneuvers=False)
+                species.maneuverable = False
         pass
 
-    # Build the model - removed elliptical parameter as it may not be supported
-    MOCAT.build_model()
+    MOCAT.build_model(elliptical=scenario_props.get("elliptical", False))
 
     print("You have these species in the model: ", MOCAT.scenario_properties.species_names)
 

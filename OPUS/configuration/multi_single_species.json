@@ -7,11 +7,11 @@
   "modified": "2024-01-01T12:00:00Z",
   "scenario_properties": {
     "start_date": "01/01/2025",
-    "simulation_duration": 15,
+    "simulation_duration": 10,
     "steps": 10,
     "min_altitude": 200,
     "max_altitude": 1500,
-    "n_shells": 10,
+    "n_shells": 15,
     "launch_function": "Constant",
     "integrator": "Euler",
     "density_model": "JB2008_dens_func",
@@ -67,7 +67,8 @@
           "controlled_pmd" : 0.6, 
           "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
-          "failed_attempt_pmd" : 0
+          "failed_attempt_pmd" : 0,
+          "controlled_renetries_only" : true
       }
     },
     {
@@ -101,10 +102,11 @@
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
           "mass": 700,
-          "controlled_pmd" : 0, 
-          "uncontrolled_pmd" : 0.6,
+          "controlled_pmd" : 0.6, 
+          "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
-          "failed_attempt_pmd" : 0
+          "failed_attempt_pmd" : 0,
+          "controlled_renetries_only" : true
       }
     },
     {
@@ -134,13 +136,14 @@
             "coef" : 22.67,
             "tax": 0,
             "delta_v_cost": 0,
-            "lift_price": 5000,
+            "lift_price": 5000, 
             "prob_of_non_compliance": 0,
             "mass": 20,
-            "controlled_pmd" : 0, 
-            "uncontrolled_pmd" : 0.6,
+            "controlled_pmd" : 0.6, 
+            "uncontrolled_pmd" : 0,
             "no_attempt_pmd" : 0.4,
-            "failed_attempt_pmd": 0
+            "failed_attempt_pmd": 0,
+            "controlled_renetries_only" : true
         }
     },
     {

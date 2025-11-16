@@ -3,6 +3,9 @@ from pyssem.model import Model
 from pyssem.utils.drag.drag import densityexp
 import pandas as pd
 
+# Earth's radius (m)
+R_EARTH = 6.371e6
+
 class EconParameters:
     """
     Class to build satellite cost using physcial and economic parameters
@@ -72,8 +75,15 @@ class EconParameters:
         self.uncontrolled_pmd = params.get("uncontrolled_pmd", 0)
         self.no_attempt_pmd = params.get("no_attempt_pmd", 0)
         self.failed_attempt_pmd = params.get("failed_attempt_pmd", 0)
+        
+        # Controlled re-entry option
+        self.controlled_renetries_only = params.get("controlled_renetries_only", False)
 
-    def calculate_cost_fn_parameters(self, pmd_rate, scenario_name):
+    def calculate_cost_fn_parameters(self, pmd_rate, scenario_name, species_name):
+        # get the species from mocat where species_name is the sym_name
+        species = next((species for species in self.mocat.scenario_properties.species['active'] if species.sym_name == species_name), None)
+        if species is None:
+            raise ValueError(f"Species {species_name} not found in MOCAT scenario properties.")
 
         # Save the pmd_rate as this will be passed from MOCAT
         self.pmd_rate = pmd_rate
@@ -87,8 +97,8 @@ class EconParameters:
             #rhok = density_jb2008(self.mocat.scenario_properties.R0_km[k], solar_activity='medium')
             rhok = densityexp(self.mocat.scenario_properties.R0_km[k])
             # satellite 
-            beta = 0.0172 # ballastic coefficient, area * mass * drag coefficient. This should be done for each species!
-            rvel_current_D = -rhok * beta * np.sqrt(self.mocat.scenario_properties.mu * self.mocat.scenario_properties.R0[k]) * (24 * 3600 * 365.25)
+            # beta = 0.0172 # ballastic coefficient, area * mass * drag coefficient. This should be done for each species!
+            rvel_current_D = -rhok * species.beta * np.sqrt(self.mocat.scenario_properties.mu * self.mocat.scenario_properties.R0[k]) * (24 * 3600 * 365.25)
             shell_marginal_decay_rates[k] = -rvel_current_D/self.mocat.scenario_properties.Dhl
             shell_marginal_residence_times[k] = 1/shell_marginal_decay_rates[k]
         
@@ -120,7 +130,27 @@ class EconParameters:
 
         original_orbit_delta_v = np.maximum(0, original_orbit_delta_v)
         target_orbit_delta_v = np.maximum(0, target_orbit_delta_v)
-        self.total_deorbit_delta_v = original_orbit_delta_v + target_orbit_delta_v
+        
+        # Check if controlled re-entries only is enabled
+        if self.controlled_renetries_only:
+            # Calculate delta-v to bring perigee to 75km altitude for controlled re-entry
+            # Use the same calculation structure as the original disposal method
+            controlled_reentry_original_delta_v = np.zeros(self.mocat.scenario_properties.n_shells)
+            controlled_reentry_target_delta_v = np.zeros(self.mocat.scenario_properties.n_shells)
+            r_controlled_reentry = R_EARTH + 75e3  # 75km altitude in meters
+            
+            for k in range(self.mocat.scenario_properties.n_shells):
+                # Use the same formula structure as the original disposal calculation
+                if k in indices:
+                    controlled_reentry_original_delta_v[k] = 0
+                    controlled_reentry_target_delta_v[k] = 0
+                else:   
+                    controlled_reentry_original_delta_v[k] = np.sqrt(self.mocat.scenario_properties.mu / self.mocat.scenario_properties.R0[k]) * (1 - np.sqrt(2 * r_controlled_reentry / (self.mocat.scenario_properties.R0[k] + r_controlled_reentry)))
+                    controlled_reentry_target_delta_v[k] = np.sqrt(self.mocat.scenario_properties.mu / r_controlled_reentry) * (np.sqrt(2 * self.mocat.scenario_properties.R0[k] / (self.mocat.scenario_properties.R0[k] + r_controlled_reentry)) - 1)
+            self.total_deorbit_delta_v = controlled_reentry_original_delta_v + controlled_reentry_target_delta_v        
+        else:
+            # Use original calculation for normal disposal
+            self.total_deorbit_delta_v = original_orbit_delta_v + target_orbit_delta_v
 
         # delta-v budget for mission
         delta_v_budget = 1.5 * self.sat_lifetime * v_drag + 100 # adding a safety margin
