@@ -211,10 +211,17 @@ class PlotHandler:
                                         print(f"Creating plot: {attr_name}")
                                         plot_method = getattr(self, attr_name)
                                         plot_method(plot_data, other_data)
+                                # Updated block to handle nested econ_params
                                 elif attr_name.startswith("econ_"):
-                                        print(f"Creating plot: {attr_name}")
+                                        print(f"Creating economic plots for {attr_name}...")
                                         plot_method = getattr(self, attr_name)
-                                        plot_method(plot_data.path, econ_params)
+                                        # Loop through each species in the econ_params dict
+                                        for species_name, species_econ_data in econ_params.items():
+                                                print(f"  ... for species: {species_name}")
+                                                # Create a species-specific path
+                                                species_plot_path = os.path.join(plot_data.path, species_name)
+                                                # Pass the inner dictionary (species_econ_data)
+                                                plot_method(species_plot_path, species_econ_data)
                 
                 # Create 3D plots for maneuvers and collisions
                 self._create_3d_maneuver_plots(plot_data, other_data)
@@ -582,63 +589,7 @@ class PlotHandler:
                 plt.close()
                 print(f"Comparison UMPY plot saved to {out_path}")
 
-        def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
-                """
-                Create a scatter plot showing:
-                - X-axis: bond amount (£)
-                - Y-axis: non-compliance (%)
-                - Point color or size: total money paid (non_compliance × bond)
-
-                Assumes bond amount is encoded in the scenario name, e.g., 'bond_800k'.
-                """
-                import matplotlib.pyplot as plt
-                import numpy as np
-                import os
-                import re
-
-                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
-                os.makedirs(scatter_folder, exist_ok=True)
-                file_path = os.path.join(scatter_folder, "scatter_noncompliance_vs_bond.png")
-
-                bond_vals = []
-                noncompliance_vals = []
-                total_money_vals = []
-                labels = []
-
-                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
-                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
-                        print(scenario_label)
-                        timesteps = sorted(other_data.keys(), key=int)
-                        first_timestep = timesteps[0]
-                        nc = other_data[first_timestep]["non_compliance"]
-
-                        # Extract bond amount from name (e.g., "bond_800k" → 800000)
-                        match = re.search(r"bond_(\d+)k", scenario_label.lower())
-                        if match:
-                                bond = int(match.group(1)) * 1_000
-                        else:
-                                bond = 0  # e.g., for "baseline"
-
-                        total = bond * nc
-                        bond_vals.append(bond)
-                        noncompliance_vals.append(nc)
-                        total_money_vals.append(total)
-                        labels.append(scenario_label)
-
-                plt.figure(figsize=(10, 6))
-                scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
-                plt.colorbar(scatter, label="Total Money Paid (£)")
-                
-                for x, y, label in zip(bond_vals, noncompliance_vals, labels):
-                        plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
-
-                plt.xlabel("Bond Amount (£)")
-                plt.ylabel("Non-Compliance (%)")
-                plt.title("Non-Compliance vs. Bond Level")
-                plt.grid(True, zorder=0)
-                plt.tight_layout()
-                plt.savefig(file_path, dpi=300)
-                print(f"Scatter plot saved to {file_path}")
+        # Removed the first (duplicate) definition of comparison_scatter_noncompliance_vs_bond
         
         def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
                 """
@@ -1140,40 +1091,84 @@ class PlotHandler:
         def comparison_total_welfare_vs_time(self, plot_data_lists, other_data_lists):
                 """
                 Plot total welfare over time for each scenario.
-                - Each line corresponds to one scenario.
-                - Welfare is summed across all S-prefixed species per timestep.
-                - Welfare = 100 × (sum of satellites)^2 at each timestep.
+                - Plots welfare from satellites: SUM( coef_i * (sum of S-species_i)^2 )
+                - Plots total welfare: (welfare from satellites) + (bond revenue)
                 """
                 import numpy as np
                 import matplotlib.pyplot as plt
                 import os
 
-                coef = 1e2
                 plt.figure(figsize=(10, 6))
 
-                for plot_data in plot_data_lists:
+                for plot_data, other_data in zip(plot_data_lists, other_data_lists):
                         species_data = {sp: np.array(data) for sp, data in plot_data.data.items()}
-                        s_species_names = [sp for sp in species_data if sp.startswith("S")]
+                        s_species_names = [sp for sp in species_data.keys() if sp.startswith("S")] 
 
                         if not s_species_names:
                                 print(f"No S-prefixed species found in scenario '{plot_data.scenario}'")
                                 continue
 
-                        # Sum all S-prefixed species into one welfare curve
-                        total_sats = None
+                        # --- 1. Calculate base welfare (Welfare WITHOUT revenue) ---
+                        
+                        econ_params_dict = plot_data.econ_params
+                        
+                        first_sp_data = next(iter(species_data.values()))
+                        welfare_base = np.zeros(first_sp_data.shape[0]) # Shape: (timesteps,)
+                        
                         for sp in s_species_names:
-                                arr = species_data[sp]  # (timesteps, shells)
-                                sats = np.sum(arr, axis=1)  # (timesteps,)
-                                total_sats = sats if total_sats is None else total_sats + sats
+                                if sp not in econ_params_dict:
+                                        print(f"Warning: No econ_params found for {sp} in {plot_data.scenario}. Skipping its welfare.")
+                                        continue
+                                
+                                species_coef = econ_params_dict[sp].get("coef", 1.0e2)
+                                sats_i = np.sum(species_data[sp], axis=1) # Shape: (timesteps,)
+                                welfare_base += species_coef * (sats_i ** 2)
 
-                        welfare = coef * (total_sats ** 2)
+                        # --- 2. Calculate bond revenue over time ---
+                        
+                        bond_amount = 0.0
+                        if s_species_names and s_species_names[0] in econ_params_dict:
+                                bond_from_json = econ_params_dict[s_species_names[0]].get("bond") 
+                                bond_amount = bond_from_json or 0.0
+                        
+                        print(f"\n--- Plot Debug: {plot_data.scenario} ---")
+                        print(f"Using bond_amount: {bond_amount} for calculation.") 
+                        
+                        timesteps_other = sorted(other_data.keys(), key=int)
+                        
+                        bond_revenues = [0.0] # Start at year 0 with 0 revenue
+                        
+                        for ts in timesteps_other:
+                            non_compliance_data = other_data[ts].get("non_compliance", {})
+                            
+                            # Debug Prints
+                            print(f"  Year {ts}: non_compliance_data is: {non_compliance_data}")
+                            
+                            total_non_compliant = sum(non_compliance_data.values())
+                            
+                            print(f"  Year {ts}: total_non_compliant: {total_non_compliant} | bond_revenue_added: {total_non_compliant * bond_amount}")
+                            
+                            bond_revenues.append(total_non_compliant * bond_amount)
+
+                        bond_revenues_array = np.array(bond_revenues)
+                        
+                        # --- 3. Calculate Total Welfare (Welfare WITH revenue) ---
+                        if len(welfare_base) != len(bond_revenues_array):
+                            print(f"Warning in '{plot_data.scenario}': Welfare length ({len(welfare_base)}) mismatch with revenue length ({len(bond_revenues_array)}). Skipping revenue.")
+                            welfare_total = welfare_base
+                        else:
+                            welfare_total = welfare_base + bond_revenues_array
+                        
+                        # --- 4. Plot both lines ---
                         label = getattr(plot_data, 'scenario', 'Unnamed Scenario')
-                        plt.plot(welfare, label=label, linewidth=2)
+                        time_axis = range(len(welfare_base)) # N+1 steps
 
-                # plt.title("Total Welfare Over Time by Scenario", fontsize=14, fontweight='bold')  # Removed overall title
+                        plt.plot(time_axis, welfare_base, label=f"{label} (Satellites Only)", linewidth=2, linestyle='--')
+                        plt.plot(time_axis, welfare_total, label=f"{label} (Satellites + Bond Revenue)", linewidth=2, linestyle='-')
+
                 plt.xlabel("Year", fontsize=12)
-                plt.ylabel("Welfare (Summed Across S-Prefixed Species)", fontsize=12)
-                plt.legend(title="Scenario", fontsize=10)
+                plt.ylabel("Welfare", fontsize=12)
+                plt.legend(title="Scenario", fontsize=10, loc='upper left')
                 plt.grid(True)
                 plt.tight_layout()
 
@@ -1182,9 +1177,9 @@ class PlotHandler:
                 os.makedirs(outdir, exist_ok=True)
                 file_path = os.path.join(outdir, "total_welfare_across_scenarios.png")
                 plt.savefig(file_path, dpi=300)
+                plt.close()
 
                 print(f"Scenario-wise total welfare plot saved to {file_path}")
-
 
         def comparison_object_counts_vs_bond(self, plot_data_lists, other_data_lists):
                 """
@@ -1585,8 +1580,10 @@ class PlotHandler:
                 
                 # Calculate and plot grand total
                 grand_total = np.zeros_like(list(group_totals.values())[0])
-                for total_data in group_totals.values():
-                        grand_total += total_data
+                # Updated logic
+                for group_name, total_data in group_totals.items():
+                        if group_name != 'D': # Exclude the 'D' group from the grand total
+                                grand_total += total_data
                 
                 plt.plot(time_steps, grand_total, label='Grand Total', 
                         color='black', linewidth=3, linestyle='--')
@@ -2293,3 +2290,58 @@ class PlotHandler:
                         
                 except Exception as e:
                         print(f"Error creating combined economic metrics plot: {e}")
+
+        def comparison_total_bond_revenue_vs_time(self, plot_data_lists, other_data_lists):
+                """
+                Plots the total bond revenue collected over time for each scenario.
+                Revenue = (bond amount) * (number of non-compliant satellites).
+                """
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import os
+                
+                plt.figure(figsize=(10, 6))
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                for plot_data, other_data in zip(plot_data_lists, other_data_lists):
+                        scenario_label = getattr(plot_data, 'scenario', 'Unnamed Scenario')
+                        
+                        # Get the loaded econ_params dictionary, e.g., { "SA": {...}, "SB": {...}, ... }
+                        econ_params_dict = plot_data.econ_params
+                        
+                        # Find the S-species to check for the bond amount
+                        # We use plot_data.data.keys() to get the list of species
+                        s_species_names = [sp for sp in plot_data.data.keys() if sp.startswith("S")]
+                        
+                        # Get bond amount from the first S-species. Default to 0 if no bond.
+                        bond_amount = 0.0
+                        if s_species_names and s_species_names[0] in econ_params_dict:
+                                bond_amount = econ_params_dict[s_species_names[0]].get("bond") or 0.0
+                        
+                        # Get sorted timesteps (e.g., '1', '2', ..., '9')
+                        timesteps = sorted(other_data.keys(), key=int)
+                        
+                        # 0 for the initial year (year 0)
+                        bond_revenues = [0.0] 
+                        
+                        for ts in timesteps:
+                                # Get the non-compliance dictionary {species: count}
+                                non_compliance_data = other_data[ts].get("non_compliance", {})
+                                # Sum the counts of non-compliant sats across all species
+                                total_non_compliant = sum(non_compliance_data.values())
+                                bond_revenues.append(total_non_compliant * bond_amount)
+
+                        time_axis = range(len(bond_revenues))
+                        plt.plot(time_axis, bond_revenues, label=scenario_label, linewidth=2, marker='o', markersize=4)
+
+                plt.xlabel("Year", fontsize=12)
+                plt.ylabel("Total Bond Revenue ($)", fontsize=12)
+                plt.legend(title="Scenario", fontsize=10)
+                plt.grid(True)
+                plt.tight_layout()
+
+                file_path = os.path.join(comparison_folder, "total_bond_revenue_vs_time.png")
+                plt.savefig(file_path, dpi=300)
+                plt.close()
+                print(f"Bond revenue plot saved to {file_path}")

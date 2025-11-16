@@ -39,9 +39,10 @@ def configure_mocat(MOCAT_config: json, multi_species: MultiSpecies = None, grid
         baseline=scenario_props.get("baseline", False),
         indicator_variables=scenario_props.get("indicator_variables", None),
         launch_scenario=scenario_props["launch_scenario"],
-        SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None, 
+        SEP_mapping=MOCAT_config["SEP_mapping"] if "SEP_mapping" in MOCAT_config else None,
         elliptical=scenario_props.get("elliptical", False),
-        eccentricity_bins=scenario_props.get("eccentricity_bins", None)
+        eccentricity_bins=scenario_props.get("eccentricity_bins", None),
+        opus=True
     )
 
     species = MOCAT_config["species"]
