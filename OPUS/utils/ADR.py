@@ -75,8 +75,9 @@ def optimize_ADR_removal(state_matrix, MOCAT, adr_params):
         if adr_params.time in adr_params.adr_times:
             for i, sp in enumerate(MOCAT.scenario_properties.species_names):
                 if sp in adr_params.target_species:  
-                    start = i*MOCAT.scenario_properties.n_shells
-                    end = (i+1)*MOCAT.scenario_properties.n_shells
+                    n_shells = MOCAT.scenario_properties.n_shells
+                    start = i*n_shells
+                    end = (i+1)*n_shells
                     old = state_matrix[start:end]
                     num = []
                     # max_indices = [0] * adr_params.n_max
@@ -113,25 +114,42 @@ def optimize_ADR_removal(state_matrix, MOCAT, adr_params):
                             ts = shell
                             if n_remove <= 0:
                                 print('No ADR due to budget constraints.')
-                                removal_dict['Shell '+str(0)] = {'amount_removed':int(0), 'Removals_Left':int(n_remove)}
+                                removal_dict[str(ts)] = {}
+                                removal_dict[str(ts)]['Implemented'] = 0
                                 indicator = 1
                             elif n_remove > state_matrix[start:end][ts- 1]:
                                 n = state_matrix[start:end][ts-1] - n_remove
-                                removal_dict['Shell '+str(ts)] = {'amount_removed':int(n_remove + n), 'Order':int(counter),'Removals_Left':int(n*(-1))}
+                                removal_dict[str(ts)] = {}
+                                removal_dict[str(ts)]['Implemented'] = 1
+                                removal_dict[str(ts)]['Exhausted'] = 0
+                                removal_dict[str(ts)]['amount_removed'] = int(n_remove + n)
+                                removal_dict[str(ts)]['Order'] = int(counter)
+                                removal_dict[str(ts)]['Removals_Left'] = int(n*(-1))
                                 n_remove = n * (-1)
                                 state_matrix[start:end][ts-1] = 0
                                 while indicator < 1:
                                     for ii in adr_params.shell_order:
-                                        if ii not in adr_params.target_shell:
+                                        if ((ii not in adr_params.target_shell) and (ii <= n_shells)):
                                             if n_remove > state_matrix[start:end][ii-1]:
                                                 counter = counter + 1
                                                 n = state_matrix[start:end][ii-1] - n_remove
                                                 if n > 0:
                                                     print('I know whats going on here. I know whats going on here. Okay? I do. And if you want me to wander backstage to spill the beans... Im the only one out of the loop, it would seem... and if we check my point total here— I dont NEED to walk to the front, because I know what it is. Its a big ol GOOSE EGG, GANG. Its a FAT ZERO. HELLO!! A little LATE ADDITION to the numerical symbol chart brought to us from our friends in Arabia, a little bit of trivia that I happen to know about the history of numbers. That kind of little tidbit would serve me well in most trivia games, unless it had been RIGGED FROM THE BEGINNING! Oh, Ive only just BEGUN to pull the thread on this sweater, friends. You would THINK in a game where there are only TWO possible correct choices, that one would STUMBLE INTO the right answer every so often, wouldnt you? In fact, the probability of NEVER guessing right in the full game is a STATISTICAL WONDER, and yet, HERE WE ARE. Introduced at the top of the game as a champion, what do you think that means? Icarus, flying too close to the sun. But it seems Daedalus, our little master crafter over here, had some wax wings of his own, didnt he? Wanted to see his son fall. Fall from the sky. Oh, how CLOSE TO THE SUN he flew! Well Im NOT HAVING IT. I solved your labyrinth, puzzle master! The minotaurs escaped and youre gonna get the horns, buddy! I CANNOT WIN!')
-                                                    removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove),'n':int(n),'counter':int(counter),'status':'found a problem'}
+                                                    removal_dict[str(ii)] = {}
+                                                    removal_dict[str(ii)]['Implemented'] = 0
+                                                    removal_dict[str(ii)]['Exhausted'] = 0
+                                                    removal_dict[str(ii)]['amount_removed'] = int(n_remove)
+                                                    removal_dict[str(ii)]['n'] = int(n)
+                                                    removal_dict[str(ii)]['counter'] = int(counter)
+                                                    removal_dict[str(ii)]['status'] = 'found a problem'
                                                     indicator = 1
                                                 
-                                                removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove + n), 'Order':int(counter),'Removals_Left':int(n*(-1))}
+                                                removal_dict[str(ii)] = {}
+                                                removal_dict[str(ii)]['Implemented'] = 1
+                                                removal_dict[str(ii)]['Exhausted'] = 0
+                                                removal_dict[str(ii)]['amount_removed'] = int(n_remove + n)
+                                                removal_dict[str(ii)]['Order'] = int(counter)
+                                                removal_dict[str(ii)]['Removals_Left'] = int(n*(-1))
                                                 if n_remove == 0 or n == 0:
                                                     indicator = 1
                                                 n_remove = n * (-1)
@@ -140,23 +158,36 @@ def optimize_ADR_removal(state_matrix, MOCAT, adr_params):
                                             else:
                                                 counter = counter + 1
                                                 state_matrix[start:end][ii-1] -= n_remove
-                                                removal_dict['Shell '+str(ii)] = {'amount_removed':int(n_remove), 'Order':int(counter),'Removals_Left':int(0)}
+                                                removal_dict[str(ii)] = {}
+                                                removal_dict[str(ii)]['Implemented'] = 1
+                                                removal_dict[str(ii)]['Exhausted'] = 0 
+                                                removal_dict[str(ii)]['amount_removed'] = int(n_remove)
+                                                removal_dict[str(ii)]['Order'] = int(counter)
+                                                removal_dict[str(ii)]['Removals_Left'] = int(0)
                                                 n_remove = 0
                                                 indicator = 1
-                                        if counter > MOCAT.scenario_properties.n_shells:
-                                            removal_dict['Shell_Status'] ='exhausted'
-                                            removal_dict['Removals Left'] = int(n_remove)
-                                            removal_dict['Counter_Status'] = int(counter)
+                                        if counter > n_shells:
+                                            removal_dict['final'] = {}
+                                            removal_dict['final']['Exhausted'] = 1 
+                                            removal_dict['final']['Removals Left'] = int(n_remove)
+                                            removal_dict['final']['Counter_Status'] = int(counter)
                                             indicator = 1
                             else:
                                 state_matrix[start:end][ts-1] -= n_remove
-                                removal_dict['Shell '+str(ts)] = {'amount_removed':int(n_remove), 'Order':int(counter) ,'Removals_Left':int(0)}
+                                shell_num = str(ts)
+                                removal_dict[shell_num] = {}
+                                removal_dict[shell_num]['Shell'] = shell_num,
+                                removal_dict[shell_num]['amount_removed'] = int(n_remove)
+                                removal_dict[shell_num]['Order'] = int(counter) 
+                                removal_dict[shell_num]['Removals_Left'] = int(0)
 
                             
                     
                     # num_removed[sp] = {"num_removed":int(np.sum(num))}
                 else:
                     state_matrix = state_matrix
+                    removal_dict[str(0)] = {}
+                    removal_dict[str(0)]['Implemented'] = 0
 
                 # # for debugging:
                 # diff = state_matrix[start:end]-old
