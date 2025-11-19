@@ -199,17 +199,49 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
             state_matrix[:, species.species_idx, 0] -= items_to_pmd_total
             state_matrix_alt[:, species.species_idx] -= items_to_pmd_total
 
+            # Use comp_rate to determine total compliance (bond-dependent)
+            # comp_rate is per-shell array, so we handle it per shell
+            comp_rate = species.econ_params.comp_rate
+            
+            # Calculate total compliant and non-compliant items based on comp_rate
+            # comp_rate determines what fraction will comply (controlled + uncontrolled)
+            compliant_items_total = comp_rate * items_to_pmd_total  # Per shell array
+            non_compliant_items_total = (1 - comp_rate) * items_to_pmd_total  # Per shell array
+            
+            # Calculate base PMD fractions (these are the baseline proportions)
+            total_compliant_pmd = controlled_pmd + uncontrolled_pmd
+            total_non_compliant_pmd = no_attempt_pmd + failed_attempt_pmd
+            
+            # Calculate proportional fractions for distributing compliant items
+            if total_compliant_pmd > 0:
+                controlled_fraction = controlled_pmd / total_compliant_pmd
+                uncontrolled_fraction = uncontrolled_pmd / total_compliant_pmd
+            else:
+                controlled_fraction = 0
+                uncontrolled_fraction = 0
+            
+            # Calculate proportional fractions for distributing non-compliant items
+            if total_non_compliant_pmd > 0:
+                no_attempt_fraction = no_attempt_pmd / total_non_compliant_pmd
+                failed_attempt_fraction = failed_attempt_pmd / total_non_compliant_pmd
+            else:
+                no_attempt_fraction = 0
+                failed_attempt_fraction = 0
+
             species.sum_compliant = 0
             species.sum_non_compliant = 0
             
-            # succesfully controlled satellites just get removed from the simulation
+            # Controlled PMD: distribute compliant items proportionally
             if controlled_pmd > 0:
-                controlled_derelicts = items_to_pmd_total * controlled_pmd
+                controlled_derelicts = controlled_fraction * compliant_items_total
+                # Remove from active (already done above, but keep for clarity)
                 state_matrix[:, species.species_idx, 0] -= controlled_derelicts
                 state_matrix_alt[:, species.species_idx] -= controlled_derelicts
-                species.sum_compliant = np.sum(controlled_derelicts)
+                species.sum_compliant += np.sum(controlled_derelicts)
 
+            # Uncontrolled PMD: distribute compliant items proportionally
             if uncontrolled_pmd > 0:
+                uncontrolled_items = uncontrolled_fraction * compliant_items_total
                 hp = get_disposal_orbits(year, HMid, species_name, pmd_lifetime=species.econ_params.disposal_time)
 
                 # 2) convert to eccentricities
@@ -219,36 +251,44 @@ def evaluate_pmd_elliptical(state_matrix, state_matrix_alt, multi_species,
                 ecc_bin_idx = map_ecc_to_bins(e, eccentricity_bins)
                 sma_bin_idx = map_sma_to_bins(sma, sma_bins)
 
-                # this will give you a map of where to go for the number of uncontrolled reentries
+                # Distribute uncontrolled items to disposal orbits
                 for i, idx in enumerate(ecc_bin_idx):
                     # if hp is nan, then derelicts just remain in the same shell as a derelict
                     if np.isnan(hp[i]):
-                        state_matrix[i, species.derelict_idx, 0] += items_to_pmd_total[i] * uncontrolled_pmd
-                        state_matrix_alt[i, species.derelict_idx] += items_to_pmd_total[i] * uncontrolled_pmd
-
-                        species.sum_compliant += np.sum(items_to_pmd_total[i] * uncontrolled_pmd)
+                        uncontrolled_amount = uncontrolled_items[i]
+                        state_matrix[i, species.derelict_idx, 0] += uncontrolled_amount
+                        state_matrix_alt[i, species.derelict_idx] += uncontrolled_amount
+                        species.sum_compliant += np.sum(uncontrolled_amount)
                     
                     # if not find the new sma and ecc bin and place the derelicts there
                     else:
-                        state_matrix[sma_bin_idx[i], species.derelict_idx, ecc_bin_idx[i]] += items_to_pmd_total[i] * uncontrolled_pmd
-                        state_matrix_alt[sma_bin_idx[i], species.derelict_idx] += items_to_pmd_total[i] * uncontrolled_pmd
+                        uncontrolled_amount = uncontrolled_items[i]
+                        state_matrix[sma_bin_idx[i], species.derelict_idx, ecc_bin_idx[i]] += uncontrolled_amount
+                        state_matrix_alt[sma_bin_idx[i], species.derelict_idx] += uncontrolled_amount
+                        species.sum_compliant += np.sum(uncontrolled_amount)
 
-                        species.sum_compliant += np.sum(items_to_pmd_total[i] * uncontrolled_pmd)
-
-            # if no attempt derelicts, then they remain in the same shell as a derelict
+            # No attempt PMD: distribute non-compliant items proportionally
             if no_attempt_pmd > 0:
+                no_attempt_amount = no_attempt_fraction * non_compliant_items_total
                 # Remove the satellites from the simulation
-                state_matrix[:, species.species_idx, 0] -= items_to_pmd_total * no_attempt_pmd
-                state_matrix_alt[:, species.species_idx] -= items_to_pmd_total * no_attempt_pmd
+                state_matrix[:, species.species_idx, 0] -= no_attempt_amount
+                state_matrix_alt[:, species.species_idx] -= no_attempt_amount
 
                 # Add the satellites to the derelict slice
-                state_matrix[:, species.derelict_idx, 0] += items_to_pmd_total * no_attempt_pmd
-                state_matrix_alt[:, species.derelict_idx] += items_to_pmd_total * no_attempt_pmd
+                state_matrix[:, species.derelict_idx, 0] += no_attempt_amount
+                state_matrix_alt[:, species.derelict_idx] += no_attempt_amount
                 
-                species.sum_non_compliant += np.sum(items_to_pmd_total * no_attempt_pmd)
-                species.sum_compliant += np.sum(items_to_pmd_total * no_attempt_pmd)
+                species.sum_non_compliant += np.sum(no_attempt_amount)
+                
+            # Failed attempt PMD: distribute non-compliant items proportionally
             if failed_attempt_pmd > 0:
-                continue # to implement
+                failed_attempt_amount = failed_attempt_fraction * non_compliant_items_total
+                # For now, treat same as no_attempt (remain in same shell as derelict)
+                state_matrix[:, species.species_idx, 0] -= failed_attempt_amount
+                state_matrix_alt[:, species.species_idx] -= failed_attempt_amount
+                state_matrix[:, species.derelict_idx, 0] += failed_attempt_amount
+                state_matrix_alt[:, species.derelict_idx] += failed_attempt_amount
+                species.sum_non_compliant += np.sum(failed_attempt_amount)
 
     return state_matrix, state_matrix_alt, multi_species
 

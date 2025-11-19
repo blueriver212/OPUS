@@ -83,3 +83,4 @@ The .mat files contain:
 - The contour plots show the relationship between apogee height, perigee height, and disposal lifetime
 - Su satellites generally require lower perigee heights for the same disposal lifetime compared to S satellites
 
+

@@ -108,48 +108,16 @@ class IAMSolver:
 
         return constellation_start_slice, constellation_end_slice
 
-    # Added
-    def _apply_replacement_floor(self, solver_guess_array, environment_array, multi_species):
-        """
-            Ensure each species starts the solve with at least the replacement launches
-            implied by the active population removed via PMD.
-        """
-        replacement_caps = {"Sns": 1000}
-
-        for species in multi_species.species:
-            if self.elliptical:
-                active_population = environment_array[:, species.species_idx, 0]
-                replacement_floor = active_population / species.deltat
-                cap = replacement_caps.get(species.name)
-                if cap is not None:
-                    total_floor = np.sum(replacement_floor)
-                    if total_floor > cap and total_floor > 0:
-                        replacement_floor = replacement_floor * (cap / total_floor)
-                solver_guess_array[:, species.species_idx, 0] = np.maximum(
-                    solver_guess_array[:, species.species_idx, 0], replacement_floor
-                )
-            else:
-                active_population = environment_array[species.start_slice:species.end_slice]
-                replacement_floor = active_population / species.deltat
-                cap = replacement_caps.get(species.name)
-                if cap is not None:
-                    total_floor = np.sum(replacement_floor)
-                    if total_floor > cap and total_floor > 0:
-                        replacement_floor = replacement_floor * (cap / total_floor)
-                solver_guess_array[species.start_slice:species.end_slice] = np.maximum(
-                    solver_guess_array[species.start_slice:species.end_slice], replacement_floor
-                )
-
-        return solver_guess_array
-
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name, multi_species_names, grid_search=False):
         """
             The main function that runs the IAM solver.
         """
         self.grid_search = grid_search
-        
-        # This will create a list of OPUSSpecies objects.
-        # Uses the multi_species_names list passed from __main__
+        # Define the species that are part of the constellation and fringe
+        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+        multi_species_names = ["S", "Su", "Sns"]
+
+        # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
         #########################
@@ -201,8 +169,8 @@ class IAMSolver:
 
             # Now, call modify_params_for_simulation
             species.econ_params.modify_params_for_simulation(scenario_name)
-            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)        
-            # species.econ_params.update_congestion_costs(multi_species, self.MOCAT.scenario_properties.x0)
+            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name, species.name)        
+            # species.econ_params.update_congestion_costs(multi_species, self.MOCAT.scenario_properties.x0)    
 
         # For now make all satellites circular if elliptical
         if self.elliptical:
@@ -234,8 +202,6 @@ class IAMSolver:
                     inital_guess[:] = 5
                 solver_guess[species.start_slice:species.end_slice] = inital_guess
                 lam[species.start_slice:species.end_slice] = solver_guess[species.start_slice:species.end_slice]
-
-        # solver_guess = self._apply_replacement_floor(solver_guess, self.MOCAT.scenario_properties.x0, multi_species)
 
         if self.elliptical:
             for species in multi_species.species:
@@ -410,6 +376,7 @@ class IAMSolver:
                 "umpy": open_access.umpy, 
                 "excess_returns": open_access._last_excess_returns,
                 "non_compliance": open_access._last_non_compliance, 
+                "compliance": open_access._last_compliance,
                 "maneuvers": open_access._last_maneuvers,
                 "cost of maneuvers": open_access._last_cost,
                 "rate_of_return": open_access._last_rate_of_return,
@@ -448,10 +415,16 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_nam
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name, multi_species_names)
     return solver.get_mocat()
 
+def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names):
+    """
+    Wrapper function for parallel processing that includes multi_species_names.
+    """
+    return run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names)
+
 
 if __name__ == "__main__":
-    baseline = True
-    bond_amounts = [100000, 200000, 300000]
+    baseline = False
+    bond_amounts = [0, 100000, 200000, 500000, 750000, 1000000, 2000000] #, 1500000, 2000000]
     lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content
@@ -470,17 +443,18 @@ if __name__ == "__main__":
         "lifetimes": lifetimes
     }
     
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
-
-    simulation_name = "sns_test_2"
+    simulation_name = "pmd_test"
+    # check if Results/{simulation_name} exists
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
-    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-    iam_solver.bonded_species_names = ["SA", "SB", "SuA", "SuB"]
+    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+    # iam_solver.bonded_species_names = ["SA", "SB", "SuA", "SuB"]
+    multi_species_names = ["S", "Su", "Sns"]
 
     def get_total_species_from_output(species_data):
         totals = {}
@@ -505,20 +479,18 @@ if __name__ == "__main__":
         
         return totals
 
-    # no parallel processing
-    for scenario_name in scenario_files:
-        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, 
-                                       multi_species_names=multi_species_names,
-                                       grid_search=False)
-        # Get the total species from the output
-        total_species = get_total_species_from_output(output)
-        print(f"Total species for scenario {scenario_name}: {total_species}")
+    # # no parallel processing
+    # for scenario_name in scenario_files:
+    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
+    #     # Get the total species from the output
+    #     total_species = get_total_species_from_output(output)
+    #     print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
     # with ThreadPoolExecutor() as executor:
     #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), [multi_species_names]*len(scenario_files)))
  
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # multi_species_names = ["S","Su", "Sns"]

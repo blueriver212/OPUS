@@ -19,6 +19,11 @@ class PlotData:
 
                 # Load the data from the scenario folder
                 self.data, self.other_data, self.econ_params = self.load_data(path)
+                
+                # Check if data was successfully loaded
+                if self.data is None:
+                        raise ValueError(f"Could not load data for scenario {scenario} from {path}")
+                
                 self.species_names = MOCAT.scenario_properties.species_names
                 self.n_shells = MOCAT.scenario_properties.n_shells
                 self.n_species = MOCAT.scenario_properties.species_length
@@ -42,14 +47,14 @@ class PlotData:
                 """
                 if not os.path.exists(path):
                         print(f"Error: {path} does not exist.")
-                        return None
+                        return None, None, None
                 
                 # Find the JSON files in the folder
                 json_files = [f for f in os.listdir(path) if f.endswith(".json")]
 
                 if len(json_files) == 0:
                         print(f"Error: No JSON file found in {path}.")
-                        return None
+                        return None, None, None
                 
                 # Initialize variables for storing the two data files
                 data = None
@@ -155,27 +160,31 @@ class PlotHandler:
                                 print("Generating plots for scenario: ", scenario)
 
                                 # Build a PlotData object and then pass to the plotting functions
-                                plot_data = PlotData(scenario, scenario_folder, MOCAT)
-                                other_data = plot_data.get_other_data()
-                                econ_data = plot_data.econ_params
+                                try:
+                                        plot_data = PlotData(scenario, scenario_folder, MOCAT)
+                                        other_data = plot_data.get_other_data()
+                                        econ_data = plot_data.econ_params
 
-                                # Add to lists for comparison plots
-                                plot_data_list.append(plot_data)
-                                other_data_list.append(other_data)
-                                econ_params_list.append(econ_data)
+                                        # Add to lists for comparison plots
+                                        plot_data_list.append(plot_data)
+                                        other_data_list.append(other_data)
+                                        econ_params_list.append(econ_data)
 
-                                # If the plot_types is None, then generate all plots
-                                # if "all_plots" in self.plot_types:
-                                #         self.all_plots(plot_data, other_data, econ_data)
-                                # else:
-                                #         # Dynamically generate plots
-                                #         for plot_name in self.plots:
-                                #                 plot_method = getattr(self, plot_name, None)
-                                #                 if callable(plot_method):
-                                #                         print(f"Creating plot: {plot_name}")
-                                #                         plot_method()
-                                #                 else:
-                                #                         print(f"Warning: Plot '{plot_name}' not found. Skipping...")
+                                        # If the plot_types is None, then generate all plots
+                                        if "all_plots" in self.plot_types:
+                                                self.all_plots(plot_data, other_data, econ_data)
+                                        else:
+                                                # Dynamically generate plots
+                                                for plot_name in self.plots:
+                                                        plot_method = getattr(self, plot_name, None)
+                                                        if callable(plot_method):
+                                                                print(f"Creating plot: {plot_name}")
+                                                                plot_method()
+                                                        else:
+                                                                print(f"Warning: Plot '{plot_name}' not found. Skipping...")
+                                except ValueError as e:
+                                        print(f"Warning: Skipping scenario {scenario} - {e}")
+                                        continue
 
                 if comparison:
                         self._comparison_plots(plot_data_list, other_data_list)
@@ -224,8 +233,8 @@ class PlotHandler:
                                                 plot_method(species_plot_path, species_econ_data)
                 
                 # Create 3D plots for maneuvers and collisions
-                self._create_3d_maneuver_plots(plot_data, other_data)
-                self._create_3d_collision_plots(plot_data, other_data)
+                # self._create_3d_maneuver_plots(plot_data, other_data)
+                # self._create_3d_collision_plots(plot_data, other_data)
                 
                 # Create economic metrics plots
                 self._create_economic_metrics_plots(plot_data, other_data, econ_params)
@@ -652,6 +661,186 @@ class PlotHandler:
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
                 print(f"Scatter plot saved to {file_path}")
+
+
+        def comparison_species_and_derelicts_response_to_bonds(self, plot_data_lists, other_data_lists):
+                """
+                Generate a 2x3 comparison figure that shows how counts respond to bond levels
+                for two PMD lifetimes (5yr solid, 25yr dashed):
+                  - Top row: S, Su, Sns totals (final year)
+                  - Bottom row: selected derelict mass classes (final year)
+
+                Notes
+                - Derelicts are pulled from N_* species present in the data. We try to
+                  select the closest available mass buckets to 521kg, 700kg and 20kg.
+                - Uses the linked-species compliant split infrastructure already present
+                  elsewhere in this module to access scenario data; here we only need final
+                  totals per species at the final timestep.
+                - Scenarios are expected to include pattern "bond_{K}k_{Y}yr" in their
+                  names to infer the bond and the PMD lifetime.
+                """
+                import os
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Targets for derelict buckets (kg). We'll choose the closest available N_{mass}kg
+                target_der_mass = [521.0, 700.0, 20.0]
+
+                # Helpers ----------------------------------------------------
+                def parse_der_mass(name: str):
+                        m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
+                        return float(m.group(1)) if m else None
+
+                def sum_species_final(plot_data, selector) -> float:
+                        total = 0.0
+                        for sp_name, sp_data in plot_data.data.items():
+                                if selector(sp_name):
+                                        arr = np.array(sp_data)
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                total += float(np.sum(arr[-1, :]))
+                        return total
+
+                # First pass: discover available derelict masses across scenarios
+                available_masses = set()
+                for plot_data in plot_data_lists:
+                        for sp_name in plot_data.data.keys():
+                                if sp_name.startswith('N_'):
+                                        mass = parse_der_mass(sp_name)
+                                        if mass is not None:
+                                                available_masses.add(mass)
+                available_masses = sorted(list(available_masses))
+
+                # Map each target (521, 700, 20) to the closest available mass
+                chosen_der_masses = {}
+                for target in target_der_mass:
+                        if not available_masses:
+                                continue
+                        idx = int(np.argmin(np.abs(np.array(available_masses) - target)))
+                        chosen_der_masses[target] = available_masses[idx]
+
+                # Data buckets by lifetime
+                series_keys = ['S', 'Su', 'Sns']
+                # Create keys like 'N_521kg', etc., based on chosen masses
+                der_keys = []
+                for target in target_der_mass:
+                        if target in chosen_der_masses:
+                                chosen = chosen_der_masses[target]
+                                der_keys.append(f"N_{int(chosen) if chosen.is_integer() else chosen}kg")
+
+                data_5 = {k: {'bond': [], 'y': []} for k in series_keys + der_keys}
+                data_25 = {k: {'bond': [], 'y': []} for k in series_keys + der_keys}
+
+                # Collect ----------------------------------------------------
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        scenario_lower = scenario_label.lower()
+                        
+                        # Explicitly check for Baseline scenario
+                        if 'baseline' in scenario_lower:
+                                bond_k = 0
+                                lifetime = 5  # Baseline is 0 bond, 5 year PMD
+                        else:
+                                m = re.search(r"bond_(\d+)k_(\d+)yr", scenario_lower)
+                                if not m:
+                                        # Treat as baseline ($0 bond). Infer lifetime from name if present, default 5yr
+                                        bond_k = 0
+                                        m_life = re.search(r"(?:^|_)(5|25)yr", scenario_lower)
+                                        lifetime = int(m_life.group(1)) if m_life else 5
+                                else:
+                                        bond_k = int(m.group(1))
+                                        lifetime = int(m.group(2))
+
+                        # Final timestep
+                        timesteps = sorted(other_data.keys(), key=int)
+                        if not timesteps:
+                                continue
+                        # Species totals (final year)
+                        total_S   = sum_species_final(plot_data, lambda n: n.startswith('S') and not n.startswith('Su') and not n.startswith('Sns'))
+                        total_Su  = sum_species_final(plot_data, lambda n: n == 'Su')
+                        total_Sns = sum_species_final(plot_data, lambda n: n == 'Sns')
+
+                        # Derelict buckets by chosen closest mass
+                        der_totals = {}
+                        for target in target_der_mass:
+                                if target not in chosen_der_masses:
+                                        continue
+                                chosen = chosen_der_masses[target]
+                                # species name we will look for (exact match if exists)
+                                sp_key_exact = f"N_{int(chosen) if float(chosen).is_integer() else chosen}kg"
+                                total = sum_species_final(plot_data, lambda n, key=sp_key_exact: n == key)
+                                # If exact not found, sum all derelicts whose parsed mass is within 1 kg of the chosen
+                                if total == 0.0:
+                                        total = sum_species_final(plot_data, lambda n, ch=chosen: (n.startswith('N_') and (parse_der_mass(n) is not None) and abs(parse_der_mass(n) - ch) <= 1.0))
+                                der_totals[sp_key_exact] = total
+
+                        bucket = data_5 if lifetime == 5 else data_25
+                        # Add S, Su, Sns
+                        bucket['S']['bond'].append(bond_k);   bucket['S']['y'].append(total_S)
+                        bucket['Su']['bond'].append(bond_k);  bucket['Su']['y'].append(total_Su)
+                        bucket['Sns']['bond'].append(bond_k); bucket['Sns']['y'].append(total_Sns)
+                        # Add derelicts
+                        for k, v in der_totals.items():
+                                if k not in bucket:
+                                        bucket[k] = {'bond': [], 'y': []}
+                                bucket[k]['bond'].append(bond_k)
+                                bucket[k]['y'].append(v)
+
+                # Sort by bond for each series
+                def sort_series(dct):
+                        for k, obj in dct.items():
+                                if obj.get('bond'):
+                                        order = np.argsort(obj['bond'])
+                                        obj['bond'] = [obj['bond'][idx] for idx in order]
+                                        obj['y']    = [obj['y'][idx] for idx in order]
+                        return dct
+
+                data_5 = sort_series(data_5)
+                data_25 = sort_series(data_25)
+
+                # Figure -----------------------------------------------------
+                fig, axes = plt.subplots(2, 3, figsize=(16, 10))
+                panels = [
+                        ('S',   'S Species Response to Bonds', 0, 0),
+                        ('Su',  'Su Species Response to Bonds', 0, 1),
+                        ('Sns', 'Sns Species Response to Bonds',0, 2),
+                ]
+                # Fill bottom row with chosen derelict keys; pad with blanks if <3
+                der_for_panels = der_keys[:3] if len(der_keys) >= 3 else der_keys + ['']*(3-len(der_keys))
+                for j, dk in enumerate(der_for_panels):
+                        title = f"{dk} Derelicts Response to Bonds" if dk else ""
+                        panels.append((dk, title, 1, j))
+
+                # Plot helper
+                def plot_series(ax, key, title):
+                        if not key:
+                                ax.axis('off'); return
+                        # 5-year
+                        if key in data_5 and data_5[key]['bond']:
+                                ax.plot(data_5[key]['bond'], data_5[key]['y'], color='C0', marker='o', linestyle='-', label='5-year PMD')
+                                for x, y in zip(data_5[key]['bond'], data_5[key]['y']):
+                                        ax.text(x, y, f"{y:,.0f}", fontsize=8, va='bottom', ha='center')
+                        # 25-year
+                        if key in data_25 and data_25[key]['bond']:
+                                ax.plot(data_25[key]['bond'], data_25[key]['y'], color='C0', marker='o', linestyle='--', alpha=0.8, label='25-year PMD')
+                        ax.set_title(title)
+                        ax.set_xlabel('Bond Amount ($)')
+                        ax.set_ylabel(f"{key} Species Count")
+                        ax.grid(True, alpha=0.3)
+                        ax.legend(loc='best', fontsize=8)
+
+                # Draw panels
+                for key, title, r, c in panels:
+                        plot_series(axes[r][c], key, title)
+
+                plt.tight_layout()
+                out_path = os.path.join(comparison_folder, 'species_and_derelicts_response_to_bonds.png')
+                plt.savefig(out_path, dpi=300)
+                plt.close()
+                print(f"Comparison plot saved to {out_path}")
 
         def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
                 """
@@ -1121,6 +1310,733 @@ class PlotHandler:
                 plt.savefig(file_path, dpi=300)
                 plt.close()
                 print(f"Split object count plot saved to {file_path}")
+
+        def comparison_object_counts_vs_bond_by_species(self, plot_data_lists, other_data_lists):
+                """
+                Create 2x2 subplots showing:
+                - Three plots (S, Su, Sns) with active satellites, compliant derelicts, and non-compliant derelicts
+                - One plot showing all debris (excluding derelicts and active satellites)
+                All plotted against bond amount.
+                """
+                import os
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Store data for each species: S, Su, Sns
+                # Each will have bond amounts, active satellites, compliant derelicts, non-compliant derelicts
+                species_data = {
+                        "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
+                }
+                
+                # Store data for all debris (excluding derelicts)
+                debris_data = {"bond": [], "total_debris_10cm": []}
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # Extract bond amount
+                        m = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if not m:
+                                continue
+                        bond_k = int(m.group(1))
+
+                        # Final timestep index
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+
+                        # Get non-compliance values from other_results for final timestep
+                        non_compliance = {}
+                        if final_ts in other_data:
+                                nc_data = other_data[final_ts].get("non_compliance", {})
+                                for sp_key in ["S", "Su", "Sns"]:
+                                        non_compliance[sp_key] = float(nc_data.get(sp_key, 0.0))
+
+                        # Get econ_params for species masses
+                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
+                        
+                        # Get species masses to match derelicts
+                        species_masses = {}
+                        if econ:
+                                for sp_key in ['S', 'Su', 'Sns']:
+                                        if sp_key in econ:
+                                                species_masses[sp_key] = econ[sp_key].get("mass")
+
+                        # Helper function to parse derelict mass from name
+                        def parse_der_mass(name: str):
+                                m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
+                                return float(m.group(1)) if m else None
+
+                        # Helper function to find derelict species matching a mass (within tolerance)
+                        def find_matching_derelict(target_mass, tolerance=1.0):
+                                matching_names = []
+                                for sp_name in plot_data.data.keys():
+                                        if sp_name.startswith('N'):
+                                                der_mass = parse_der_mass(sp_name)
+                                                if der_mass is not None and abs(der_mass - target_mass) <= tolerance:
+                                                        matching_names.append(sp_name)
+                                return matching_names
+
+                        # Get active satellite counts for each species
+                        def sum_final(species_key: str) -> float:
+                                if species_key in plot_data.data:
+                                        arr = np.array(plot_data.data[species_key])
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                return float(np.sum(arr[-1, :]))
+                                return 0.0
+
+                        s_active = sum_final('S')
+                        su_active = sum_final('Su')
+                        sns_active = sum_final('Sns')
+
+                        # Calculate species-specific derelicts
+                        species_derelicts = {}
+                        for species_key in ["S", "Su", "Sns"]:
+                                total_derelicts = 0.0
+                                non_compliant_derelicts = non_compliance.get(species_key, 0.0)
+                                
+                                # Find matching derelict species by mass
+                                target_mass = species_masses.get(species_key)
+                                if target_mass is not None:
+                                        matching_der_names = find_matching_derelict(target_mass)
+                                        
+                                        # Aggregate derelicts for this species at final year
+                                        for der_name in matching_der_names:
+                                                if der_name in plot_data.data:
+                                                        arr = np.array(plot_data.data[der_name])
+                                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
+                                                                final_row = arr[-1, :]
+                                                                total_derelicts += float(np.sum(final_row))
+                                
+                                # Calculate compliant derelicts = total - non_compliant
+                                compliant_derelicts = max(0.0, total_derelicts - non_compliant_derelicts)
+                                
+                                species_derelicts[species_key] = {
+                                        'compliant': compliant_derelicts,
+                                        'non_compliant': non_compliant_derelicts
+                                }
+
+                        # Store data for each species
+                        for species_key in ["S", "Su", "Sns"]:
+                                species_data[species_key]["bond"].append(bond_k)
+                                species_data[species_key]["compliant_derelicts"].append(species_derelicts[species_key]['compliant'])
+                                species_data[species_key]["non_compliant_derelicts"].append(species_derelicts[species_key]['non_compliant'])
+                                
+                                if species_key == "S":
+                                        species_data[species_key]["active"].append(s_active)
+                                elif species_key == "Su":
+                                        species_data[species_key]["active"].append(su_active)
+                                else:  # Sns
+                                        species_data[species_key]["active"].append(sns_active)
+                        
+                        # Calculate total debris (excluding derelicts and active satellites)
+                        total_debris = 0.0
+                        
+                        # Get active species names and derelict species names
+                        active_species = ["S", "Su", "Sns"]
+                        derelict_species_names = getattr(plot_data, 'derelict_species_names', [])
+                        if not derelict_species_names:
+                                # Fallback: derelicts start with 'N' or 'B'
+                                derelict_species_names = [name for name in plot_data.species_names 
+                                                          if name.startswith('N') or name.startswith('B')]
+                        
+                        # Sum all debris species (not active, not derelicts)
+                        for sp_name in plot_data.species_names:
+                                # Skip active species and derelicts
+                                if sp_name in active_species or sp_name in derelict_species_names:
+                                        continue
+                                
+                                # Get count for this debris species at final timestep
+                                if sp_name in plot_data.data:
+                                        arr = np.array(plot_data.data[sp_name])
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                count = float(np.sum(arr[-1, :]))
+                                                total_debris += count
+                        
+                        debris_data["bond"].append(bond_k)
+                        debris_data["total_debris_10cm"].append(total_debris)
+
+                # Sort by bond for smooth lines
+                def sort_species_data(data_dict):
+                        if not data_dict["bond"]:
+                                return data_dict
+                        order = np.argsort(data_dict["bond"])  # ascending
+                        for k in data_dict.keys():
+                                data_dict[k] = [data_dict[k][idx] for idx in order]
+                        return data_dict
+
+                for species_key in species_data.keys():
+                        species_data[species_key] = sort_species_data(species_data[species_key])
+                
+                # Sort debris data
+                if debris_data["bond"]:
+                        order = np.argsort(debris_data["bond"])
+                        debris_data["bond"] = [debris_data["bond"][idx] for idx in order]
+                        debris_data["total_debris_10cm"] = [debris_data["total_debris_10cm"][idx] for idx in order]
+
+                # Create 2x2 subplots
+                fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+                axes = axes.flatten()  # Flatten to 1D array for easier indexing
+                species_names = ["S", "Su", "Sns"]
+                
+                # Consistent colors across all graphs
+                active_color = "blue"
+                compliant_color = "green"
+                non_compliant_color = "red"
+                debris_color = "orange"
+
+                # Plot first three subplots for S, Su, Sns
+                for idx, species_key in enumerate(species_names):
+                        ax = axes[idx]
+                        data = species_data[species_key]
+
+                        # Plot active satellites (blue)
+                        ax.plot(data["bond"], data["active"], color=active_color, marker='s', linestyle='-', 
+                               linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
+                        
+                        # Plot compliant derelicts (green)
+                        ax.plot(data["bond"], data["compliant_derelicts"], color=compliant_color, marker='o', 
+                               linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
+                        
+                        # Plot non-compliant derelicts (red)
+                        ax.plot(data["bond"], data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                               linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
+
+                        ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                        ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
+                        ax.set_title(f"{species_key}", fontsize=16, fontweight='bold')
+                        ax.grid(True, alpha=0.3)
+                        ax.legend(fontsize=11, loc='best')
+                        
+                        # Make ticks bold
+                        ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                        for label in ax.get_xticklabels():
+                                label.set_fontweight('bold')
+                        for label in ax.get_yticklabels():
+                                label.set_fontweight('bold')
+                
+                # Plot fourth subplot for all debris (excluding derelicts)
+                ax = axes[3]
+                ax.plot(debris_data["bond"], debris_data["total_debris_10cm"], color=debris_color, marker='^', 
+                       linestyle='-', linewidth=2, markersize=6, label='All Debris', zorder=3)
+                
+                ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
+                ax.set_title("All Debris", fontsize=16, fontweight='bold')
+                ax.grid(True, alpha=0.3)
+                ax.legend(fontsize=11, loc='best')
+                
+                # Make ticks bold
+                ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                for label in ax.get_xticklabels():
+                        label.set_fontweight('bold')
+                for label in ax.get_yticklabels():
+                        label.set_fontweight('bold')
+
+                plt.tight_layout()
+
+                file_path = os.path.join(comparison_folder, "object_counts_vs_bond_by_species.png")
+                plt.savefig(file_path, dpi=300)
+                plt.close()
+                print(f"Object counts by species plot saved to {file_path}")
+
+        def comparison_object_counts_vs_bond_by_species_with_umpy(self, plot_data_lists, other_data_lists):
+                """
+                Create 2x2 subplots showing:
+                - Three plots (S, Su, Sns) with active satellites, compliant derelicts, and non-compliant derelicts
+                - One plot showing final year UMPY vs bond amount
+                All plotted against bond amount.
+                """
+                import os
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Store data for each species: S, Su, Sns
+                # Each will have bond amounts, active satellites, compliant derelicts, non-compliant derelicts
+                species_data = {
+                        "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
+                }
+                
+                # Store data for final year UMPY
+                umpy_data = {"bond": [], "final_umpy": []}
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # Extract bond amount
+                        m = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if not m:
+                                continue
+                        bond_k = int(m.group(1))
+
+                        # Final timestep index
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+
+                        # Get non-compliance values from other_results for final timestep
+                        non_compliance = {}
+                        if final_ts in other_data:
+                                nc_data = other_data[final_ts].get("non_compliance", {})
+                                for sp_key in ["S", "Su", "Sns"]:
+                                        non_compliance[sp_key] = float(nc_data.get(sp_key, 0.0))
+
+                        # Get econ_params for species masses
+                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
+                        
+                        # Get species masses to match derelicts
+                        species_masses = {}
+                        if econ:
+                                for sp_key in ['S', 'Su', 'Sns']:
+                                        if sp_key in econ:
+                                                species_masses[sp_key] = econ[sp_key].get("mass")
+
+                        # Helper function to parse derelict mass from name
+                        def parse_der_mass(name: str):
+                                m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
+                                return float(m.group(1)) if m else None
+
+                        # Helper function to find derelict species matching a mass (within tolerance)
+                        def find_matching_derelict(target_mass, tolerance=1.0):
+                                matching_names = []
+                                for sp_name in plot_data.data.keys():
+                                        if sp_name.startswith('N'):
+                                                der_mass = parse_der_mass(sp_name)
+                                                if der_mass is not None and abs(der_mass - target_mass) <= tolerance:
+                                                        matching_names.append(sp_name)
+                                return matching_names
+
+                        # Get active satellite counts for each species
+                        def sum_final(species_key: str) -> float:
+                                if species_key in plot_data.data:
+                                        arr = np.array(plot_data.data[species_key])
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                return float(np.sum(arr[-1, :]))
+                                return 0.0
+
+                        s_active = sum_final('S')
+                        su_active = sum_final('Su')
+                        sns_active = sum_final('Sns')
+
+                        # Calculate species-specific derelicts
+                        species_derelicts = {}
+                        for species_key in ["S", "Su", "Sns"]:
+                                total_derelicts = 0.0
+                                non_compliant_derelicts = non_compliance.get(species_key, 0.0)
+                                
+                                # Find matching derelict species by mass
+                                target_mass = species_masses.get(species_key)
+                                if target_mass is not None:
+                                        matching_der_names = find_matching_derelict(target_mass)
+                                        
+                                        # Aggregate derelicts for this species at final year
+                                        for der_name in matching_der_names:
+                                                if der_name in plot_data.data:
+                                                        arr = np.array(plot_data.data[der_name])
+                                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
+                                                                final_row = arr[-1, :]
+                                                                total_derelicts += float(np.sum(final_row))
+                                
+                                # Calculate compliant derelicts = total - non_compliant
+                                compliant_derelicts = max(0.0, total_derelicts - non_compliant_derelicts)
+                                
+                                species_derelicts[species_key] = {
+                                        'compliant': compliant_derelicts,
+                                        'non_compliant': non_compliant_derelicts
+                                }
+
+                        # Store data for each species
+                        for species_key in ["S", "Su", "Sns"]:
+                                species_data[species_key]["bond"].append(bond_k)
+                                species_data[species_key]["compliant_derelicts"].append(species_derelicts[species_key]['compliant'])
+                                species_data[species_key]["non_compliant_derelicts"].append(species_derelicts[species_key]['non_compliant'])
+                                
+                                if species_key == "S":
+                                        species_data[species_key]["active"].append(s_active)
+                                elif species_key == "Su":
+                                        species_data[species_key]["active"].append(su_active)
+                                else:  # Sns
+                                        species_data[species_key]["active"].append(sns_active)
+                        
+                        # Get final year UMPY
+                        final_umpy = 0.0
+                        if final_ts in other_data:
+                                umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                        # If it's a list/array, sum all values
+                                        final_umpy = float(np.sum(umpy_data_ts))
+                                elif isinstance(umpy_data_ts, dict):
+                                        # If it's a dict, sum all values
+                                        final_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                elif isinstance(umpy_data_ts, (int, float)):
+                                        # If it's a single value
+                                        final_umpy = float(umpy_data_ts)
+                        
+                        umpy_data["bond"].append(bond_k)
+                        umpy_data["final_umpy"].append(final_umpy)
+
+                # Sort by bond for smooth lines
+                def sort_species_data(data_dict):
+                        if not data_dict["bond"]:
+                                return data_dict
+                        order = np.argsort(data_dict["bond"])  # ascending
+                        for k in data_dict.keys():
+                                data_dict[k] = [data_dict[k][idx] for idx in order]
+                        return data_dict
+
+                for species_key in species_data.keys():
+                        species_data[species_key] = sort_species_data(species_data[species_key])
+                
+                # Sort UMPY data
+                if umpy_data["bond"]:
+                        order = np.argsort(umpy_data["bond"])
+                        umpy_data["bond"] = [umpy_data["bond"][idx] for idx in order]
+                        umpy_data["final_umpy"] = [umpy_data["final_umpy"][idx] for idx in order]
+
+                # Create 2x2 subplots
+                fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+                axes = axes.flatten()  # Flatten to 1D array for easier indexing
+                species_names = ["S", "Su", "Sns"]
+                
+                # Consistent colors across all graphs
+                active_color = "blue"
+                compliant_color = "green"
+                non_compliant_color = "red"
+                umpy_color = "purple"
+
+                # Plot first three subplots for S, Su, Sns
+                for idx, species_key in enumerate(species_names):
+                        ax = axes[idx]
+                        data = species_data[species_key]
+
+                        # Plot active satellites (blue)
+                        ax.plot(data["bond"], data["active"], color=active_color, marker='s', linestyle='-', 
+                               linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
+                        
+                        # Plot compliant derelicts (green)
+                        ax.plot(data["bond"], data["compliant_derelicts"], color=compliant_color, marker='o', 
+                               linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
+                        
+                        # Plot non-compliant derelicts (red)
+                        ax.plot(data["bond"], data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                               linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
+
+                        ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                        ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
+                        ax.set_title(f"{species_key}", fontsize=16, fontweight='bold')
+                        ax.grid(True, alpha=0.3)
+                        ax.legend(fontsize=11, loc='best')
+                        
+                        # Make ticks bold
+                        ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                        for label in ax.get_xticklabels():
+                                label.set_fontweight('bold')
+                        for label in ax.get_yticklabels():
+                                label.set_fontweight('bold')
+                
+                # Plot fourth subplot for final year UMPY
+                ax = axes[3]
+                ax.plot(umpy_data["bond"], umpy_data["final_umpy"], color=umpy_color, marker='^', 
+                       linestyle='-', linewidth=2, markersize=6, label='Final Year UMPY', zorder=3)
+                
+                ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                ax.set_ylabel("UMPY (kg/year)", fontsize=14, fontweight='bold')
+                ax.set_title("Final Year UMPY", fontsize=16, fontweight='bold')
+                ax.grid(True, alpha=0.3)
+                ax.legend(fontsize=11, loc='best')
+                
+                # Make ticks bold
+                ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                for label in ax.get_xticklabels():
+                        label.set_fontweight('bold')
+                for label in ax.get_yticklabels():
+                        label.set_fontweight('bold')
+
+                plt.tight_layout()
+
+                file_path = os.path.join(comparison_folder, "object_counts_vs_bond_by_species_with_umpy.png")
+                plt.savefig(file_path, dpi=300)
+                plt.close()
+                print(f"Object counts by species with UMPY plot saved to {file_path}")
+
+        def comparison_object_counts_vs_bond_by_species_with_umpy_relative(self, plot_data_lists, other_data_lists):
+                """
+                Create 2x2 subplots showing:
+                - Three plots (S, Su, Sns) with active satellites, compliant derelicts, and non-compliant derelicts
+                - One plot showing relative change in final year UMPY from baseline (%) vs bond amount
+                All plotted against bond amount.
+                """
+                import os
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Store data for each species: S, Su, Sns
+                # Each will have bond amounts, active satellites, compliant derelicts, non-compliant derelicts
+                species_data = {
+                        "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
+                }
+                
+                # Store data for relative change in final year UMPY
+                umpy_relative_data = {"bond": [], "relative_change_percent": []}
+
+                # First pass: find baseline UMPY (bond_0k scenario)
+                baseline_umpy = None
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        
+                        # Check if this is the baseline (bond_0k)
+                        m = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if m and int(m.group(1)) == 0:
+                                # This is the baseline scenario
+                                timesteps = sorted(other_data.keys(), key=int)
+                                final_ts = timesteps[-1]
+                                
+                                if final_ts in other_data:
+                                        umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                        if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                                baseline_umpy = float(np.sum(umpy_data_ts))
+                                        elif isinstance(umpy_data_ts, dict):
+                                                baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                        elif isinstance(umpy_data_ts, (int, float)):
+                                                baseline_umpy = float(umpy_data_ts)
+                                break
+                
+                # If baseline not found, use first scenario as baseline
+                if baseline_umpy is None and plot_data_lists:
+                        plot_data, other_data = plot_data_lists[0], other_data_lists[0]
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+                        if final_ts in other_data:
+                                umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                        baseline_umpy = float(np.sum(umpy_data_ts))
+                                elif isinstance(umpy_data_ts, dict):
+                                        baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                elif isinstance(umpy_data_ts, (int, float)):
+                                        baseline_umpy = float(umpy_data_ts)
+
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # Extract bond amount
+                        m = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if not m:
+                                continue
+                        bond_k = int(m.group(1))
+
+                        # Final timestep index
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+
+                        # Get non-compliance values from other_results for final timestep
+                        non_compliance = {}
+                        if final_ts in other_data:
+                                nc_data = other_data[final_ts].get("non_compliance", {})
+                                for sp_key in ["S", "Su", "Sns"]:
+                                        non_compliance[sp_key] = float(nc_data.get(sp_key, 0.0))
+
+                        # Get econ_params for species masses
+                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
+                        
+                        # Get species masses to match derelicts
+                        species_masses = {}
+                        if econ:
+                                for sp_key in ['S', 'Su', 'Sns']:
+                                        if sp_key in econ:
+                                                species_masses[sp_key] = econ[sp_key].get("mass")
+
+                        # Helper function to parse derelict mass from name
+                        def parse_der_mass(name: str):
+                                m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
+                                return float(m.group(1)) if m else None
+
+                        # Helper function to find derelict species matching a mass (within tolerance)
+                        def find_matching_derelict(target_mass, tolerance=1.0):
+                                matching_names = []
+                                for sp_name in plot_data.data.keys():
+                                        if sp_name.startswith('N'):
+                                                der_mass = parse_der_mass(sp_name)
+                                                if der_mass is not None and abs(der_mass - target_mass) <= tolerance:
+                                                        matching_names.append(sp_name)
+                                return matching_names
+
+                        # Get active satellite counts for each species
+                        def sum_final(species_key: str) -> float:
+                                if species_key in plot_data.data:
+                                        arr = np.array(plot_data.data[species_key])
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                return float(np.sum(arr[-1, :]))
+                                return 0.0
+
+                        s_active = sum_final('S')
+                        su_active = sum_final('Su')
+                        sns_active = sum_final('Sns')
+
+                        # Calculate species-specific derelicts
+                        species_derelicts = {}
+                        for species_key in ["S", "Su", "Sns"]:
+                                total_derelicts = 0.0
+                                non_compliant_derelicts = non_compliance.get(species_key, 0.0)
+                                
+                                # Find matching derelict species by mass
+                                target_mass = species_masses.get(species_key)
+                                if target_mass is not None:
+                                        matching_der_names = find_matching_derelict(target_mass)
+                                        
+                                        # Aggregate derelicts for this species at final year
+                                        for der_name in matching_der_names:
+                                                if der_name in plot_data.data:
+                                                        arr = np.array(plot_data.data[der_name])
+                                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
+                                                                final_row = arr[-1, :]
+                                                                total_derelicts += float(np.sum(final_row))
+                                
+                                # Calculate compliant derelicts = total - non_compliant
+                                compliant_derelicts = max(0.0, total_derelicts - non_compliant_derelicts)
+                                
+                                species_derelicts[species_key] = {
+                                        'compliant': compliant_derelicts,
+                                        'non_compliant': non_compliant_derelicts
+                                }
+
+                        # Store data for each species
+                        for species_key in ["S", "Su", "Sns"]:
+                                species_data[species_key]["bond"].append(bond_k)
+                                species_data[species_key]["compliant_derelicts"].append(species_derelicts[species_key]['compliant'])
+                                species_data[species_key]["non_compliant_derelicts"].append(species_derelicts[species_key]['non_compliant'])
+                                
+                                if species_key == "S":
+                                        species_data[species_key]["active"].append(s_active)
+                                elif species_key == "Su":
+                                        species_data[species_key]["active"].append(su_active)
+                                else:  # Sns
+                                        species_data[species_key]["active"].append(sns_active)
+                        
+                        # Get final year UMPY and calculate relative change
+                        final_umpy = 0.0
+                        if final_ts in other_data:
+                                umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                        # If it's a list/array, sum all values
+                                        final_umpy = float(np.sum(umpy_data_ts))
+                                elif isinstance(umpy_data_ts, dict):
+                                        # If it's a dict, sum all values
+                                        final_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                elif isinstance(umpy_data_ts, (int, float)):
+                                        # If it's a single value
+                                        final_umpy = float(umpy_data_ts)
+                        
+                        # Calculate relative change as percentage: ((umpy - baseline) / baseline) * 100
+                        if baseline_umpy is not None and baseline_umpy > 0:
+                                relative_change = ((final_umpy - baseline_umpy) / baseline_umpy) * 100
+                        else:
+                                relative_change = 0.0
+                        
+                        umpy_relative_data["bond"].append(bond_k)
+                        umpy_relative_data["relative_change_percent"].append(relative_change)
+
+                # Sort by bond for smooth lines
+                def sort_species_data(data_dict):
+                        if not data_dict["bond"]:
+                                return data_dict
+                        order = np.argsort(data_dict["bond"])  # ascending
+                        for k in data_dict.keys():
+                                data_dict[k] = [data_dict[k][idx] for idx in order]
+                        return data_dict
+
+                for species_key in species_data.keys():
+                        species_data[species_key] = sort_species_data(species_data[species_key])
+                
+                # Sort UMPY relative data
+                if umpy_relative_data["bond"]:
+                        order = np.argsort(umpy_relative_data["bond"])
+                        umpy_relative_data["bond"] = [umpy_relative_data["bond"][idx] for idx in order]
+                        umpy_relative_data["relative_change_percent"] = [umpy_relative_data["relative_change_percent"][idx] for idx in order]
+
+                # Create 2x2 subplots
+                fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+                axes = axes.flatten()  # Flatten to 1D array for easier indexing
+                species_names = ["S", "Su", "Sns"]
+                
+                # Consistent colors across all graphs
+                active_color = "blue"
+                compliant_color = "green"
+                non_compliant_color = "red"
+                umpy_relative_color = "purple"
+
+                # Plot first three subplots for S, Su, Sns
+                for idx, species_key in enumerate(species_names):
+                        ax = axes[idx]
+                        data = species_data[species_key]
+
+                        # Plot active satellites (blue)
+                        ax.plot(data["bond"], data["active"], color=active_color, marker='s', linestyle='-', 
+                               linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
+                        
+                        # Plot compliant derelicts (green)
+                        ax.plot(data["bond"], data["compliant_derelicts"], color=compliant_color, marker='o', 
+                               linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
+                        
+                        # Plot non-compliant derelicts (red)
+                        ax.plot(data["bond"], data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                               linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
+
+                        ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                        ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
+                        ax.set_title(f"{species_key}", fontsize=16, fontweight='bold')
+                        ax.grid(True, alpha=0.3)
+                        ax.legend(fontsize=11, loc='best')
+                        
+                        # Make ticks bold
+                        ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                        for label in ax.get_xticklabels():
+                                label.set_fontweight('bold')
+                        for label in ax.get_yticklabels():
+                                label.set_fontweight('bold')
+                
+                # Plot fourth subplot for relative change in final year UMPY
+                ax = axes[3]
+                ax.plot(umpy_relative_data["bond"], umpy_relative_data["relative_change_percent"], color=umpy_relative_color, marker='^', 
+                       linestyle='-', linewidth=2, markersize=6, label='Relative Change in UMPY', zorder=3)
+                
+                # Add horizontal line at 0% for baseline
+                ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
+                
+                ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                ax.set_ylabel("Relative Change in UMPY (%)", fontsize=14, fontweight='bold')
+                ax.set_title("Relative Change in Final Year UMPY", fontsize=16, fontweight='bold')
+                ax.grid(True, alpha=0.3)
+                ax.legend(fontsize=11, loc='best')
+                
+                # Make ticks bold
+                ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                for label in ax.get_xticklabels():
+                        label.set_fontweight('bold')
+                for label in ax.get_yticklabels():
+                        label.set_fontweight('bold')
+
+                plt.tight_layout()
+
+                file_path = os.path.join(comparison_folder, "object_counts_vs_bond_by_species_with_umpy_relative.png")
+                plt.savefig(file_path, dpi=300)
+                plt.close()
+                print(f"Object counts by species with UMPY relative change plot saved to {file_path}")
 
         def comparison_scatter_umpy_vs_total_objects(self, plot_data_lists, other_data_lists):
                 """
@@ -2122,14 +3038,33 @@ class PlotHandler:
                 """
                 Plots the total bond revenue collected over time for each scenario.
                 Revenue = (bond amount) * (number of non-compliant satellites).
+                Also saves cumulative revenue data to CSV.
                 """
                 import matplotlib.pyplot as plt
                 import numpy as np
                 import os
+                import re
+                import pandas as pd
                 
                 plt.figure(figsize=(10, 6))
                 comparison_folder = os.path.join(self.simulation_folder, "comparisons")
                 os.makedirs(comparison_folder, exist_ok=True)
+
+                def format_bond_label(bond_amount):
+                        """Format bond amount as $100k, $500k, etc."""
+                        if bond_amount == 0:
+                                return "$0"
+                        elif bond_amount < 1000:
+                                return f"${int(bond_amount)}"
+                        elif bond_amount < 1000000:
+                                # Format as $100k, $500k, etc.
+                                return f"${int(bond_amount / 1000)}k"
+                        else:
+                                # Format as $1M, $2M, etc.
+                                return f"${bond_amount / 1000000:.1f}M"
+
+                # Store data for CSV export
+                csv_data = []
 
                 for plot_data, other_data in zip(plot_data_lists, other_data_lists):
                         scenario_label = getattr(plot_data, 'scenario', 'Unnamed Scenario')
@@ -2143,8 +3078,23 @@ class PlotHandler:
                         
                         # Get bond amount from the first S-species. Default to 0 if no bond.
                         bond_amount = 0.0
+                        disposal_time = None
                         if s_species_names and s_species_names[0] in econ_params_dict:
                                 bond_amount = econ_params_dict[s_species_names[0]].get("bond") or 0.0
+                                disposal_time = econ_params_dict[s_species_names[0]].get("disposal_time")
+                        
+                        # If disposal_time not found in econ_params, try to extract from scenario name
+                        if disposal_time is None:
+                                # Check scenario name for 5yr or 25yr pattern
+                                if "25yr" in scenario_label:
+                                        disposal_time = 25
+                                elif "5yr" in scenario_label:
+                                        disposal_time = 5
+                                else:
+                                        disposal_time = 5  # Default to 5 years
+                        
+                        # Format bond amount for legend
+                        bond_label = format_bond_label(bond_amount)
                         
                         # Get sorted timesteps (e.g., '1', '2', ..., '9')
                         timesteps = sorted(other_data.keys(), key=int)
@@ -2159,12 +3109,35 @@ class PlotHandler:
                                 total_non_compliant = sum(non_compliance_data.values())
                                 bond_revenues.append(total_non_compliant * bond_amount)
 
-                        time_axis = range(len(bond_revenues))
-                        plt.plot(time_axis, bond_revenues, label=scenario_label, linewidth=2, marker='o', markersize=4)
+                        # Calculate cumulative revenue (sum of all years)
+                        cumulative_revenue = sum(bond_revenues)
+                        
+                        # Store data for CSV
+                        csv_data.append({
+                                'bond_amount': bond_amount,
+                                'bond_label': bond_label,
+                                'disposal_time_years': disposal_time,
+                                'cumulative_revenue': cumulative_revenue
+                        })
 
-                plt.xlabel("Year", fontsize=12)
-                plt.ylabel("Total Bond Revenue ($)", fontsize=12)
-                plt.legend(title="Scenario", fontsize=10)
+                        time_axis = range(len(bond_revenues))
+                        plt.plot(time_axis, bond_revenues, label=bond_label, linewidth=2, marker='o', markersize=4)
+
+                plt.xlabel("Year", fontsize=16, fontweight="black")
+                plt.ylabel("Total Bond Revenue ($)", fontsize=16, fontweight="black")
+                
+                # Make axis ticks bold
+                ax = plt.gca()
+                ax.tick_params(axis='both', which='major', labelsize=12, width=1.5)
+                for label in ax.get_xticklabels():
+                        label.set_fontweight('bold')
+                for label in ax.get_yticklabels():
+                        label.set_fontweight('bold')
+                
+                plt.legend(fontsize=13, frameon=True, loc="upper left")
+                if plt.gca().get_legend():
+                        for text in plt.gca().get_legend().get_texts():
+                                text.set_fontweight("black")
                 plt.grid(True)
                 plt.tight_layout()
 
@@ -2172,3 +3145,14 @@ class PlotHandler:
                 plt.savefig(file_path, dpi=300)
                 plt.close()
                 print(f"Bond revenue plot saved to {file_path}")
+                
+                # Save cumulative revenue data to CSV
+                if csv_data:
+                        df = pd.DataFrame(csv_data)
+                        # Sort by bond amount, then by disposal time
+                        df = df.sort_values(['bond_amount', 'disposal_time_years'])
+                        # Reorder columns
+                        df = df[['bond_amount', 'bond_label', 'disposal_time_years', 'cumulative_revenue']]
+                        csv_path = os.path.join(comparison_folder, "cumulative_bond_revenue.csv")
+                        df.to_csv(csv_path, index=False)
+                        print(f"Cumulative bond revenue CSV saved to {csv_path}")

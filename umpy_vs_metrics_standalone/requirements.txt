@@ -1,0 +1,5 @@
+numpy>=1.2
+pandas>=2.0
+matplotlib
+pyssem==0.1.dev294
+
