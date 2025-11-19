@@ -381,6 +381,7 @@ class IAMSolver:
                 # environment_for_solver, ~ = implement_adr(environment_for_solver,self.MOCAT,adr_params)
                 environment_for_solver, removal_dict = optimize_ADR_removal(environment_for_solver,self.MOCAT,adr_params)
                 num_removed_this_period = (environment_before_adr - environment_for_solver).sum
+                # num_removed_this_period = 0
 
             # Record propagated environment data 
             for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
@@ -511,13 +512,13 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name):
 def process_scenario(scenario_name, MOCAT_config, simulation_name):
     iam_solver = IAMSolver()
     iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name)
-    return iam_solver.get_mocat()
+    return f"Finished {scenario_name}"
 
 def process_optimizer_scenario_ADR(scenario_name, MOCAT_config, simulation_name, params):
     iam_solver_optimize = OptimizeADR()
     iam_solver_optimize.params = params
     iam_solver_optimize.run_optimizer_loop(scenario_name, simulation_name, MOCAT_config, params)
-    return iam_solver_optimize.get_mocat_from_optimizer(), iam_solver_optimize.adr_dict, iam_solver_optimize.welfare_dict
+    return None, iam_solver_optimize.adr_dict, iam_solver_optimize.welfare_dict
 
 def grid_setup(simulation_name, target_species, target_shell, amount_remove, removal_cost, tax_rate, bond, ouf):
         params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf)*len(target_shell)+1)
@@ -642,7 +643,7 @@ if __name__ == "__main__":
     # adr configuration:
     adr_inputs = {
         "target_shell": [12],
-        "target_species":['N_223kg'],
+        "target_species":['N_700kg'],
         "amount_removed": [10],
         
     }
@@ -652,78 +653,50 @@ if __name__ == "__main__":
     if baseline:
         scenario_files.append("Baseline")
     scenario_files.extend(bond_scenario_names)
-    config = {
-        "scenario_files": scenario_files,
-        "baseline": baseline,
-        "bond_amounts": bond_amounts,
-        "lifetimes": lifetimes
-    }
     
-
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "joey_test"
+    simulation_name = "joey_check_optimize_adr"
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
-    def get_total_species_from_output(species_data):
-        totals = {}
-        for species, year_data in species_data.items():
-            if isinstance(year_data, dict):
-                # Get the latest year's data
-                latest_year = max(year_data.keys())
-                latest_data = year_data[latest_year]
-                
-                if isinstance(latest_data, np.ndarray):
-                    # Sum the array values
-                    totals[species] = np.sum(latest_data)
-                elif hasattr(latest_data, 'sum'):
-                    # Handle pandas Series
-                    totals[species] = latest_data.sum()
-                else:
-                    # Fallback for other data types
-                    totals[species] = float(latest_data) if isinstance(latest_data, (int, float)) else 0
-            elif isinstance(year_data, np.ndarray):
-                # Handle direct array input (backward compatibility)
-                totals[species] = np.sum(year_data[-1])
-        
-        return totals
-
-    # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
-    #     # Get the total species from the output
-    #     total_species = get_total_species_from_output(output)
-    #     print(f"Total species for scenario {scenario_name}: {total_species}")
+    multi_species_names = ["S","Su", "Sns"]
+    multi_species = MultiSpecies(multi_species_names)
 
     # # Parallel Processing
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
- 
-    # # # sammie addition: running the optimizer version of IAM Solver for shell-switching
-    optimization_solver = OptimizeADR()
+    # with ProcessPoolExecutor() as executor:
+    #     # Build iterables for the new static arguments
+    #     n_scenarios = len(scenario_files)
+    #     multi_species_list = [multi_species_names] * n_scenarios
 
-    ts = ["N_223kg"]
+    #     # Map process_scenario function over scenario_files
+    #     results = list(executor.map(process_scenario, 
+    #                                     scenario_files, 
+    #                                     [MOCAT_config]*n_scenarios, 
+    #                                     [simulation_name]*n_scenarios
+    #                                     ))
+    
+    # # # sammie addition: running the optimizer version of IAM Solver for shell-switching
+    # optimization_solver = OptimizeADR()
+
+    ts = ["N_700kg"]
     # tp = np.linspace(0, 0.5, num=2)
     tn = [1000]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [0, 1000000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    bond = [0, 100000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
     target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
-    # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
+    scenario_files = ["Baseline"]
+
+    # # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
 
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    multi_species_names = ["S","Su", "Sns"]
-    # # multi_species_names = ["Sns"]
-    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

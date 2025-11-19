@@ -1,17 +1,17 @@
 {
-  "simulation_name": "not_elliptical_nshell_25_sp_8",
+  "simulation_name": "not_elliptical_nshell_15_sp_8",
   "id": "1234567890",
   "owner": "Indigo Brownhall",
   "description": "This is a simulation file for the first fork of the MOCAT-SSEM Model.",
   "created": "2024-01-01T12:00:00Z",
   "modified": "2024-01-01T12:00:00Z",
   "scenario_properties": {
-    "start_date": "01/01/2025",
-    "simulation_duration": 25,
-    "steps": 25,
+    "start_date": "01/01/2017",
+    "simulation_duration": 10,
+    "steps": 10,
     "min_altitude": 200,
     "max_altitude": 1500,
-    "n_shells": 20,
+    "n_shells": 10,
     "launch_function": "Constant",
     "integrator": "BDF",
     "density_model": "JB2008_dens_func",
@@ -64,17 +64,16 @@
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
           "mass": 521,
-          "controlled_pmd" : 0.6,
+          "controlled_pmd" : 0.6, 
           "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
-          "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : true
+          "failed_attempt_pmd" : 0
       }
     },
     {
         "sym_name": "Su",
         "Cd": 2.2,
-        "mass": 223,
+        "mass": 700,
         "radius": 1.718593970000002,
         "A": 9.278898840154126,
         "bstar" : 2.3515959613633724e-08,
@@ -85,7 +84,7 @@
         "Pm": 0.65,
         "alpha": 1e-5,
         "alpha_active": 1e-5,
-        "slotted": false,
+        "slotted": false, 
         "RBflag" : 0,
         "slotting_effectiveness": 0,
         "drag_effected": false,
@@ -101,12 +100,11 @@
           "delta_v_cost": 1000,
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
-          "mass": 223,
-          "controlled_pmd" : 0.6,
-          "uncontrolled_pmd" : 0,
+          "mass": 700,
+          "controlled_pmd" : 0, 
+          "uncontrolled_pmd" : 0.6,
           "no_attempt_pmd" : 0.4,
-          "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : true
+          "failed_attempt_pmd" : 0
       }
     },
     {
@@ -115,17 +113,17 @@
         "mass": 20,
         "radius": 0.105550206,
         "A": 0.035,
-        "bstar": 1.28333333e-8,
+        "bstar": 1.28333333e-8, 
         "active": true,
         "maneuverable": true,
         "deltat": 5,
         "Pm": 0.65,
         "alpha": 1e-5,
         "alpha_active": 1e-5,
-        "slotted" : false,
+        "slotted" : false, 
         "slotting_effectiveness": 0,
         "drag_effected": false,
-        "launch_func": "launch_func_null",
+        "launch_func": "launch_func_null",   
         "pmd_func": "pmd_func_opus",
         "drag_func": "drag_func_exp",
         "OPUS" :{
@@ -139,11 +137,10 @@
             "lift_price": 5000,
             "prob_of_non_compliance": 0,
             "mass": 20,
-            "controlled_pmd" : 0.6,
-            "uncontrolled_pmd" : 0,
+            "controlled_pmd" : 0, 
+            "uncontrolled_pmd" : 0.6,
             "no_attempt_pmd" : 0.4,
-            "failed_attempt_pmd": 0,
-            "controlled_renetries_only" : true
+            "failed_attempt_pmd": 0
         }
     },
     {
@@ -200,12 +197,12 @@
       "drag_effected": true,
       "Pm": 0,
       "alpha": 0,
-      "alpha_active": 0,
+      "alpha_active": 0, 
       "trackable": true,
       "bstar": 1.5980896200974924e-08,
       "pmd_func": "pmd_func_none",
       "drag_func": "drag_func_exp"
-    }
+    } 
   ],
   "species_count": 8
 }

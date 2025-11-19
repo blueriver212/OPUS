@@ -140,11 +140,18 @@ class EconParameters:
         self.k_star = k_star 
 
         #BOND CALCULATIONS - compliance rate is defined in MOCAT json
-        self.comp_rate = np.ones_like(self.cost) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
+        self.comp_rate = np.ones_like(self.total_lift_price) #* self.mocat.scenario_properties.species['active'][1].Pm # 0.95
         
         if self.bond is None:
             self.comp_rate = np.where(self.naturally_compliant_vector != 1, pmd_rate, self.comp_rate)
+            # Calculate expected cost for baseline
+            expected_deorbit_costs = (self.lifetime_loss_cost + self.deorbit_maneuver_cost) * self.comp_rate
+            self.cost = (self.total_lift_price + self.stationkeeping_cost + expected_deorbit_costs)
             return 
+
+        # Scale the bond with the mass of the satellite. Full bond cost = bond/700 kg
+        # bond_per_kg = self.bond / 700
+        # self.bond = bond_per_kg * self.mass
         
         self.discount_factor = 1/(1+self.discount_rate)
         self.bstar = (
@@ -153,17 +160,22 @@ class EconParameters:
             * self.discount_factor ** self.sat_lifetime
         )
 
+
         # Calculate compliance rate. 
         mask = self.bstar != 0  # Identify where bstar is nonzero
-        non_comp_rate = 1 - pmd_rate
-        self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
+        # non_comp_rate = 1 - pmd_rate
+        # self.comp_rate[mask] = np.minimum(pmd_rate + non_comp_rate * self.bond / self.bstar[mask], 1)
 
         # With Option 1 quation 
-        # A = 57
-        # k = np.log(12) / 75
+        A = 57
+        k = np.log(12) / 75
 
-        # scaled_effort = (self.bond / self.bstar[mask]) * 100
-        # self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
+        scaled_effort = (self.bond / self.bstar[mask]) * 100
+        self.comp_rate[mask] = 0.01 * (97 - A * np.exp(-k * scaled_effort))
+
+        # Calculate expected cost for bond scenario 
+        expected_deorbit_costs = (self.lifetime_loss_cost + self.deorbit_maneuver_cost) * self.comp_rate
+        self.cost = (self.total_lift_price + self.stationkeeping_cost + expected_deorbit_costs)
 
         return       
 

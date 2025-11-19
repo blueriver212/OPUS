@@ -332,7 +332,7 @@ class OptimizeADR:
         self.adr_params.removals_left = removals_possible
         self.adr_params.time = time_idx
         if (self.econ_params.tax == 0 and self.econ_params.bond == 0 and self.econ_params.ouf == 0) or (self.econ_params.bond == None and self.econ_params.tax == 0 and self.econ_params.ouf == 0):
-                self.adr_params.removals_left = 7 # This is a hard-coded override, kept as-is.
+                self.adr_params.removals_left = 0 # This is a hard-coded override, kept as-is.
 
         before_adr = environment_for_solver.copy()
         self.environment_before_adr = before_adr.copy()
@@ -429,8 +429,9 @@ class OptimizeADR:
             #J- Adding in Economic Welfare
             fringe_pop = trial_environment_for_solver[fringe_start_slice:fringe_end_slice]
             total_fringe_sat = np.sum(fringe_pop)
-            # Use the trial's leftover revenue
-            welfare = 0.5 * self.econ_params.coef * total_fringe_sat ** 2 + trial_leftover_tax_revenue
+            #Added in new launches
+            new_launches_sum = np.sum(trial_launch_rate[fringe_start_slice:fringe_end_slice])
+            welfare = 0.5 * self.econ_params.coef * (total_fringe_sat + new_launches_sum) ** 2 + trial_leftover_tax_revenue
 
             # Save the results that will be used for plotting later
             current_trial_results[cs] = {

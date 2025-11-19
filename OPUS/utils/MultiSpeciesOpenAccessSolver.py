@@ -247,12 +247,8 @@ class MultiSpeciesOpenAccessSolver:
 
         # The revenue calculation now correctly uses the total market sum
         revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * market_total_sum
-
         discount_rate = opus_species.econ_params.discount_rate
-        # 0.05
-
         depreciation_rate = 1 / opus_species.econ_params.sat_lifetime
-        # 0.2
 
         # Equilibrium expression for rate of return including maneuver costs.
         base_cost = opus_species.econ_params.cost
@@ -265,9 +261,14 @@ class MultiSpeciesOpenAccessSolver:
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate  
         else:
-            bond_per_shell = np.ones_like(collision_risk) * opus_species.econ_params.bond #<- Set in econ parameters
-            bond = ((1-opus_species.econ_params.comp_rate) * (bond_per_shell / opus_species.econ_params.cost)) #<- This is likely causing the issue (was intercept), make sure how the bond is set per species
-            rate_of_return = rev_cost - discount_rate - depreciation_rate - bond
+            bond_value = opus_species.econ_params.bond
+            comp_rate = opus_species.econ_params.comp_rate
+            sat_lifetime = opus_species.econ_params.sat_lifetime
+
+            expecte_eol_loss = (1-comp_rate)*bond_value
+            bond_cost_rate = (expecte_eol_loss/sat_lifetime)/total_cost
+
+            rate_of_return = rev_cost - discount_rate - depreciation_rate - bond_cost_rate
 
         return rate_of_return
     
