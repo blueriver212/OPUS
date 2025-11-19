@@ -7,13 +7,13 @@
   "modified": "2024-01-01T12:00:00Z",
   "scenario_properties": {
     "start_date": "01/01/2025",
-    "simulation_duration": 10,
+    "simulation_duration": 5,
     "steps": 10,
     "min_altitude": 200,
-    "max_altitude": 1500,
-    "n_shells": 15,
+    "max_altitude": 1400,
+    "n_shells": 10,
     "launch_function": "Constant",
-    "integrator": "BDF",
+    "integrator": "Euler",
     "density_model": "JB2008_dens_func",
     "LC": 0.1,
     "v_imp": 10.0,
@@ -22,7 +22,7 @@
     "baseline": true,
     "launch_scenario": "OPUS",
     "indicator_variables" : ["collisions_per_species_altitude", "ca_man_struct", "umpy"],
-    "elliptical": false,
+    "elliptical": true,
     "eccentricity_bins":  [0.0, 0.0001, 0.00023269181687763618, 0.0005414548164181542, 0.001259921049894874, 0.0029317331822241717, 0.006821903207721965, 0.015874010519682003, 0.036937523489595184, 0.08595059451754268, 1]
   },
   "plots": [
@@ -44,8 +44,8 @@
       "trackable": true,
       "deltat": 5,
       "Pm": 0.95,
-      "alpha": 1e-05,
-      "alpha_active": 1e-05,
+      "alpha": 0,
+      "alpha_active": 0,
       "bstar": 8.814803781086339e-08,
       "slotted": true,
       "slotting_effectiveness": 1.0,
@@ -68,7 +68,7 @@
           "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
           "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : true
+          "controlled_renetries_only" : false
       }
     },
     {
@@ -83,8 +83,8 @@
         "trackable": true,
         "deltat": 8,
         "Pm": 0.65,
-        "alpha": 1e-5,
-        "alpha_active": 1e-5,
+        "alpha": 0,
+        "alpha_active": 0,
         "slotted": false, 
         "RBflag" : 0,
         "slotting_effectiveness": 0,
@@ -102,11 +102,11 @@
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
           "mass": 700,
-          "controlled_pmd" : 0.6, 
-          "uncontrolled_pmd" : 0,
+          "controlled_pmd" : 0, 
+          "uncontrolled_pmd" : 0.6,
           "no_attempt_pmd" : 0.4,
           "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : true
+          "controlled_renetries_only" : false
       }
     },
     {
@@ -120,8 +120,8 @@
         "maneuverable": true,
         "deltat": 5,
         "Pm": 0.65,
-        "alpha": 1e-5,
-        "alpha_active": 1e-5,
+        "alpha": 0,
+        "alpha_active": 0,
         "slotted" : false, 
         "slotting_effectiveness": 0,
         "drag_effected": false,
@@ -139,11 +139,11 @@
             "lift_price": 5000, 
             "prob_of_non_compliance": 0,
             "mass": 20,
-            "controlled_pmd" : 0.6, 
-            "uncontrolled_pmd" : 0,
+            "controlled_pmd" : 0, 
+            "uncontrolled_pmd" : 0.6,
             "no_attempt_pmd" : 0.4,
             "failed_attempt_pmd": 0,
-            "controlled_renetries_only" : true
+            "controlled_renetries_only" : false
         }
     },
     {

@@ -376,6 +376,7 @@ class IAMSolver:
                 "umpy": open_access.umpy, 
                 "excess_returns": open_access._last_excess_returns,
                 "non_compliance": open_access._last_non_compliance, 
+                "compliance": open_access._last_compliance,
                 "maneuvers": open_access._last_maneuvers,
                 "cost of maneuvers": open_access._last_cost,
                 "rate_of_return": open_access._last_rate_of_return,
@@ -414,11 +415,17 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_nam
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name, multi_species_names)
     return solver.get_mocat()
 
+def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names):
+    """
+    Wrapper function for parallel processing that includes multi_species_names.
+    """
+    return run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names)
+
 
 if __name__ == "__main__":
-    baseline = True
-    bond_amounts = [100000] #, 500000, 1000000, 1500000, 2000000]
-    lifetimes = [5, 25]
+    baseline = False
+    bond_amounts = [0, 100000, 200000, 500000, 750000, 1000000, 2000000] #, 1500000, 2000000]
+    lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content
     print("Ensuring bond configuration files exist...")
@@ -436,17 +443,18 @@ if __name__ == "__main__":
         "lifetimes": lifetimes
     }
     
-    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "intensive"
+    simulation_name = "pmd_test"
     # check if Results/{simulation_name} exists
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
-    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-    iam_solver.bonded_species_names = ["SA", "SB", "SuA", "SuB"]
+    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+    # iam_solver.bonded_species_names = ["SA", "SB", "SuA", "SuB"]
+    multi_species_names = ["S", "Su", "Sns"]
 
     def get_total_species_from_output(species_data):
         totals = {}
@@ -482,7 +490,7 @@ if __name__ == "__main__":
     # # Parallel Processing
     # with ThreadPoolExecutor() as executor:
     #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files)))
+    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), [multi_species_names]*len(scenario_files)))
  
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # multi_species_names = ["S","Su", "Sns"]
