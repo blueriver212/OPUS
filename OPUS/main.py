@@ -424,8 +424,9 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species
 
 if __name__ == "__main__":
     baseline = False
-    bond_amounts = [0, 100000, 200000, 500000, 750000, 1000000, 2000000] #, 1500000, 2000000]
-    lifetimes = [25]
+    bond_amounts = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 
+                    1200000, 1300000, 1400000, 1500000, 2000000] #, 1500000, 2000000]
+    lifetimes = [5, 25]
     
     # Ensure all bond configuration files exist with correct content
     print("Ensuring bond configuration files exist...")
