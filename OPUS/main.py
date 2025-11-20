@@ -425,7 +425,7 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species
 if __name__ == "__main__":
     baseline = False
     bond_amounts = [0, 100000, 200000, 500000, 750000, 1000000, 2000000] #, 1500000, 2000000]
-    lifetimes = [5]
+    lifetimes = [25]
     
     # Ensure all bond configuration files exist with correct content
     print("Ensuring bond configuration files exist...")
@@ -445,7 +445,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "pmd_test"
+    simulation_name = "extensive"
     # check if Results/{simulation_name} exists
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
@@ -488,9 +488,9 @@ if __name__ == "__main__":
     #     print(f"Total species for scenario {scenario_name}: {total_species}")
 
     # # Parallel Processing
-    # with ThreadPoolExecutor() as executor:
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), [multi_species_names]*len(scenario_files)))
+    with ThreadPoolExecutor() as executor:
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), [multi_species_names]*len(scenario_files)))
  
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # multi_species_names = ["S","Su", "Sns"]

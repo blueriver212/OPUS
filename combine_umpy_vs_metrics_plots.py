@@ -148,6 +148,11 @@ def load_simulation_data(simulation_name, scenario_files, MOCAT):
             
             bond_amount = extract_bond_amount(scenario)
             
+            # Skip 0k bond if not Extensive simulation
+            if bond_amount == 0.0 and simulation_name != 'pmd_test':
+                print(f"  Skipping 0k bond from {simulation_name} (only Extensive baseline is kept)")
+                continue
+            
             umpy_vals.append(final_umpy)
             collision_probs.append(final_cp)
             scenario_names.append(f"{simulation_name}/{scenario}")

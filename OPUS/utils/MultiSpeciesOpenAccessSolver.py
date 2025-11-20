@@ -219,10 +219,9 @@ class MultiSpeciesOpenAccessSolver:
         #Updated the below the annualize the cost of the bond, in line with other calculations
             bond_value = opus_species.econ_params.bond
             comp_rate = opus_species.econ_params.comp_rate
-            sat_lifetime = opus_species.econ_params.sat_lifetime
 
             expecte_eol_loss = (1-comp_rate)*bond_value
-            bond_cost_rate = (expecte_eol_loss/sat_lifetime)/total_cost
+            bond_cost_rate = (expecte_eol_loss)/total_cost
 
             rate_of_return = rev_cost - discount_rate - depreciation_rate - bond_cost_rate
 
