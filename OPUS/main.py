@@ -114,8 +114,8 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-        multi_species_names = ["S", "Su", "Sns"]
+        multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+        # multi_species_names = ["S", "Su", "Sns"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -427,7 +427,7 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species
                           multi_species_names=multi_species_names,
                           grid_search=False)
                           
-    return iam_solver.get_mocat()
+    return f"Scenario {scenario_name} Completed"
 
 
 if __name__ == "__main__":
@@ -460,7 +460,7 @@ if __name__ == "__main__":
 
     iam_solver = IAMSolver()
 
-    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC", "Sns"]
+    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     bonded_species_names = ["SA", "SB", "SuA", "SuB"]
     # multi_species_names = ["S", "Su", "Sns"]
 

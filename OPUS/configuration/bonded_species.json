@@ -11,7 +11,7 @@
     "steps": 10,
     "min_altitude": 200,
     "max_altitude": 1500,
-    "n_shells": 5,
+    "n_shells": 10,
     "launch_function": "Constant",
     "integrator": "BDF",
     "density_model": "static_exp_dens_func",
@@ -55,7 +55,7 @@
       "drag_func": "drag_func_exp",
       "OPUS" :{
           "competitors": ["SB", "SC"],
-          "substituion_rate": 0.3,
+          "substituion_rate": 0.0,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -94,7 +94,7 @@
       "drag_func": "drag_func_exp",
       "OPUS" :{
           "competitors": ["SA", "SC"],
-          "substituion_rate": 0.3,
+          "substituion_rate": 0.0,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -133,7 +133,7 @@
       "drag_func": "drag_func_exp",
       "OPUS" :{
           "competitors": ["SA", "SB"],
-          "substituion_rate": 0.3,
+          "substituion_rate": 0.0,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -172,7 +172,7 @@
         "drag_func": "drag_func_exp",
         "OPUS" :{
           "competitors": ["SuB", "SuC"],
-          "substituion_rate": 0.3,
+          "substituion_rate": 0.0,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -211,7 +211,7 @@
         "drag_func": "drag_func_exp",
         "OPUS" :{
           "competitors": ["SuA", "SuC"],
-          "substituion_rate": 0.3,
+          "substituion_rate": 0.0,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -250,7 +250,7 @@
         "drag_func": "drag_func_exp",
         "OPUS" :{
           "competitors": ["SuA", "SuB"],
-          "substituion_rate": 0.3,
+          "substituion_rate": 0.0,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
