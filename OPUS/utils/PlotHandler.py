@@ -1097,7 +1097,7 @@ class PlotHandler:
                         Line2D([0], [0], marker='o', color='w', label='Nat. Compliant Derelicts', markerfacecolor='green', markersize=10),
                         Line2D([0], [0], marker='o', color='w', label='Non-Compliant Derelicts', markerfacecolor='red', markersize=10)
                 ]
-                ax3.legend(handles=legend_elements, loc='upper left', fontsize=11, title="Scenario Type")
+                ax3.legend(handles=legend_elements, loc='upper right', fontsize=11, title="Scenario Type")
 
                 plt.tight_layout()
                 plt.savefig(file_path, dpi=300)
@@ -1350,37 +1350,15 @@ class PlotHandler:
                         timesteps = sorted(other_data.keys(), key=int)
                         final_ts = timesteps[-1]
 
-                        # Get non-compliance values from other_results for final timestep
+                        # Get compliance and non-compliance values directly from other_results for final timestep
+                        compliance = {}
                         non_compliance = {}
                         if final_ts in other_data:
+                                comp_data = other_data[final_ts].get("compliance", {})
                                 nc_data = other_data[final_ts].get("non_compliance", {})
                                 for sp_key in ["S", "Su", "Sns"]:
+                                        compliance[sp_key] = float(comp_data.get(sp_key, 0.0))
                                         non_compliance[sp_key] = float(nc_data.get(sp_key, 0.0))
-
-                        # Get econ_params for species masses
-                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
-                        
-                        # Get species masses to match derelicts
-                        species_masses = {}
-                        if econ:
-                                for sp_key in ['S', 'Su', 'Sns']:
-                                        if sp_key in econ:
-                                                species_masses[sp_key] = econ[sp_key].get("mass")
-
-                        # Helper function to parse derelict mass from name
-                        def parse_der_mass(name: str):
-                                m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
-                                return float(m.group(1)) if m else None
-
-                        # Helper function to find derelict species matching a mass (within tolerance)
-                        def find_matching_derelict(target_mass, tolerance=1.0):
-                                matching_names = []
-                                for sp_name in plot_data.data.keys():
-                                        if sp_name.startswith('N'):
-                                                der_mass = parse_der_mass(sp_name)
-                                                if der_mass is not None and abs(der_mass - target_mass) <= tolerance:
-                                                        matching_names.append(sp_name)
-                                return matching_names
 
                         # Get active satellite counts for each species
                         def sum_final(species_key: str) -> float:
@@ -1394,27 +1372,11 @@ class PlotHandler:
                         su_active = sum_final('Su')
                         sns_active = sum_final('Sns')
 
-                        # Calculate species-specific derelicts
+                        # Use compliance and non-compliance values directly from other_results
                         species_derelicts = {}
                         for species_key in ["S", "Su", "Sns"]:
-                                total_derelicts = 0.0
+                                compliant_derelicts = compliance.get(species_key, 0.0)
                                 non_compliant_derelicts = non_compliance.get(species_key, 0.0)
-                                
-                                # Find matching derelict species by mass
-                                target_mass = species_masses.get(species_key)
-                                if target_mass is not None:
-                                        matching_der_names = find_matching_derelict(target_mass)
-                                        
-                                        # Aggregate derelicts for this species at final year
-                                        for der_name in matching_der_names:
-                                                if der_name in plot_data.data:
-                                                        arr = np.array(plot_data.data[der_name])
-                                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
-                                                                final_row = arr[-1, :]
-                                                                total_derelicts += float(np.sum(final_row))
-                                
-                                # Calculate compliant derelicts = total - non_compliant
-                                compliant_derelicts = max(0.0, total_derelicts - non_compliant_derelicts)
                                 
                                 species_derelicts[species_key] = {
                                         'compliant': compliant_derelicts,
@@ -1584,37 +1546,15 @@ class PlotHandler:
                         timesteps = sorted(other_data.keys(), key=int)
                         final_ts = timesteps[-1]
 
-                        # Get non-compliance values from other_results for final timestep
+                        # Get compliance and non-compliance values directly from other_results for final timestep
+                        compliance = {}
                         non_compliance = {}
                         if final_ts in other_data:
+                                comp_data = other_data[final_ts].get("compliance", {})
                                 nc_data = other_data[final_ts].get("non_compliance", {})
                                 for sp_key in ["S", "Su", "Sns"]:
+                                        compliance[sp_key] = float(comp_data.get(sp_key, 0.0))
                                         non_compliance[sp_key] = float(nc_data.get(sp_key, 0.0))
-
-                        # Get econ_params for species masses
-                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
-                        
-                        # Get species masses to match derelicts
-                        species_masses = {}
-                        if econ:
-                                for sp_key in ['S', 'Su', 'Sns']:
-                                        if sp_key in econ:
-                                                species_masses[sp_key] = econ[sp_key].get("mass")
-
-                        # Helper function to parse derelict mass from name
-                        def parse_der_mass(name: str):
-                                m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
-                                return float(m.group(1)) if m else None
-
-                        # Helper function to find derelict species matching a mass (within tolerance)
-                        def find_matching_derelict(target_mass, tolerance=1.0):
-                                matching_names = []
-                                for sp_name in plot_data.data.keys():
-                                        if sp_name.startswith('N'):
-                                                der_mass = parse_der_mass(sp_name)
-                                                if der_mass is not None and abs(der_mass - target_mass) <= tolerance:
-                                                        matching_names.append(sp_name)
-                                return matching_names
 
                         # Get active satellite counts for each species
                         def sum_final(species_key: str) -> float:
@@ -1628,27 +1568,11 @@ class PlotHandler:
                         su_active = sum_final('Su')
                         sns_active = sum_final('Sns')
 
-                        # Calculate species-specific derelicts
+                        # Use compliance and non-compliance values directly from other_results
                         species_derelicts = {}
                         for species_key in ["S", "Su", "Sns"]:
-                                total_derelicts = 0.0
+                                compliant_derelicts = compliance.get(species_key, 0.0)
                                 non_compliant_derelicts = non_compliance.get(species_key, 0.0)
-                                
-                                # Find matching derelict species by mass
-                                target_mass = species_masses.get(species_key)
-                                if target_mass is not None:
-                                        matching_der_names = find_matching_derelict(target_mass)
-                                        
-                                        # Aggregate derelicts for this species at final year
-                                        for der_name in matching_der_names:
-                                                if der_name in plot_data.data:
-                                                        arr = np.array(plot_data.data[der_name])
-                                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
-                                                                final_row = arr[-1, :]
-                                                                total_derelicts += float(np.sum(final_row))
-                                
-                                # Calculate compliant derelicts = total - non_compliant
-                                compliant_derelicts = max(0.0, total_derelicts - non_compliant_derelicts)
                                 
                                 species_derelicts[species_key] = {
                                         'compliant': compliant_derelicts,
@@ -1844,37 +1768,15 @@ class PlotHandler:
                         timesteps = sorted(other_data.keys(), key=int)
                         final_ts = timesteps[-1]
 
-                        # Get non-compliance values from other_results for final timestep
+                        # Get compliance and non-compliance values directly from other_results for final timestep
+                        compliance = {}
                         non_compliance = {}
                         if final_ts in other_data:
+                                comp_data = other_data[final_ts].get("compliance", {})
                                 nc_data = other_data[final_ts].get("non_compliance", {})
                                 for sp_key in ["S", "Su", "Sns"]:
+                                        compliance[sp_key] = float(comp_data.get(sp_key, 0.0))
                                         non_compliance[sp_key] = float(nc_data.get(sp_key, 0.0))
-
-                        # Get econ_params for species masses
-                        econ = plot_data.econ_params if hasattr(plot_data, 'econ_params') else None
-                        
-                        # Get species masses to match derelicts
-                        species_masses = {}
-                        if econ:
-                                for sp_key in ['S', 'Su', 'Sns']:
-                                        if sp_key in econ:
-                                                species_masses[sp_key] = econ[sp_key].get("mass")
-
-                        # Helper function to parse derelict mass from name
-                        def parse_der_mass(name: str):
-                                m = re.match(r"^N_([0-9]+(?:\.[0-9]+)?)kg", name)
-                                return float(m.group(1)) if m else None
-
-                        # Helper function to find derelict species matching a mass (within tolerance)
-                        def find_matching_derelict(target_mass, tolerance=1.0):
-                                matching_names = []
-                                for sp_name in plot_data.data.keys():
-                                        if sp_name.startswith('N'):
-                                                der_mass = parse_der_mass(sp_name)
-                                                if der_mass is not None and abs(der_mass - target_mass) <= tolerance:
-                                                        matching_names.append(sp_name)
-                                return matching_names
 
                         # Get active satellite counts for each species
                         def sum_final(species_key: str) -> float:
@@ -1888,27 +1790,11 @@ class PlotHandler:
                         su_active = sum_final('Su')
                         sns_active = sum_final('Sns')
 
-                        # Calculate species-specific derelicts
+                        # Use compliance and non-compliance values directly from other_results
                         species_derelicts = {}
                         for species_key in ["S", "Su", "Sns"]:
-                                total_derelicts = 0.0
+                                compliant_derelicts = compliance.get(species_key, 0.0)
                                 non_compliant_derelicts = non_compliance.get(species_key, 0.0)
-                                
-                                # Find matching derelict species by mass
-                                target_mass = species_masses.get(species_key)
-                                if target_mass is not None:
-                                        matching_der_names = find_matching_derelict(target_mass)
-                                        
-                                        # Aggregate derelicts for this species at final year
-                                        for der_name in matching_der_names:
-                                                if der_name in plot_data.data:
-                                                        arr = np.array(plot_data.data[der_name])
-                                                        if arr.ndim == 2 and arr.shape[0] > 0:  # (time, shells)
-                                                                final_row = arr[-1, :]
-                                                                total_derelicts += float(np.sum(final_row))
-                                
-                                # Calculate compliant derelicts = total - non_compliant
-                                compliant_derelicts = max(0.0, total_derelicts - non_compliant_derelicts)
                                 
                                 species_derelicts[species_key] = {
                                         'compliant': compliant_derelicts,
@@ -1984,20 +1870,23 @@ class PlotHandler:
                 for idx, species_key in enumerate(species_names):
                         ax = axes[idx]
                         data = species_data[species_key]
+                        
+                        # Convert bond amounts from k to M for plotting
+                        bond_m = [b / 1000.0 for b in data["bond"]]
 
                         # Plot active satellites (blue)
-                        ax.plot(data["bond"], data["active"], color=active_color, marker='s', linestyle='-', 
+                        ax.plot(bond_m, data["active"], color=active_color, marker='s', linestyle='-', 
                                linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
                         
                         # Plot compliant derelicts (green)
-                        ax.plot(data["bond"], data["compliant_derelicts"], color=compliant_color, marker='o', 
+                        ax.plot(bond_m, data["compliant_derelicts"], color=compliant_color, marker='o', 
                                linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
                         
                         # Plot non-compliant derelicts (red)
-                        ax.plot(data["bond"], data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                        ax.plot(bond_m, data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
                                linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
 
-                        ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                        ax.set_xlabel("Lifetime Bond Amount, $ (M)", fontsize=14, fontweight='bold')
                         ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
                         ax.set_title(f"{species_key}", fontsize=16, fontweight='bold')
                         ax.grid(True, alpha=0.3)
@@ -2012,20 +1901,22 @@ class PlotHandler:
                 
                 # Plot fourth subplot for relative change in final year UMPY
                 ax = axes[3]
-                ax.plot(umpy_relative_data["bond"], umpy_relative_data["relative_change_percent"], color=umpy_relative_color, marker='^', 
+                # Convert bond amounts from k to M for plotting
+                bond_m = [b / 1000.0 for b in umpy_relative_data["bond"]]
+                ax.plot(bond_m, umpy_relative_data["relative_change_percent"], color=umpy_relative_color, marker='^', 
                        linestyle='-', linewidth=2, markersize=6, label='Relative Change in UMPY', zorder=3)
                 
                 # Add horizontal line at 0% for baseline
                 ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
                 
-                ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
+                ax.set_xlabel("Lifetime Bond Amount, $ (M)", fontsize=14, fontweight='bold')
                 ax.set_ylabel("Relative Change in UMPY (%)", fontsize=14, fontweight='bold')
-                ax.set_title("Relative Change in Final Year UMPY", fontsize=16, fontweight='bold')
+                ax.set_title("Relative UMPY difference to Baseline", fontsize=16, fontweight='bold')
                 ax.grid(True, alpha=0.3)
-                ax.legend(fontsize=11, loc='best')
+                ax.legend(fontsize=13, loc='upper right')
                 
-                # Make ticks bold
-                ax.tick_params(axis='both', which='major', labelsize=11, width=1.5)
+                # Make ticks bold and increase size by 2
+                ax.tick_params(axis='both', which='major', labelsize=13, width=1.5)
                 for label in ax.get_xticklabels():
                         label.set_fontweight('bold')
                 for label in ax.get_yticklabels():

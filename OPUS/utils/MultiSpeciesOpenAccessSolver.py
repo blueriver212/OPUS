@@ -213,7 +213,7 @@ class MultiSpeciesOpenAccessSolver:
         if opus_species.econ_params.bond is None:
             rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk
         else:
-        #Updated the below the annualize the cost of the bond, in line with other calculations
+            #Updated the below the annualize the cost of the bond, in line with other calculations
             bond_value = opus_species.econ_params.bond
             comp_rate = opus_species.econ_params.comp_rate
             
