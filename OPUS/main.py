@@ -9,7 +9,7 @@ from utils.MultiSpecies import MultiSpecies
 from utils.MultiSpeciesOpenAccessSolver import MultiSpeciesOpenAccessSolver
 from utils.Helpers import insert_launches_into_lam
 from utils.EconCalculations import EconCalculations
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 import json
 import numpy as np
 from datetime import timedelta
@@ -113,9 +113,6 @@ class IAMSolver:
             The main function that runs the IAM solver.
         """
         self.grid_search = grid_search
-        # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-        multi_species_names = ["S", "Su", "Sns"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -411,21 +408,30 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_nam
     and return the result from get_mocat().
     """
     solver = IAMSolver()
+    solver.bonded_species_names = bonded_species_names
     # Pass multi_species_names
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name, multi_species_names)
     return solver.get_mocat()
 
-def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names):
-    """
-    Wrapper function for parallel processing that includes multi_species_names.
-    """
-    return run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names)
+def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names, bonded_species_names):
+    iam_solver = IAMSolver()
+    
+    # 1. Pass the bonded species list to the solver instance
+    iam_solver.bonded_species_names = bonded_species_names
+
+    # 2. Run the solver (passing the multi_species_names)
+    iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, 
+                          multi_species_names=multi_species_names,
+                          grid_search=False)
+                          
+    return #iam_solver.get_mocat()
 
 
 if __name__ == "__main__":
     baseline = False
-    bond_amounts = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 
-                    1200000, 1300000, 1400000, 1500000, 2000000] #, 1500000, 2000000]
+    # bond_amounts = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 
+    #                 1200000, 1300000, 1400000, 1500000, 2000000] #, 1500000, 2000000]
+    bond_amounts = [100000]
     lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content
@@ -444,18 +450,19 @@ if __name__ == "__main__":
         "lifetimes": lifetimes
     }
     
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
 
-    simulation_name = "intensive"
+    simulation_name = "tester"
     # check if Results/{simulation_name} exists
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
-    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-    # iam_solver.bonded_species_names = ["SA", "SB", "SuA", "SuB"]
-    multi_species_names = ["S", "Su", "Sns"]
+    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+    # bonded_species_names = ["SA", "SB", "SuA", "SuB"]
+    # multi_species_names = ["S", "Su", "Sns"]
+    bonded_species_names = []
 
     def get_total_species_from_output(species_data):
         totals = {}
@@ -481,18 +488,28 @@ if __name__ == "__main__":
         return totals
 
     # # no parallel processing
-    # for scenario_name in scenario_files:
-    #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
-    #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, grid_search=False)
-    #     # Get the total species from the output
-    #     total_species = get_total_species_from_output(output)
-    #     print(f"Total species for scenario {scenario_name}: {total_species}")
+    for scenario_name in scenario_files:
+        # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
+        output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, multi_species_names, grid_search=False)
+        # Get the total species from the output
+        total_species = get_total_species_from_output(output)
+        print(f"Total species for scenario {scenario_name}: {total_species}")
 
-    # # Parallel Processing
-    with ThreadPoolExecutor() as executor:
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), [multi_species_names]*len(scenario_files)))
- 
+    # Parallel Processing
+    # with ProcessPoolExecutor() as executor:
+        
+    #     # Create lists of arguments for map()
+    #     n_scenarios = len(scenario_files)
+        
+    #     # Map process_scenario function over scenario_files
+    #     # We must pass the bonded_species_names to every process
+    #     list(executor.map(process_scenario, 
+    #                                 scenario_files, 
+    #                                 [MOCAT_config] * n_scenarios, 
+    #                                 [simulation_name] * n_scenarios, 
+    #                                 [multi_species_names] * n_scenarios,
+    #                                 [bonded_species_names] * n_scenarios))
+    
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]

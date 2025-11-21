@@ -58,6 +58,7 @@ class EconParameters:
         
         #Competitors for bonded and unbonded species
         self.competitors = params.get("competitors", [])
+        self.substiution_rate = params.get("substitution_rate", 1.0)
 
         # # Price of lift [$/kg]
         # # Default is $5000/kg based on price index calculations

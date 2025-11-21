@@ -6,15 +6,15 @@
   "created": "2024-01-01T12:00:00Z",
   "modified": "2024-01-01T12:00:00Z",
   "scenario_properties": {
-    "start_date": "01/01/2017",
-    "simulation_duration": 5,
+    "start_date": "01/01/2025",
+    "simulation_duration": 2,
     "steps": 10,
-    "min_altitude": 200,
-    "max_altitude": 1500,
+    "min_altitude": 300,
+    "max_altitude": 900,
     "n_shells": 5,
     "launch_function": "Constant",
     "integrator": "BDF",
-    "density_model": "static_exp_dens_func",
+    "density_model": "JB2008_dens_func",
     "LC": 0.1,
     "v_imp": 10.0,
     "fragment_spreading": false,
@@ -22,7 +22,7 @@
     "baseline": true,
     "launch_scenario": "OPUSB",
     "indicator_variables" : ["collisions_per_species_altitude", "ca_man_struct", "umpy"],
-    "elliptical": false,
+    "elliptical": true,
     "eccentricity_bins":  [0.0, 0.0001, 0.00023269181687763618, 0.0005414548164181542, 0.001259921049894874, 0.0029317331822241717, 0.006821903207721965, 0.015874010519682003, 0.036937523489595184, 0.08595059451754268, 1]
   },
   "plots": [
@@ -55,6 +55,7 @@
       "drag_func": "drag_func_exp",
       "OPUS" :{
           "competitors": ["SB", "SC"],
+          "substituion_rate": 0.3,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -93,6 +94,7 @@
       "drag_func": "drag_func_exp",
       "OPUS" :{
           "competitors": ["SA", "SC"],
+          "substituion_rate": 0.3,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -131,6 +133,7 @@
       "drag_func": "drag_func_exp",
       "OPUS" :{
           "competitors": ["SA", "SB"],
+          "substituion_rate": 0.3,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -169,6 +172,7 @@
         "drag_func": "drag_func_exp",
         "OPUS" :{
           "competitors": ["SuB", "SuC"],
+          "substituion_rate": 0.3,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -207,6 +211,7 @@
         "drag_func": "drag_func_exp",
         "OPUS" :{
           "competitors": ["SuA", "SuC"],
+          "substituion_rate": 0.3,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,
@@ -245,6 +250,7 @@
         "drag_func": "drag_func_exp",
         "OPUS" :{
           "competitors": ["SuA", "SuB"],
+          "substituion_rate": 0.3,
           "sat_lifetime" : 5,
           "disposal_time" : 5,
           "discount_rate" : 0.05,

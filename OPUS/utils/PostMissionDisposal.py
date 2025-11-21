@@ -377,9 +377,9 @@ def get_disposal_orbits(year, apogees_km, satellite_type, pmd_lifetime=5.0, look
         Perigee altitudes (km) matching apogees_km. NaN where no valid solution.
     """
     apogees_km = np.asarray(apogees_km, dtype=float).ravel()
-    if satellite_type == "S":
+    if satellite_type == "S" or satellite_type == 'SA' or satellite_type == 'SB' or satellite_type == 'SA':
         lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"
-    elif satellite_type == "Su":
+    elif satellite_type == "Su" or satellite_type == 'SuA' or satellite_type == 'SuB' or satellite_type == 'SuC':
         lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_Su.npz"
     elif satellite_type == "Sns":
         lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"

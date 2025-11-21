@@ -8,7 +8,7 @@
   "scenario_properties": {
     "start_date": "01/01/2025",
     "simulation_duration": 20,
-    "steps": 10,
+    "steps": 20,
     "min_altitude": 200,
     "max_altitude": 1400,
     "n_shells": 20,
@@ -68,7 +68,7 @@
           "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
           "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : true
+          "controlled_renetries_only" : false
       }
     },
     {
@@ -102,11 +102,11 @@
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
           "mass": 700,
-          "controlled_pmd" : 0.6, 
-          "uncontrolled_pmd" : 0,
+          "controlled_pmd" : 0, 
+          "uncontrolled_pmd" : 0.6,
           "no_attempt_pmd" : 0.4,
           "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : true
+          "controlled_renetries_only" : false
       }
     },
     {
@@ -139,11 +139,11 @@
             "lift_price": 5000, 
             "prob_of_non_compliance": 0,
             "mass": 20,
-            "controlled_pmd" : 0.6, 
-            "uncontrolled_pmd" : 0,
+            "controlled_pmd" : 0, 
+            "uncontrolled_pmd" : 0.6,
             "no_attempt_pmd" : 0.4,
             "failed_attempt_pmd": 0,
-            "controlled_renetries_only" : true
+            "controlled_renetries_only" : false
         }
     },
     {
