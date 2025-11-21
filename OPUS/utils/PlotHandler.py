@@ -176,7 +176,8 @@ class PlotHandler:
                                 #                         plot_method()
                                 #                 else:
                                 #                         print(f"Warning: Plot '{plot_name}' not found. Skipping...")
-
+                        if "all_plots" in self.plot_types:
+                                self.all_plots(plot_data, other_data, econ_data)
                 if comparison:
                         self._comparison_plots(plot_data_list, other_data_list)
                 
@@ -1263,7 +1264,7 @@ class PlotHandler:
                         plt.title(f'Heatmap for Species {sp}')
                         plt.xlabel('Year')
                         plt.ylabel('Shell Mid Altitude (km)')
-                        plt.xticks(ticks=range(data.shape[0]), labels=range(1, data.shape[0] + 1))
+                        plt.xticks(ticks=range(data.shape[0]), labels=range(0, data.shape[0]))
                         # Ensure the number of labels matches the number of ticks
                         if len(self.HMid) == data.shape[1]:
                             plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
@@ -1305,7 +1306,7 @@ class PlotHandler:
                         ax.set_xlabel('Year')
                         ax.set_ylabel('Shell Mid Altitude (km)')
                         ax.set_xticks(range(data.shape[0]))
-                        ax.set_xticklabels(range(1, data.shape[0] + 1))
+                        ax.set_xticklabels(range(0, data.shape[0]))
                         ax.set_yticks(range(data.shape[1]))
                         # Ensure the number of labels matches the number of ticks
                         if len(self.HMid) == data.shape[1]:
@@ -2165,3 +2166,55 @@ class PlotHandler:
                 plt.savefig(file_path, dpi=300)
                 plt.close()
                 print(f"Bond revenue plot saved to {file_path}")
+
+        def comparison_umpy_vs_welfare(self, plot_data_lists, other_data_lists):
+                # Create folder for comparison plots
+                scatter_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(scatter_folder, exist_ok=True)
+                scatter_file_path = os.path.join(scatter_folder, "scatter_final_umpy_vs_welfare.png")
+                
+                final_umpy_values = []
+                final_welfare_values = []
+                labels = []
+                
+                # Loop over each scenario's data
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        # --- Calculate final UMPY value ---
+                        timesteps = sorted(other_data.keys(), key=int)
+                        last_timestep = timesteps[-1]
+                        # Sum the "umpy" list at the final timestep
+                        final_umpy = np.sum(other_data[last_timestep]["umpy"])
+                        final_welfare = other_data[last_timestep]["welfare"]
+
+                        final_umpy_values.append(final_umpy)
+                        final_welfare_values.append(final_welfare)
+                        scenario_label = getattr(plot_data, "scenario", f"Scenario {i+1}")
+                        labels.append(scenario_label)
+                
+                # --- Create scatter plot ---
+                plt.figure(figsize=(8, 6))
+                for idx, scenario in enumerate(labels):
+                        if (idx < 10):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='o', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 9) and (idx <= 19):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='X', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        elif (idx > 19) and (idx <= 29):
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='>', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+                        else:
+                                plt.scatter(final_umpy_values[idx], final_welfare_values[idx], marker='*', label=scenario)#, c=final_umpy_values[idx])#, cmap="tab20")
+
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+                
+                # # Annotate each point with its scenario label
+                # for x, y, label in zip(final_umpy_values, final_welfare_values, labels):
+                #         plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), ha="left")
+                        
+                plt.xlabel("Final UMPY (kg/year)")
+                plt.ylabel("Final Welfare ($)")
+                # plt.title("Final UMPY vs Final Welfare by Scenario")
+                plt.grid(True)
+                plt.tight_layout()
+                plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
+                plt.close()
+                print(f"Scatter plot saved to {scatter_file_path}")
