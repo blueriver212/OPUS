@@ -214,17 +214,22 @@ class MultiSpeciesOpenAccessSolver:
         rev_cost = revenue / total_cost
       
         if opus_species.econ_params.bond is None:
-            rate_of_return = rev_cost - discount_rate - depreciation_rate  
+            rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk
         else:
         #Updated the below the annualize the cost of the bond, in line with other calculations
             bond_value = opus_species.econ_params.bond
             comp_rate = opus_species.econ_params.comp_rate
-            sat_lifetime = opus_species.econ_params.sat_lifetime
-
-            expecte_eol_loss = (1-comp_rate)*bond_value
-            bond_cost_rate = (expecte_eol_loss/sat_lifetime)/total_cost
-
-            rate_of_return = rev_cost - discount_rate - depreciation_rate - bond_cost_rate
+            
+            # Formula: (Bond / Cost) * (1 - Compliance)
+            bond_ratio = (bond_value / total_cost) * (1 - comp_rate)
+            
+            # Multiplier: (r + delta + P - P*delta)
+            risk_adjusted_rates = discount_rate + depreciation_rate + collision_risk - (collision_risk * depreciation_rate)
+            
+            # Final Bond Term
+            bond_term = bond_ratio * risk_adjusted_rates
+            
+            rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk - bond_term
 
         return rate_of_return
     
