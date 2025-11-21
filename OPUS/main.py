@@ -426,7 +426,7 @@ if __name__ == "__main__":
     baseline = False
     bond_amounts = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 
                     1200000, 1300000, 1400000, 1500000, 2000000] #, 1500000, 2000000]
-    lifetimes = [5, 25]
+    lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content
     print("Ensuring bond configuration files exist...")
@@ -446,7 +446,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "extensive"
+    simulation_name = "intensive"
     # check if Results/{simulation_name} exists
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")

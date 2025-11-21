@@ -68,7 +68,7 @@
           "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
           "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : false
+          "controlled_renetries_only" : true
       }
     },
     {
@@ -102,11 +102,11 @@
           "lift_price": 5000,
           "prob_of_non_compliance": 0,
           "mass": 700,
-          "controlled_pmd" : 0, 
-          "uncontrolled_pmd" : 0.6,
+          "controlled_pmd" : 0.6, 
+          "uncontrolled_pmd" : 0,
           "no_attempt_pmd" : 0.4,
           "failed_attempt_pmd" : 0,
-          "controlled_renetries_only" : false
+          "controlled_renetries_only" : true
       }
     },
     {
@@ -139,11 +139,11 @@
             "lift_price": 5000, 
             "prob_of_non_compliance": 0,
             "mass": 20,
-            "controlled_pmd" : 0, 
-            "uncontrolled_pmd" : 0.6,
+            "controlled_pmd" : 0.6, 
+            "uncontrolled_pmd" : 0,
             "no_attempt_pmd" : 0.4,
             "failed_attempt_pmd": 0,
-            "controlled_renetries_only" : false
+            "controlled_renetries_only" : true
         }
     },
     {
