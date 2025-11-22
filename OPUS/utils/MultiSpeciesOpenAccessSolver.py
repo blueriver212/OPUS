@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.optimize import least_squares
 import sympy as sp
-from concurrent.futures import ProcessPoolExecutor
 from pyssem.model import Model
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
@@ -171,36 +170,33 @@ class MultiSpeciesOpenAccessSolver:
          Calcualtes the fringe rate of return.
         """
 
-        # Initialize total market population
-        market_total_sum = 0.0
-        
+     # 1. Calculate Own Population
         if self.elliptical:
-            # Get the population for the current species
-            current_pop = state_matrix[:, opus_species.species_idx, 0]
-            market_total_sum += np.sum(current_pop)
-
-            # Check for competitors and add their totals
-            if hasattr(opus_species.econ_params, 'competitors'):
-                for competitor_name in opus_species.econ_params.competitors:
-                    competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
-                    if competitor_species:
-                        competitor_pop = state_matrix[:, competitor_species.species_idx, 0]
-                        market_total_sum += np.sum(competitor_pop)
+            own_pop = np.sum(state_matrix[:, opus_species.species_idx, 0])
         else:
-            # Get the population for the current species
-            current_pop = state_matrix[opus_species.start_slice:opus_species.end_slice]
-            market_total_sum += np.sum(current_pop)
+            own_pop = np.sum(state_matrix[opus_species.start_slice:opus_species.end_slice])
 
-            # Check for competitors and add their totals
-            if hasattr(opus_species.econ_params, 'competitors'):
-                for competitor_name in opus_species.econ_params.competitors:
-                    competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
-                    if competitor_species:
+        # 2. Calculate Competitor Population
+        competitor_sum = 0.0
+        if hasattr(opus_species.econ_params, 'competitors'):
+            for competitor_name in opus_species.econ_params.competitors:
+                # Find the competitor species object
+                competitor_species = next((s for s in self.multi_species.species if s.name == competitor_name), None)
+                
+                if competitor_species:
+                    if self.elliptical:
+                        competitor_pop = state_matrix[:, competitor_species.species_idx, 0]
+                    else:
                         competitor_pop = state_matrix[competitor_species.start_slice:competitor_species.end_slice]
-                        market_total_sum += np.sum(competitor_pop)
+                    
+                    competitor_sum += np.sum(competitor_pop)
 
-        # The revenue calculation now correctly uses the total market sum
-        revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * market_total_sum
+        # 3. Apply Substitution Rate (Gamma)
+        gamma = getattr(opus_species.econ_params, 'substitution_rate', 0)
+        effective_market_supply = own_pop + (gamma * competitor_sum)
+
+        # 4. Calculate Revenue
+        revenue = opus_species.econ_params.intercept - opus_species.econ_params.coef * effective_market_supply
 
         discount_rate = opus_species.econ_params.discount_rate
         depreciation_rate = 1 / opus_species.econ_params.sat_lifetime
@@ -214,16 +210,23 @@ class MultiSpeciesOpenAccessSolver:
         rev_cost = revenue / total_cost
       
         if opus_species.econ_params.bond is None:
-            rate_of_return = rev_cost - discount_rate - depreciation_rate  
+            rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk
         else:
         #Updated the below the annualize the cost of the bond, in line with other calculations
             bond_value = opus_species.econ_params.bond
             comp_rate = opus_species.econ_params.comp_rate
-
-            expecte_eol_loss = (1-comp_rate)*bond_value
-            bond_cost_rate = (expecte_eol_loss)/total_cost
-
-            rate_of_return = rev_cost - discount_rate - depreciation_rate - bond_cost_rate
+            
+            # Formula: (Bond / Cost) * (1 - Compliance)
+            bond_ratio = (bond_value / total_cost) * (1 - comp_rate)
+            
+            # Multiplier: (r + delta + P - P*delta)
+            risk_adjusted_rates = discount_rate + depreciation_rate + collision_risk - (collision_risk * depreciation_rate)
+            
+            
+            # Final Bond Term
+            bond_term = bond_ratio * risk_adjusted_rates
+            
+            rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk - bond_term
 
         return rate_of_return
     

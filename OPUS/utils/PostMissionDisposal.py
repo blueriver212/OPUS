@@ -377,14 +377,44 @@ def get_disposal_orbits(year, apogees_km, satellite_type, pmd_lifetime=5.0, look
         Perigee altitudes (km) matching apogees_km. NaN where no valid solution.
     """
     apogees_km = np.asarray(apogees_km, dtype=float).ravel()
+    
+    current_search_dir = os.path.dirname(os.path.abspath(__file__))
+    base_lookup_dir = None
+    
+    # Walk up the directory tree (up to 4 levels) to find the data folder
+    for _ in range(4):
+        # Check if 'indigo-thesis/disposal-altitude' exists relative to current search dir
+        candidate_path = os.path.join(current_search_dir, 'indigo-thesis', 'disposal-altitude')
+        
+        if os.path.exists(candidate_path):
+            base_lookup_dir = candidate_path
+            break
+        
+        # Move up one directory level
+        parent_dir = os.path.dirname(current_search_dir)
+        if parent_dir == current_search_dir: # We hit the root drive
+            break
+        current_search_dir = parent_dir
+        
+    if base_lookup_dir is None:
+        # Final fallback: prints a clear error if the folder is missing entirely
+        raise FileNotFoundError(
+            "Could not locate the 'indigo-thesis/disposal-altitude' directory. "
+            "Checked parent directories of the script but could not find the data."
+        )
+
+    # ------------------------------------------------------------------
+    #  Select specific file based on satellite type
+    # ------------------------------------------------------------------
     if satellite_type == "S":
-        lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"
+        lookup_path = os.path.join(base_lookup_dir, "disposal_lookup_S.npz")
     elif satellite_type == "Su":
-        lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_Su.npz"
+        lookup_path = os.path.join(base_lookup_dir, "disposal_lookup_Su.npz")
     elif satellite_type == "Sns":
-        lookup_path = "/Users/indigobrownhall/Code/OPUS/indigo-thesis/disposal-altitude/disposal_lookup_S.npz"
+        lookup_path = os.path.join(base_lookup_dir, "disposal_lookup_S.npz")
     else:
         raise ValueError(f"Invalid satellite type: {satellite_type}")
+    
     L = _load_lookup_cached(lookup_path)
 
     years = L["years"]

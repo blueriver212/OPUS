@@ -9,7 +9,7 @@ from utils.MultiSpecies import MultiSpecies
 from utils.MultiSpeciesOpenAccessSolver import MultiSpeciesOpenAccessSolver
 from utils.Helpers import insert_launches_into_lam
 from utils.EconCalculations import EconCalculations
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 import json
 import numpy as np
 from datetime import timedelta
@@ -419,13 +419,19 @@ def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species
     """
     Wrapper function for parallel processing that includes multi_species_names.
     """
-    return run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names)
+    iam_solver = IAMSolver()
+
+    # 2. Run the solver (passing the multi_species_names)
+    iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, 
+                          multi_species_names=multi_species_names,
+                          grid_search=False)
+                          
+    return f"Scenario {scenario_name} Completed"
 
 
 if __name__ == "__main__":
     baseline = False
-    bond_amounts = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 
-                    1200000, 1300000, 1400000, 1500000, 2000000] #, 1500000, 2000000]
+    bond_amounts = [0, 100000] #[0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1200000, 1300000, 1400000, 1500000, 2000000] 
     lifetimes = [5, 25]
     
     # Ensure all bond configuration files exist with correct content
@@ -488,11 +494,20 @@ if __name__ == "__main__":
     #     total_species = get_total_species_from_output(output)
     #     print(f"Total species for scenario {scenario_name}: {total_species}")
 
-    # # Parallel Processing
-    with ThreadPoolExecutor() as executor:
+    # Parallel Processing
+    with ProcessPoolExecutor() as executor:
+        
+        # Create lists of arguments for map()
+        n_scenarios = len(scenario_files)
+        
         # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), [multi_species_names]*len(scenario_files)))
- 
+        # We must pass the bonded_species_names to every process
+        results = list(executor.map(process_scenario, 
+                                    scenario_files, 
+                                    [MOCAT_config] * n_scenarios, 
+                                    [simulation_name] * n_scenarios, 
+                                    [multi_species_names] * n_scenarios)
+        )
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
