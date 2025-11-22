@@ -354,7 +354,7 @@ class IAMSolver:
                     state_next_alt = state_next_path 
 
             # Apply PMD (Post Mission Disposal) evaluation to remove satellites
-            print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
+            # print(f"Before PMD - Total environment: {np.sum(state_next_alt)}")
             if self.elliptical:
                  # c heck if density_model has name property
                 if self.MOCAT.scenario_properties.density_model != "static_exp_dens_func":
@@ -367,7 +367,7 @@ class IAMSolver:
                     self.MOCAT.scenario_properties.R0_rad_km)
             else:
                 state_next_alt, multi_species = evaluate_pmd(state_next_alt, multi_species)
-            print(f"After PMD - Total environment: {np.sum(state_next_alt)}")
+            # print(f"After PMD - Total environment: {np.sum(state_next_alt)}")
 
             environment_for_solver = state_next_sma if self.elliptical else state_next_alt
 
@@ -408,7 +408,7 @@ class IAMSolver:
                 if species.maneuverable:
                     maneuvers = open_access.calculate_maneuvers(state_next_alt, species.name)
                     # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
-                    cost = maneuvers * 10000 # $10,000 per maneuver
+                    cost = maneuvers * 0 # $10,000 per maneuver
                     # Rate of Return
                     if self.elliptical:
                         rate_of_return = open_access.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
@@ -438,7 +438,7 @@ class IAMSolver:
             lam = insert_launches_into_lam(lam, launch_rate, multi_species, self.elliptical)
 
             elapsed_time = time.time() - start_time
-            print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
+            # print(f'Time taken for period {time_idx}: {elapsed_time:.2f} seconds')
 
             # Update the current environment
             if self.elliptical:
@@ -685,12 +685,11 @@ if __name__ == "__main__":
     # tp = np.linspace(0, 0.5, num=2)
     tn = [1000]
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [0, 100000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    bond = [0, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
     target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
-    scenario_files = ["Baseline"]
 
     # # sammie addition: running the "fit" function for "optimization" based on lower UMPY values
     MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)

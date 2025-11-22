@@ -115,7 +115,7 @@ class MultiSpeciesOpenAccessSolver:
             if species.maneuverable:
                 maneuvers = self.calculate_maneuvers(state_next_alt, species.name)
                 # cost = species.econ_params.return_congestion_costs(state_next_alt, self.x0)
-                cost = maneuvers * 10000 * 2 # $10,000 per maneuver, we double since we assume twice as many maneuvers for each collision
+                cost = maneuvers * 0 * 2 # $10,000 per maneuver, we double since we assume twice as many maneuvers for each collision
                 # Rate of Return
                 if self.elliptical:
                     rate_of_return = self.fringe_rate_of_return(state_next_sma, collision_probability, species, cost)
@@ -250,7 +250,7 @@ class MultiSpeciesOpenAccessSolver:
         discount_rate = opus_species.econ_params.discount_rate
         depreciation_rate = 1 / opus_species.econ_params.sat_lifetime
 
-        # Equilibrium expression for rate of return including maneuver costs.
+ # Equilibrium expression for rate of return.
         base_cost = opus_species.econ_params.cost
         if cost is not None:
             total_cost = base_cost + cost
@@ -259,18 +259,27 @@ class MultiSpeciesOpenAccessSolver:
         rev_cost = revenue / total_cost
       
         if opus_species.econ_params.bond is None:
-            rate_of_return = rev_cost - discount_rate - depreciation_rate  
+            rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk
         else:
+        #Updated the below the annualize the cost of the bond, in line with other calculations
             bond_value = opus_species.econ_params.bond
             comp_rate = opus_species.econ_params.comp_rate
-            sat_lifetime = opus_species.econ_params.sat_lifetime
-
-            expecte_eol_loss = (1-comp_rate)*bond_value
-            bond_cost_rate = (expecte_eol_loss/sat_lifetime)/total_cost
-
-            rate_of_return = rev_cost - discount_rate - depreciation_rate - bond_cost_rate
+            
+            # Formula: (Bond / Cost) * (1 - Compliance)
+            bond_ratio = (bond_value / total_cost) * (1 - comp_rate)
+            
+            # Multiplier: (r + delta + P - P*delta)
+            risk_adjusted_rates = discount_rate + depreciation_rate + collision_risk - (collision_risk * depreciation_rate)
+            
+            
+            # Final Bond Term
+            bond_term = bond_ratio * risk_adjusted_rates
+            
+            rate_of_return = rev_cost - discount_rate - depreciation_rate + depreciation_rate*collision_risk - bond_term
 
         return rate_of_return
+    
+    #Look adilov 2023 bonds
     
     def solver(self):
         """
