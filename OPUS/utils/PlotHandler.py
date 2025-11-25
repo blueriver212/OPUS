@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.animation as animation
 import math
-import pickle
-import re
+import pandas as pd
+import seaborn as sns
+import matplotlib.ticker as mticker
 
 class PlotData:
         """
@@ -2218,3 +2219,299 @@ class PlotHandler:
                 plt.savefig(scatter_file_path, dpi=300, bbox_inches="tight")
                 plt.close()
                 print(f"Scatter plot saved to {scatter_file_path}")
+
+        def _parse_policy_amount(self, scenario_name):
+                """
+                Helper: Extracts the policy amount and type from a scenario name.
+                Returns (amount, policy_type).
+                """
+                # Patterns to look for
+                patterns = {
+                    'OUF': r'_Fee_(\d+)', 
+                    'Fee': r'_Fee_(\d+)',
+                    'Tax': r'_Tax_([\d\.]+)', 
+                    'Bond': r'_Bond_(\d+)',
+                    'RC': r'_RC_(\d+)' # Removal Cost
+                }
+                
+                # Check if it's baseline
+                if "Baseline" in scenario_name or "baseline" in scenario_name:
+                        return 0.0, "Baseline"
+
+                for p_type, pattern in patterns.items():
+                        match = re.search(pattern, scenario_name)
+                        if match:
+                                try:
+                                        return float(match.group(1)), p_type
+                                except:
+                                        continue
+                
+                return None, None
+
+        def _get_metrics_for_policy_plots(self, plot_data, other_data):
+                """
+                Helper: Extracts/Calculates specific metrics required for the policy charts.
+                (Welfare, UMPY, Avg ADR, Avg Collisions, Su Vector)
+                """
+                # 1. Welfare (Final year)
+                timesteps = sorted(other_data.keys(), key=int)
+                last_step = timesteps[-1]
+                welfare = other_data[last_step].get('welfare', 0)
+
+                # 2. UMPY (Sum of final year, or sum over time depending on definition)
+                # The script used final_umpy.json, which is usually the sum over the whole sim or final year.
+                # We will sum the UMPY from the loaded other_data for the final year to match standard logic.
+                umpy_list = other_data[last_step].get('umpy', [])
+                umpy_val = np.sum(umpy_list) if isinstance(umpy_list, list) else 0
+
+                # 3. Su Vector (Fringe count per shell at final year)
+                # We need to find the 'Su' species data
+                su_vector = np.zeros(self.n_shells)
+                if 'Su' in plot_data.data:
+                        su_data = np.array(plot_data.data['Su'])
+                        if su_data.ndim == 2 and su_data.shape[0] > 0:
+                                su_vector = su_data[-1] # Last time step
+
+                # 4. Avg Collisions
+                # Calculated as mean of (Prob_vec * Su_vec) over all time
+                period_collisions = []
+                for t_idx, t_str in enumerate(timesteps):
+                        prob_vec = np.array(other_data[t_str].get('collision_probability_all_species', []))
+                        
+                        # Get Su count for this timestep
+                        su_t = np.zeros(self.n_shells)
+                        if 'Su' in plot_data.data:
+                                su_arr = np.array(plot_data.data['Su'])
+                                if t_idx < len(su_arr):
+                                        su_t = su_arr[t_idx]
+                        
+                        if len(prob_vec) == len(su_t) and len(prob_vec) > 0:
+                                period_collisions.append(np.sum(prob_vec * su_t))
+                
+                avg_collisions = np.mean(period_collisions) if period_collisions else 0
+
+                # 5. Avg ADR (Requires reading objects_removed.json if not in memory)
+                avg_adr = 0
+                objects_removed_path = os.path.join(plot_data.path, 'objects_removed.json')
+                if os.path.exists(objects_removed_path):
+                        try:
+                                with open(objects_removed_path, 'r') as f:
+                                        obj_rem_data = json.load(f)
+                                # Logic from script: iterate 1 to 25, get N_223kg (or generic)
+                                adr_counts = []
+                                # Handle list of dicts (standard OPUS output format)
+                                if isinstance(obj_rem_data, list):
+                                        for entry in obj_rem_data:
+                                                # entry is usually per year
+                                                for sp_key, info in entry.items():
+                                                        # Check if this species is a derelict (starts with N)
+                                                        if sp_key.startswith('N') and isinstance(info, dict):
+                                                                val = info.get('num_removed')
+                                                                if val is not None:
+                                                                        adr_counts.append(val)
+                                valid_counts = [c for c in adr_counts if c is not None]
+                                avg_adr = np.mean(valid_counts) if valid_counts else 0
+                        except Exception as e:
+                                print(f"Warning: Could not parse objects_removed.json for {plot_data.scenario}: {e}")
+                
+                return {
+                        'welfare': welfare,
+                        'umpy': umpy_val,
+                        'avg_collisions': avg_collisions,
+                        'avg_adr': avg_adr,
+                        'su_vector': su_vector
+                }
+
+        def comparison_policy_impact_analysis(self, plot_data_lists, other_data_lists):
+                """
+                Generates the suite of 3 policy charts: 
+                1. Normalized Welfare/UMPY
+                2. Heatmap of Su distribution
+                3. ADR vs Collisions
+                
+                It automatically groups scenarios by policy type (Bond, Fee, RC) based on naming convention.
+                """
+                print("Generating Policy Impact Analysis Charts...")
+                
+                # 1. Consolidate Data into a DataFrame
+                data_records = []
+                
+                for plot_data, other_data in zip(plot_data_lists, other_data_lists):
+                        amount, p_type = self._parse_policy_amount(plot_data.scenario)
+                        
+                        # Skip if we couldn't determine type (unless it's baseline)
+                        if p_type is None: 
+                                continue
+
+                        metrics = self._get_metrics_for_policy_plots(plot_data, other_data)
+                        
+                        record = {
+                                'scenario': plot_data.scenario,
+                                'amount': amount,
+                                'policy_type': p_type,
+                                **metrics
+                        }
+                        data_records.append(record)
+
+                if not data_records:
+                        print("No recognizable policy scenarios (Bond/Fee/RC) found for analysis.")
+                        return
+
+                df = pd.DataFrame(data_records)
+
+                # 2. Identify Baseline
+                baseline_df = df[df['policy_type'] == 'Baseline']
+                if baseline_df.empty:
+                        # Fallback: try to find amount 0
+                        baseline_df = df[df['amount'] == 0]
+                
+                if baseline_df.empty:
+                        print("Warning: No Baseline found. Normalization will be skipped.")
+                        return
+
+                baseline_row = baseline_df.iloc[0] # Take the first baseline found
+
+                # 3. Group by Policy Type and Plot
+                # We might have mixed scenarios (e.g. Bonds AND Fees), so we split them
+                unique_policies = [p for p in df['policy_type'].unique() if p != 'Baseline']
+
+                output_path = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(output_path, exist_ok=True)
+
+                for policy in unique_policies:
+                        # Filter data for this policy + Baseline
+                        subset_df = df[(df['policy_type'] == policy) | (df['policy_type'] == 'Baseline')].copy()
+                        subset_df = subset_df.sort_values(by='amount').drop_duplicates(subset=['amount'])
+
+                        # Normalize
+                        subset_df['normalized_welfare'] = subset_df['welfare'] / baseline_row['welfare']
+                        subset_df['normalized_umpy'] = subset_df['umpy'] / baseline_row['umpy']
+                        subset_df['normalized_collisions'] = subset_df['avg_collisions'] / baseline_row['avg_collisions']
+
+                        # Only plot if we have actual variation
+                        if len(subset_df) < 2:
+                                continue
+
+                        print(f"  Creating charts for policy: {policy}")
+
+                        # --- CHART A: Normalized Welfare & UMPY ---
+                        self._plot_normalized_welfare_umpy(subset_df, policy, output_path)
+
+                        # --- CHART B: Heatmap of Su (Fringe) Distribution ---
+                        # Need to reconstruct the heatmap matrix
+                        self._plot_su_heatmap(subset_df, baseline_row, policy, output_path)
+
+                        # --- CHART C: ADR vs Collisions ---
+                        self._plot_adr_vs_collisions(subset_df, policy, output_path)
+
+        def _plot_normalized_welfare_umpy(self, df, policy_name, output_path):
+                """Internal plotting function for Welfare/UMPY"""
+                # Filter out 0 amount if strictly categorical logic is desired, 
+                # but usually we want to see 0 (Baseline) on the left.
+                
+                fig, ax1 = plt.subplots(figsize=(10, 8))
+                color1, color2 = 'tab:green', 'tab:blue'
+                
+                # X-Axis handling
+                x_values = range(len(df))
+                labels = [f'{int(x):,}' for x in df['amount']]
+                
+                ax1.set_xlabel(f'{policy_name} Amount', fontsize=16)
+                ax1.set_ylabel('Welfare (Relative to Baseline)', color=color1, fontsize=16)
+                ax1.plot(x_values, df['normalized_welfare'], color=color1, marker='o', label='Normalized Welfare')
+                ax1.tick_params(axis='y', labelcolor=color1)
+                ax1.axhline(y=1.0, color=color1, linestyle=':', alpha=0.7)
+                ax1.set_xticks(x_values)
+                ax1.set_xticklabels(labels, rotation=45, ha='right')
+
+                ax2 = ax1.twinx()
+                ax2.set_ylabel('UMPY (Relative to Baseline)', color=color2, fontsize=16)
+                ax2.plot(x_values, df['normalized_umpy'], color=color2, marker='s', linestyle='--', label='Normalized UMPY')
+                ax2.tick_params(axis='y', labelcolor=color2)
+                ax2.axhline(y=1.0, color=color2, linestyle=':', alpha=0.7)
+
+                lines1, labels1 = ax1.get_legend_handles_labels()
+                lines2, labels2 = ax2.get_legend_handles_labels()
+                ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2)
+
+                plt.tight_layout()
+                fname = f"{policy_name}_Normalized_Welfare_UMPY.png"
+                plt.savefig(os.path.join(output_path, fname), dpi=300)
+                plt.close()
+
+        def _plot_su_heatmap(self, df, baseline_row, policy_name, output_path):
+                """Internal plotting function for Su % difference Heatmap"""
+                baseline_vec = baseline_row['su_vector']
+                
+                # Avoid division by zero
+                safe_baseline = np.where(baseline_vec == 0, 1e-9, baseline_vec)
+                
+                heatmap_data = {}
+                
+                # Skip baseline in the heatmap columns usually, or keep it (it will be 0s)
+                # The original script skips baseline row logic implicitly by sorting. 
+                # We will show all non-baseline amounts
+                
+                non_baseline = df[df['amount'] > 0]
+                if non_baseline.empty: return
+
+                for _, row in non_baseline.iterrows():
+                        vec = row['su_vector']
+                        # Calculate % diff
+                        pct_diff = ((vec - baseline_vec) / safe_baseline) * 100
+                        heatmap_data[f"{int(row['amount']):,}"] = pct_diff
+
+                if not heatmap_data: return
+
+                df_heatmap = pd.DataFrame(heatmap_data)
+                # Index is shells (1 to N)
+                df_heatmap.index = range(1, len(baseline_vec) + 1)
+
+                plt.figure(figsize=(10, 8))
+                sns.heatmap(df_heatmap, annot=False, cmap="vlag", center=0, linewidths=.5) # annot=True can be messy if many shells
+                plt.xlabel(f"{policy_name} Amount", fontsize=16)
+                plt.ylabel("Orbital Shell", fontsize=16)
+                plt.title(f"% Change in Fringe (Su) Population vs Baseline", fontsize=14)
+                plt.xticks(rotation=45, ha='right')
+                plt.tight_layout()
+                
+                fname = f"{policy_name}_Su_Heatmap.png"
+                plt.savefig(os.path.join(output_path, fname), dpi=300)
+                plt.close()
+
+        def _plot_adr_vs_collisions(self, df, policy_name, output_path):
+                """Internal plotting function for ADR vs Collisions"""
+                # Only plot points where amount > 0 (Baseline usually has 0 ADR, 0 Cost)
+                # But if we want to see the trend, we can keep them.
+                # The original script only plotted amount > 0.
+                
+                df_plot = df[df['amount'] > 0].copy()
+                if df_plot.empty: return
+
+                fig, ax1 = plt.subplots(figsize=(10, 8))
+                color1, color2 = 'tab:purple', 'tab:orange'
+
+                # Categorical X axis to handle non-linear steps evenly
+                x_values = range(len(df_plot))
+                labels = [f'{int(x):,}' for x in df_plot['amount']]
+
+                ax1.set_xlabel(f'{policy_name} Amount', fontsize=16)
+                ax1.set_ylabel('Avg ADR Events', color=color1, fontsize=16)
+                ax1.plot(x_values, df_plot['avg_adr'], color=color1, marker='o', label='Avg ADR')
+                ax1.tick_params(axis='y', labelcolor=color1)
+                ax1.set_xticks(x_values)
+                ax1.set_xticklabels(labels, rotation=45, ha='right')
+
+                ax2 = ax1.twinx()
+                ax2.set_ylabel('Collisions (Relative to Baseline)', color=color2, fontsize=16)
+                ax2.plot(x_values, df_plot['normalized_collisions'], color=color2, marker='s', linestyle='--', label='Normalized Collisions')
+                ax2.tick_params(axis='y', labelcolor=color2)
+
+                lines1, labels1 = ax1.get_legend_handles_labels()
+                lines2, labels2 = ax2.get_legend_handles_labels()
+                ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2)
+
+                plt.tight_layout()
+                fname = f"{policy_name}_ADR_vs_Collisions.png"
+                plt.savefig(os.path.join(output_path, fname), dpi=300)
+                plt.close()
