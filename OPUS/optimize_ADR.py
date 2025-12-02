@@ -65,18 +65,12 @@ class OptimizeADR:
 
     def solve_year_zero(self, scenario_name, MOCAT_config, simulation_name, grid_search=False):
         self.grid_search = grid_search
-        # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
         multi_species_names = ["S", "Su", "Sns"]
-        # multi_species_names = ["S"]
-
-        # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
         #########################
         ### CONFIGURE MOCAT MODEL
         #########################
-        # if self.MOCAT is None:
         self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=self.grid_search)
         self.elliptical = self.MOCAT.scenario_properties.elliptical # elp, x0 = 12517
         print(self.MOCAT.scenario_properties.x0)
@@ -180,6 +174,8 @@ class OptimizeADR:
         # Flatten for circular orbits
         if not self.elliptical:     
             self.MOCAT.scenario_properties.x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()           
+
+        current_environment = self.MOCAT.scenario_properties.x0          
 
         self.adr_params = ADRParameters(self.adr_params_json, mocat=self.MOCAT)
         self.adr_params.adr_parameter_setup(scenario_name)

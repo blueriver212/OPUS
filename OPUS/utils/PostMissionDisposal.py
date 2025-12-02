@@ -414,7 +414,7 @@ def get_disposal_orbits(year, apogees_km, satellite_type, pmd_lifetime=5.0, look
     elif satellite_type == "Su":
         lookup_path = os.path.join(base_lookup_dir, "disposal_lookup_Su.npz")
     elif satellite_type == "Sns":
-        lookup_path = os.path.join(base_lookup_dir, "disposal_lookup_S.npz")
+        lookup_path = os.path.join(base_lookup_dir, "disposal_lookup_Sns.npz")
     else:
         raise ValueError(f"Invalid satellite type: {satellite_type}")
     

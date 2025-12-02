@@ -167,38 +167,31 @@ class IAMSolver:
 
     def iam_solver(self, scenario_name, MOCAT_config, simulation_name, grid_search=False):
         """
-            The main function that runs the IAM solver.
+        The main function that runs the IAM solver.
         """
         self.grid_search = grid_search
-        # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
         multi_species_names = ["S", "Su", "Sns"]
-        # multi_species_names = ["S"]
-
-        # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
 
         #########################
         ### CONFIGURE MOCAT MODEL
         #########################
-        # if self.MOCAT is None:
         self.MOCAT, multi_species = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=self.grid_search)
-        self.elliptical = self.MOCAT.scenario_properties.elliptical # elp, x0 = 12517
+        self.elliptical = self.MOCAT.scenario_properties.elliptical 
         print(self.MOCAT.scenario_properties.x0)
 
         model_horizon = self.MOCAT.scenario_properties.simulation_duration
         tf = np.arange(1, model_horizon + 1)
-        # create a list of the years (int) using scenario_properties.start_date and scenario_properties.simulation_duration
         years = [int(self.MOCAT.scenario_properties.start_date.year) + i for i in range(self.MOCAT.scenario_properties.simulation_duration)]
         years.insert(0, years[0] - 1)
 
         multi_species.get_species_position_indexes(self.MOCAT)
-        multi_species.get_mocat_species_parameters(self.MOCAT) # abstract species level information, like deltat, etc. 
-        current_environment = self.MOCAT.scenario_properties.x0 # Starts as initial population, and is in then updated. 
+        multi_species.get_mocat_species_parameters(self.MOCAT) 
+        current_environment = self.MOCAT.scenario_properties.x0 
         species_data = {sp: {year: np.zeros(self.MOCAT.scenario_properties.n_shells) for year in years} for sp in self.MOCAT.scenario_properties.species_names}
 
         # update time 0 as the initial population
-        initial_year = years[0] # Get the first year (e.g., 2016)
+        initial_year = years[0] 
 
         if self.elliptical:
             x0_alt = self.MOCAT.scenario_properties.sma_ecc_mat_to_altitude_mat(self.MOCAT.scenario_properties.x0)
@@ -219,11 +212,11 @@ class IAMSolver:
         econ_params_gen.econ_params_for_ADR(scenario_name)
         econ_calculator = EconCalculations(econ_params_gen, initial_removal_cost=5000000)
 
-        # For each simulation - we will need to modify the base economic parameters for the species. 
+        # For each simulation - modify params (Tax/Bond) but DO NOT overwrite Intercept
         for species in multi_species.species:
             species.econ_params.modify_params_for_simulation(scenario_name)
-            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)            
-            # species.econ_params.update_congestion_costs(multi_species, self.MOCAT.scenario_properties.x0) 
+            # Recalculate again to include tax/bond changes
+            species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name)
 
         # For now make all satellites circular if elliptical
         if self.elliptical:
@@ -239,6 +232,8 @@ class IAMSolver:
         # Flatten for circular orbits
         if not self.elliptical:     
             self.MOCAT.scenario_properties.x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
+
+        current_environment = self.MOCAT.scenario_properties.x0
 
         # Solver guess is 5% of the current fringe satellites. Update The launch file. This essentially helps the optimiser, as it is not a random guess to start with. 
         # Lam should be the same shape as x0 and is full of None values for objects that are not launched. 
@@ -684,8 +679,8 @@ if __name__ == "__main__":
     ts = ["N_700kg"] # target species
     # tp = np.linspace(0, 0.5, num=2)
     tn = [1000] # target number of removals each year
-    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [100000, 200000] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    tax = [1, 2] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    bond = [0] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
     target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
