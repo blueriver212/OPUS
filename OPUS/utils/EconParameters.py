@@ -57,6 +57,9 @@ class EconParameters:
         # Bond amount
         self.bond = params.get("bond", None)
 
+        #OUF amount
+        self.ouf = params.get("ouf", 0.0)
+
         # Demand growhth, annual rate
         self.demand_growth = params.get("demand_growth", None)
 
