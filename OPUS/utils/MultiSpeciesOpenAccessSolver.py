@@ -109,6 +109,7 @@ class MultiSpeciesOpenAccessSolver:
 
         # For collision calculations and fringe rate of return, we are able to use the effective state matrix for elliptical orbits. 
         for species in multi_species.species:
+
             # Calculate the probability of collision based on the new position
             collision_probability = self.calculate_probability_of_collision(state_next_alt, species.name)
 
@@ -128,7 +129,11 @@ class MultiSpeciesOpenAccessSolver:
                     rate_of_return = self.fringe_rate_of_return(state_next_alt, collision_probability, species)
 
             # Calculate the excess rate of return
-            species_excess_returns=(rate_of_return - collision_probability*(1 + species.econ_params.tax)) * 100
+            #Get OUF
+            base_ouf = getattr(species.econ_params, 'ouf', 0.0)
+            cost_per_sat = species.econ_params.cost
+            ouf_impact = (base_ouf ) / cost_per_sat
+            species_excess_returns=(rate_of_return - collision_probability*(1 + species.econ_params.tax) - ouf_impact) * 100
             
             excess_returns[species.name] = species_excess_returns
             collision_probability_dict[species.name] = collision_probability

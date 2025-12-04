@@ -672,7 +672,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "testing"
+    simulation_name = "ouf_test"
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
@@ -701,8 +701,8 @@ if __name__ == "__main__":
     # tp = np.linspace(0, 0.5, num=2)
     tn = [1000] # target number of removals each year
     tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [1000000] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    ouf = [0]*1
+    bond = [0] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    ouf = [2000000, 1000000]*1
     target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 

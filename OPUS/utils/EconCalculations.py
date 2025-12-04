@@ -95,7 +95,7 @@ def revenue_open_access_calculations(open_access_inputs, state_next):
 
     # Use fringe_econ_params
     elif getattr(fringe_econ_params, "ouf", 0) != 0:
-        revenue_by_shell = fringe_econ_params.ouf * collision_probability * fringe_total    # OUF
+        revenue_by_shell = fringe_econ_params.ouf * fringe_total    # OUF
         open_access_inputs._revenue_type = "ouf"
 
     # Use fringe_econ_params

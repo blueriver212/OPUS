@@ -139,6 +139,7 @@ class OptimizeADR:
                 econ_params.bond = None
             econ_params.ouf = float(current_params[7])
             for species in multi_species.species:
+                species.econ_params.ouf = getattr(econ_params, 'ouf', 0.0)
                 species.econ_params.bond = econ_params.bond
                 species.econ_params.tax = econ_params.tax
                 species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name) 
@@ -485,28 +486,40 @@ class OptimizeADR:
                 new_tax_revenue = best_trial_results['new_total_revenue']
                 lam = best_trial_results['lam']
 
-                # Now we call process_period_economics to finalize the year's state and prepare the funds for the next period.
-                welfare, _ = econ_calculator.process_period_economics(
-                    num_actually_removed,
-                    current_environment,
-                    (fringe_start_slice, fringe_end_slice),
-                    new_tax_revenue
-                        )
-                # Save the results of the best trial
-                simulation_results[time_idx] = best_trial_results['simulation_data']
-                opt_path[str(time_idx)] = {'Shell':int(opt_shell), 'Num_Removed':int(num_actually_removed), 'Welfare':int(welfare), 'Total_UMPY': int(np.sum(best_trial_results['simulation_data']['umpy']))}
-                # opt_path[str(time_idx)] = best_trial_results['removal_dict']
-                # Update the species data with the best trial's data
-                for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
-                    species_data[sp] = best_trial_results['species_data'][sp]
-            else:
-                welfare, _ = econ_calculator.process_period_economics(
-                    num_actually_removed = 0,
-                    current_environment=self.environment_before_adr,
-                    fringe_slices = (fringe_start_slice, fringe_end_slice),
-                    new_t_revenue = 0,
-                )
-                pass 
+               # Now we call process_period_economics to finalize the year's state and prepare the funds for the next period.
+            # We ignore the welfare returned here because it does not account for new launches (unlike best_trial_results)
+            _, _ = econ_calculator.process_period_economics(
+                num_actually_removed,
+                current_environment,
+                (fringe_start_slice, fringe_end_slice),
+                new_tax_revenue
+                    )
+            
+            # Save the results of the best trial
+            simulation_results[time_idx] = best_trial_results['simulation_data']
+            
+            # Retrieve the correct welfare (inclusive of new launches) from the simulation data
+            correct_welfare = best_trial_results['simulation_data']['welfare']
+
+            opt_path[str(time_idx)] = {
+                'Shell':int(opt_shell), 
+                'Num_Removed':int(num_actually_removed), 
+                'Welfare':int(correct_welfare), 
+                'Total_UMPY': int(np.sum(best_trial_results['simulation_data']['umpy']))
+            }
+            
+            # opt_path[str(time_idx)] = best_trial_results['removal_dict']
+            # Update the species data with the best trial's data
+            for i, sp in enumerate(self.MOCAT.scenario_properties.species_names):
+                species_data[sp] = best_trial_results['species_data'][sp]
+        else:
+            welfare, _ = econ_calculator.process_period_economics(
+                num_actually_removed = 0,
+                current_environment=self.environment_before_adr,
+                fringe_slices = (fringe_start_slice, fringe_end_slice),
+                new_tax_revenue = 0, # Corrected from new_t_revenue
+            )
+            pass
             
         # sammie addition: storing the optimizable values and params
         self.welfare_dict[scenario_name] = welfare
