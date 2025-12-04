@@ -517,13 +517,15 @@ class PlotHandler:
                         ax = axes[idx]
                         # scenario_data looks like {scenario_name: np.array([...])}
                         for scenario_name, counts in scenario_data.items():
-                                ax.plot(range(len(counts)), counts, label=scenario_name, marker='o')
+                                # ax.plot(range(len(counts)), counts, label=scenario_name, marker='o')
+                                sp_count = counts[1:]
+                                ax.plot(range(1,len(sp_count)+1), sp_count, label=scenario_name, marker='o')
 
                         if idx == 0:  # First plot
                                 ax.set_title("LEO Species Total")
                         else:
                                 ax.set_title(f"Total Count across all shells: {species}")
-                        ax.set_xlabel("Time Steps (or Years)")
+                        ax.set_xlabel("Time Steps")
                         ax.set_ylabel("Total Count")
                         ax.legend()
                         ax.grid(True)
@@ -1260,12 +1262,14 @@ class PlotHandler:
 
                 for sp, data in species_data.items():
                         plt.figure(figsize=(8, 6))
-                        plt.imshow(data.T, aspect='auto', cmap='viridis', origin='lower')
+                        # plt.imshow(data.T, aspect='auto', cmap='viridis', origin='lower')
+                        hm_data = data[1:]
+                        plt.imshow(hm_data.T, aspect='auto', cmap='viridis', origin='lower')
                         plt.colorbar(label='Value')
                         plt.title(f'Heatmap for Species {sp}')
                         plt.xlabel('Year')
                         plt.ylabel('Shell Mid Altitude (km)')
-                        plt.xticks(ticks=range(data.shape[0]), labels=range(0, data.shape[0]))
+                        plt.xticks(ticks=range(data.shape[0]-1), labels=range(1, data.shape[0]))
                         # Ensure the number of labels matches the number of ticks
                         if len(self.HMid) == data.shape[1]:
                             plt.yticks(ticks=range(data.shape[1]), labels=self.HMid)
@@ -1302,12 +1306,14 @@ class PlotHandler:
                 axes = axes.flatten() if num_species > 1 else [axes]
 
                 for ax, (sp, data) in zip(axes, species_data.items()):
-                        im = ax.imshow(data.T, aspect='auto', cmap='viridis', origin='lower')
+                        # im = ax.imshow(data.T, aspect='auto', cmap='viridis', origin='lower')
+                        hm_data = data[1:]
+                        im = ax.imshow(hm_data.T, aspect='auto', cmap='viridis', origin='lower')
                         ax.set_title(f'Species {sp}')
                         ax.set_xlabel('Year')
                         ax.set_ylabel('Shell Mid Altitude (km)')
-                        ax.set_xticks(range(data.shape[0]))
-                        ax.set_xticklabels(range(0, data.shape[0]))
+                        ax.set_xticks(range(data.shape[0]-1))
+                        ax.set_xticklabels(range(1, data.shape[0]))
                         ax.set_yticks(range(data.shape[1]))
                         # Ensure the number of labels matches the number of ticks
                         if len(self.HMid) == data.shape[1]:

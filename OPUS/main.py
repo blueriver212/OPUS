@@ -367,7 +367,10 @@ class IAMSolver:
             environment_for_solver = state_next_sma if self.elliptical else state_next_alt
 
             # # ----- ADR Section ---- # #
-            adr_params.removals_left = econ_calculator.get_removals_for_current_period()
+            if adr_params.exogenous == 1:
+                adr_params.removals_left = 10
+            else:
+                adr_params.removals_left = econ_calculator.get_removals_for_current_period()
             num_removed_this_period = 0; # initialize counter for removed objects
             adr_params.time = time_idx
             environment_before_adr = environment_for_solver.copy()
@@ -375,7 +378,7 @@ class IAMSolver:
             if ((adr_params.adr_times is not None) and (time_idx in adr_params.adr_times) and (len(adr_params.adr_times) != 0)):
                 # environment_for_solver, ~ = implement_adr(environment_for_solver,self.MOCAT,adr_params)
                 environment_for_solver, removal_dict = optimize_ADR_removal(environment_for_solver,self.MOCAT,adr_params)
-                num_removed_this_period = (environment_before_adr - environment_for_solver).sum
+                num_removed_this_period = int(np.sum(environment_before_adr - environment_for_solver))
                 # num_removed_this_period = 0
 
             # Record propagated environment data 
@@ -518,8 +521,6 @@ def process_optimizer_scenario_ADR(scenario_name, MOCAT_config, simulation_name,
 def grid_setup(simulation_name, target_species, target_shell, amount_remove, removal_cost, tax_rate, bond, ouf):
         params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf)*len(target_shell)+1)
         scenario_files = ["Baseline"]
-        # params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf))
-        # scenario_files = []
         counter = 1
         save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
         adr_dict = {}
@@ -540,7 +541,6 @@ def grid_setup(simulation_name, target_species, target_shell, amount_remove, rem
                                     params[counter] = [scenario_name, sp, shell, am, rc, tax, bn, fee, [], []]
                                     counter = counter + 1
 
-        # scenario_files.append("Baseline")
         # setting up solver and MOCAT configuration
         solver = OptimizeADR()
         MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
@@ -644,14 +644,35 @@ if __name__ == "__main__":
     }
 
     # Generate complete scenario names list
-    scenario_files = []
+    scenario_files = [
+        "Shell_1",
+        # "Shell_2",
+        # "Shell_3",
+        # "Shell_4",
+        # "Shell_5",
+        # "Shell_6",
+        # "Shell_7",
+        # "Shell_8",
+        # "Shell_9",
+        # "Shell_10",
+        # "Shell_11",
+        # "Shell_12",
+        # "Shell_13",
+        # "Shell_14",
+        # "Shell_15",
+        # "Shell_16",
+        # "Shell_17",
+        # "Shell_18",
+        # "Shell_19",
+        # "Shell_20",
+    ]
     if baseline:
         scenario_files.append("Baseline")
-    scenario_files.extend(bond_scenario_names)
+    # scenario_files.extend(bond_scenario_names)
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "sns_not_maneuverable"
+    simulation_name = "testing"
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
@@ -660,8 +681,8 @@ if __name__ == "__main__":
     multi_species_names = ["S","Su", "Sns"]
     multi_species = MultiSpecies(multi_species_names)
 
-    # # Parallel Processing
-    # with ProcessPoolExecutor() as executor:
+    # Parallel Processing
+    # with ThreadPoolExecutor() as executor:
     #     # Build iterables for the new static arguments
     #     n_scenarios = len(scenario_files)
     #     multi_species_list = [multi_species_names] * n_scenarios
@@ -679,8 +700,8 @@ if __name__ == "__main__":
     ts = ["N_700kg"] # target species
     # tp = np.linspace(0, 0.5, num=2)
     tn = [1000] # target number of removals each year
-    tax = [1, 2] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [0] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    bond = [1000000] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
     ouf = [0]*1
     target_shell = [12] # last number should be the number of shells + 1
     rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell

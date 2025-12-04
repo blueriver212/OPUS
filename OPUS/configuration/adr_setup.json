@@ -5,7 +5,8 @@
         "remove_method":["n"],
         "n_remove":[7],
         "target_shell":[12],
-        "n_max": 2
+        "n_max": 2,
+        "exogenous":0
     },
     "adr_test":{
         "target_species":["N_223kg"],
@@ -13,6 +14,367 @@
         "remove_method":["n"],
         "n_remove":[7],
         "target_shell":[12],
-        "n_max": 2
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Shell_1":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[1],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_2":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[2],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_3":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[3],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_4":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[4],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_5":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[5],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_6":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[6],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_7":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[7],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_8":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[8],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_9":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[9],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_10":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[10],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_11":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[11],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_12":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[12],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_13":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[13],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_14":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[14],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_15":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[15],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_16":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[16],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_17":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[17],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_18":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[18],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_19":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[19],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Shell_20":{
+        "target_species":["N_700kg"],
+        "adr_times":[5],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[20],
+        "n_max": 2,
+        "exogenous":1
+    },
+    "Target_S1":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[1],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S2":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[2],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S3":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[3],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S4":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[4],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S5":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[5],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S6":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[6],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S7":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[7],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S8":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[8],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S9":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[9],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S10":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[10],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S11":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[11],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S12":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[12],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S13":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[13],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S14":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[14],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S15":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[15],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S16":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[16],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S17":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[17],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S18":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[18],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S19":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[19],
+        "n_max": 2,
+        "exogenous":0
+    },
+    "Target_S20":{
+        "target_species":["N_700kg"],
+        "adr_times":[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+        "remove_method":["n"],
+        "n_remove":[10],
+        "target_shell":[20],
+        "n_max": 2,
+        "exogenous":0
     }
 }

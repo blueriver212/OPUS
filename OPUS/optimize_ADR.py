@@ -325,10 +325,14 @@ class OptimizeADR:
 
         # # ----- ADR Section ---- # #
         removals_possible = econ_calculator.get_removals_for_current_period()
-        self.adr_params.removals_left = removals_possible
+        if self.adr_params.exogenous == 1:
+            self.adr_params.removals_left = 10
+        elif (self.econ_params.tax == 0 and self.econ_params.bond == 0 and self.econ_params.ouf == 0) or (self.econ_params.bond == None and self.econ_params.tax == 0 and self.econ_params.ouf == 0):
+            self.adr_params.removals_left = 0 # This is a hard-coded override, kept as-is.
+        else:
+            self.adr_params.removals_left = removals_possible
         self.adr_params.time = time_idx
-        if (self.econ_params.tax == 0 and self.econ_params.bond == 0 and self.econ_params.ouf == 0) or (self.econ_params.bond == None and self.econ_params.tax == 0 and self.econ_params.ouf == 0):
-                self.adr_params.removals_left = 0 # This is a hard-coded override, kept as-is.
+        
 
         before_adr = environment_for_solver.copy()
         self.environment_before_adr = before_adr.copy()
