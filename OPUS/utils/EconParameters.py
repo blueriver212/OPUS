@@ -187,7 +187,7 @@ class EconParameters:
             This will modify the paramers for VAR and econ_parameters based on an input csv file. 
         """
 
-        if configuration.lower() == 'baseline':
+        if configuration.lower() == 'baseline' or configuration.startswith("Baseline"):
             self.bond = None
             self.tax = 0
             return

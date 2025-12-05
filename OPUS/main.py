@@ -645,26 +645,16 @@ if __name__ == "__main__":
 
     # Generate complete scenario names list
     scenario_files = [
-        "Shell_1",
-        # "Shell_2",
-        # "Shell_3",
-        # "Shell_4",
-        # "Shell_5",
-        # "Shell_6",
-        # "Shell_7",
-        # "Shell_8",
-        # "Shell_9",
-        # "Shell_10",
-        # "Shell_11",
-        # "Shell_12",
-        # "Shell_13",
-        # "Shell_14",
-        # "Shell_15",
-        # "Shell_16",
-        # "Shell_17",
-        # "Shell_18",
-        # "Shell_19",
-        # "Shell_20",
+        # "Baseline_1",
+        "Baseline_2",
+        "Baseline_3",
+        "Baseline_4",
+        "Baseline_5",
+        "Baseline_6",
+        "Baseline_7",
+        "Baseline_8",
+        "Baseline_9",
+        "Baseline_10",
     ]
     if baseline:
         scenario_files.append("Baseline")
@@ -672,7 +662,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "ouf_test"
+    simulation_name = "multi_baseline_test"
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
@@ -681,33 +671,33 @@ if __name__ == "__main__":
     multi_species_names = ["S","Su", "Sns"]
     multi_species = MultiSpecies(multi_species_names)
 
-    # Parallel Processing
-    # with ThreadPoolExecutor() as executor:
-    #     # Build iterables for the new static arguments
-    #     n_scenarios = len(scenario_files)
-    #     multi_species_list = [multi_species_names] * n_scenarios
+    # # Parallel Processing
+    with ProcessPoolExecutor() as executor:
+        # Build iterables for the new static arguments
+        n_scenarios = len(scenario_files)
+        multi_species_list = [multi_species_names] * n_scenarios
 
-    #     # Map process_scenario function over scenario_files
-    #     results = list(executor.map(process_scenario, 
-    #                                     scenario_files, 
-    #                                     [MOCAT_config]*n_scenarios, 
-    #                                     [simulation_name]*n_scenarios
-    #                                     ))
+        # Map process_scenario function over scenario_files
+        results = list(executor.map(process_scenario, 
+                                        scenario_files, 
+                                        [MOCAT_config]*n_scenarios, 
+                                        [simulation_name]*n_scenarios
+                                        ))
     
-    # # # sammie addition: running the optimizer version of IAM Solver for shell-switching
+    # # sammie addition: running the optimizer version of IAM Solver for shell-switching
     # optimization_solver = OptimizeADR()
 
-    ts = ["N_700kg"] # target species
-    # tp = np.linspace(0, 0.5, num=2)
-    tn = [1000] # target number of removals each year
-    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [0] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    ouf = [2000000, 1000000]*1
-    target_shell = [12] # last number should be the number of shells + 1
-    rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
+    # ts = ["N_700kg"] # target species
+    # # tp = np.linspace(0, 0.5, num=2)
+    # tn = [1000] # target number of removals each year
+    # tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    # bond = [0] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    # ouf = [2000000, 1000000]*1
+    # target_shell = [12] # last number should be the number of shells + 1
+    # rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
 
-    # # sammie addition: running the "grid_setup" function for "optimization" based on lower welfare values
-    MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
+    # # # sammie addition: running the "grid_setup" function for "optimization" based on lower welfare values
+    # MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
 
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
