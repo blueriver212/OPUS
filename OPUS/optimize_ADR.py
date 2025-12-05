@@ -138,10 +138,19 @@ class OptimizeADR:
             if econ_params.bond == 0:
                 econ_params.bond = None
             econ_params.ouf = float(current_params[7])
+
+            if len(current_params) > 10:
+                econ_params.disposal_time = float(current_params[10])
+
+
             for species in multi_species.species:
                 species.econ_params.ouf = getattr(econ_params, 'ouf', 0.0)
                 species.econ_params.bond = econ_params.bond
                 species.econ_params.tax = econ_params.tax
+
+                if len(current_params) > 10:
+                    species.econ_params.disposal_time = float(current_params[10])
+                    
                 species.econ_params.calculate_cost_fn_parameters(species.Pm, scenario_name) 
             self.econ_params = econ_params
             econ_calculator = EconCalculations(self.econ_params, initial_removal_cost=5000000)
@@ -434,6 +443,19 @@ class OptimizeADR:
             new_launches_sum = np.sum(trial_launch_rate[fringe_start_slice:fringe_end_slice])
             welfare = 0.5 * self.econ_params.coef * (total_fringe_sat + new_launches_sum) ** 2 + trial_leftover_tax_revenue
 
+        # --- NEW CALCULATION: Probability Adjusted OUF ---
+            su_species = next((s for s in multi_species.species if s.name == 'Su'), None)
+            
+            adjusted_ouf_fee = []
+            if su_species:
+                base_ouf = getattr(su_species.econ_params, 'ouf', 0.0)
+                
+                su_cp = open_access._last_collision_probability.get('Su', np.zeros(self.MOCAT.scenario_properties.n_shells))
+
+                adjusted_ouf_fee = (base_ouf * su_cp).tolist()
+            else:
+                adjusted_ouf_fee = np.zeros(self.MOCAT.scenario_properties.n_shells).tolist()
+                
             # Save the results that will be used for plotting later
             current_trial_results[cs] = {
                 "environment": trial_environment_for_solver.copy(),
@@ -443,6 +465,7 @@ class OptimizeADR:
                 "lam": trial_lam,
                 "removal_dict": removal_dict,
                 "species_data": trial_species_data,
+                "adjusted_ouf_fee": adjusted_ouf_fee,
                 "welfare": welfare,
                 "simulation_data": {
                     "ror": rate_of_return,
@@ -457,6 +480,7 @@ class OptimizeADR:
                     "rate_of_return": open_access._last_rate_of_return,
                     "revenue_total": trial_total_revenue,
                     "revenue_by_shell": trial_revenue_by_shell,
+                    "adjusted_ouf_fee": adjusted_ouf_fee,
                     "welfare": welfare,
                     "bond_revenue": open_access.bond_revenue,
                 }

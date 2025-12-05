@@ -458,11 +458,28 @@ class IAMSolver:
             shell_revenue = open_access._last_tax_revenue.tolist()
             total_tax_revenue_for_storage = float(open_access._last_total_revenue)
 
-
             launch_rate_by_species = {}
             for sp in multi_species.species:
                 launch_rate_by_species[sp.name] = launch_rate[sp.start_slice:sp.end_slice].tolist()
 
+            # --- NEW CALCULATION: Probability Adjusted OUF ---
+            # 1. Find the 'Su' species to get the base OUF
+            su_species = next((s for s in multi_species.species if s.name == 'Su'), None)
+            
+            adjusted_ouf_fee = []
+            if su_species:
+                # 2. Get the base OUF (e.g., 2,000,000)
+                base_ouf = getattr(su_species.econ_params, 'ouf', 0.0)
+                
+                # 3. Get the collision probability vector for 'Su'
+                # open_access._last_collision_probability is a dict: {'S': [...], 'Su': [...]}
+                su_cp = open_access._last_collision_probability.get('Su', np.zeros(self.MOCAT.scenario_properties.n_shells))
+
+                # 4. Calculate Fee = Base * Prob (Result is e.g., $200, $500, etc.)
+                adjusted_ouf_fee = (base_ouf * su_cp).tolist()
+            else:
+                adjusted_ouf_fee = np.zeros(self.MOCAT.scenario_properties.n_shells).tolist()
+                
             # Save the results that will be used for plotting later
             simulation_results[time_idx] = {
                 "ror": rate_of_return,
@@ -477,6 +494,7 @@ class IAMSolver:
                 "rate_of_return": open_access._last_rate_of_return,
                 "tax_revenue_total": total_tax_revenue_for_storage,
                 "tax_revenue_by_shell": shell_revenue,
+                "adjusted_ouf_fee": adjusted_ouf_fee,
                 "welfare": welfare,
                 "bond_revenue": np.sum(open_access.bond_revenue),
                 "leftover_revenue": leftover_revenue
@@ -518,17 +536,26 @@ def process_optimizer_scenario_ADR(scenario_name, MOCAT_config, simulation_name,
     iam_solver_optimize.run_optimizer_loop(scenario_name, simulation_name, MOCAT_config, params)
     return None, iam_solver_optimize.adr_dict, iam_solver_optimize.welfare_dict
 
-def grid_setup(simulation_name, target_species, target_shell, amount_remove, removal_cost, tax_rate, bond, ouf):
-        params = [None]*(len(target_species)*len(amount_remove)*len(tax_rate)*len(bond)*len(ouf)*len(target_shell)+1)
+def grid_setup(simulation_name, target_species, target_shell, amount_remove, removal_cost, tax_rate, bond, ouf, disposal_times):
+        # Calculate array size based on all combinations + 1 for Baseline
+        # Added len(disposal_times) to the multiplication
+        num_scenarios = (len(target_species) * len(target_shell) * len(amount_remove) * len(removal_cost) * len(tax_rate) * len(bond) * len(ouf) * len(disposal_times)) + 1
+        
+        params = [None] * num_scenarios
         scenario_files = ["Baseline"]
+        
         counter = 1
         save_path = f"./Results/{simulation_name}/comparisons/umpy_opt_grid.json"
         adr_dict = {}
         welfare_dict = {}
         best_umpy = None
 
-        # running through each parameter to set up configurations
-        params[0] = ["Baseline", "none", 1, 0, 5000000, 0, 0, 0, [], []]
+        MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
+
+        # Setup Baseline Parameters (Index 10 is disposal time, defaulting to 5 if not set)
+        params[0] = ["Baseline", "none", 1, 0, 5000000, 0, 0, 0, [], [], 5]
+        
+        # Loop through all parameters
         for i, sp in enumerate(target_species):
             for k, shell in enumerate(target_shell):
                 for j, am in enumerate(amount_remove):
@@ -536,21 +563,42 @@ def grid_setup(simulation_name, target_species, target_shell, amount_remove, rem
                         for jj, tax in enumerate(tax_rate):
                             for kk, bn in enumerate(bond):
                                 for fee in ouf:
-                                    scenario_name = f"Scenario_{counter}"
-                                    scenario_files.append(scenario_name)
-                                    params[counter] = [scenario_name, sp, shell, am, rc, tax, bn, fee, [], []]
-                                    counter = counter + 1
+                                    # --- NEW LOOP: Disposal Times ---
+                                    for dt in disposal_times:
+                                    
+                                        # Naming Logic using the loop variable 'dt'
+                                        rule_suffix = f"{dt}_year"
+                                        
+                                        if bn > 0 and fee > 0:
+                                            name_base = f"bond_{int(bn)}_ouf_{int(fee)}"
+                                        elif bn > 0:
+                                            name_base = f"bond_{int(bn)}"
+                                        else:
+                                            name_base = f"ouf_{int(fee)}"
+                                        
+                                        if len(target_shell) > 1:
+                                            scenario_name = f"scenario_{name_base}_shell{shell}_{rule_suffix}"
+                                        else:
+                                            scenario_name = f"scenario_{name_base}_{rule_suffix}"
+
+                                        scenario_files.append(scenario_name)
+                                        
+                                        # Added 'dt' at the end of the list (Index 10)
+                                        params[counter] = [scenario_name, sp, shell, am, rc, tax, bn, fee, [], [], dt]
+                                        counter = counter + 1
 
         # setting up solver and MOCAT configuration
         solver = OptimizeADR()
-        MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
         solver.params = params
 
-
-        with ThreadPoolExecutor() as executor:
-            # Map process_scenario function over scenario_files
-            results = list(executor.map(process_optimizer_scenario_ADR, scenario_files, [MOCAT_config]*len(scenario_files), [simulation_name]*len(scenario_files), repeat(params)))
-
+        print(f"Starting Optimizer Grid Search with {len(scenario_files)} scenarios...")
+        with ProcessPoolExecutor() as executor:
+            results = list(executor.map(process_optimizer_scenario_ADR, 
+                                        scenario_files, 
+                                        [MOCAT_config]*len(scenario_files), 
+                                        [simulation_name]*len(scenario_files), 
+                                        repeat(params)))
+        
         # setting up dictionaries with the results from the solver
         for i, items in enumerate(results):
             adr_dict.update(results[i][1])
@@ -617,13 +665,6 @@ def grid_setup(simulation_name, target_species, target_shell, amount_remove, rem
         print("Best Welfare Index: ", welfare_idx)
         print("UMPY in Best Welfare Scenario: ", params[welfare_idx][7])
 
-        # potentially saving the names of only the best two scenarios for simulations
-        # if umpy_scen == welfare_scen:
-        #     scenario_files = ["Baseline", umpy_scen]
-        # elif umpy_scen != welfare_scen:
-        #     scenario_files = ["Baseline", welfare_scen, umpy_scen]
-        # scenario_files = [umpy_scen, welfare_scen]
-
         return solver.MOCAT, scenario_files, best_umpy
 
 if __name__ == "__main__":
@@ -672,32 +713,36 @@ if __name__ == "__main__":
     multi_species = MultiSpecies(multi_species_names)
 
     # # Parallel Processing
-    with ProcessPoolExecutor() as executor:
-        # Build iterables for the new static arguments
-        n_scenarios = len(scenario_files)
-        multi_species_list = [multi_species_names] * n_scenarios
-
-        # Map process_scenario function over scenario_files
-        results = list(executor.map(process_scenario, 
-                                        scenario_files, 
-                                        [MOCAT_config]*n_scenarios, 
-                                        [simulation_name]*n_scenarios
-                                        ))
+    print(f"Running {len(scenario_files)} scenarios in parallel...")
     
-    # # sammie addition: running the optimizer version of IAM Solver for shell-switching
+    with ProcessPoolExecutor() as executor:
+        n_scenarios = len(scenario_files)
+        
+        config_list = [MOCAT_config] * n_scenarios
+        sim_name_list = [simulation_name] * n_scenarios
+
+        # Map the function over the arguments
+        # process_scenario takes (scenario_name, MOCAT_config, simulation_name)
+        results = list(executor.map(process_scenario, 
+                                    scenario_files, 
+                                    config_list, 
+                                    sim_name_list))
+        
+    # # # sammie addition: running the optimizer version of IAM Solver for shell-switching
     # optimization_solver = OptimizeADR()
 
-    # ts = ["N_700kg"] # target species
-    # # tp = np.linspace(0, 0.5, num=2)
-    # tn = [1000] # target number of removals each year
-    # tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    # bond = [0] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    # ouf = [2000000, 1000000]*1
-    # target_shell = [12] # last number should be the number of shells + 1
-    # rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
+    ts = ["N_700kg"] # target species
+    # tp = np.linspace(0, 0.5, num=2)
+    tn = [1000] # target number of removals each year
+    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    bond = [100000, 1000000] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    ouf = [0]*1
+    target_shell = [12] # last number should be the number of shells + 1
+    rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
+    disposal_times = [5,25]
 
-    # # # sammie addition: running the "grid_setup" function for "optimization" based on lower welfare values
-    # MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf)
+    # # sammie addition: running the "grid_setup" function for "optimization" based on lower welfare values
+    MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf, disposal_times=disposal_times)
 
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 

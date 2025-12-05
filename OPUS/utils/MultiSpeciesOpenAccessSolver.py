@@ -102,7 +102,11 @@ class MultiSpeciesOpenAccessSolver:
                     rate_of_return = self.fringe_rate_of_return(state_next_alt, collision_probability, species)
 
             # Calculate the excess rate of return
-            species_excess_returns=(rate_of_return - collision_probability*(1 + species.econ_params.tax)) * 100
+            #Get OUF
+            base_ouf = getattr(species.econ_params, 'ouf', 0.0)
+            cost_per_sat = species.econ_params.cost
+            ouf_impact = (base_ouf * collision_probability) / cost_per_sat
+            species_excess_returns=(rate_of_return - collision_probability*(1 + species.econ_params.tax) - ouf_impact) * 100
             
             excess_returns[species.name] = species_excess_returns
             collision_probability_dict[species.name] = collision_probability
