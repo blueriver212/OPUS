@@ -262,9 +262,9 @@ class MultiSpeciesOpenAccessSolver:
         solver_options = {
             'method': 'trf',
             'verbose': 1,
-            'ftol': 1e-8,
-            'xtol': 1e-8,
-            'gtol': 1e-8,
+            'ftol': 1e-7,
+            'xtol': 1e-7,
+            'gtol': 1e-7,
         }
 
         result = least_squares(

@@ -2531,3 +2531,99 @@ class PlotHandler:
                 fname = f"{policy_name}_ADR_vs_Collisions.png"
                 plt.savefig(os.path.join(output_path, fname), dpi=300)
                 plt.close()
+
+        def comparison_count_relative_to_baseline(self, plot_data_lists, other_data_lists):
+                """
+                Creates a comparison plot of total species count over time.
+                Each species is plotted in its own subplot, comparing across all scenarios.
+                """
+
+                # Create a "comparisons" folder under the main simulation folder
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Dictionary to store time series data for each species across scenarios
+                # Structure: species_totals[species][scenario_name] = np.array of total counts over time
+                species_totals = {}
+
+                # Loop over each PlotData to extract data
+                for i, plot_data in enumerate(plot_data_lists):
+                        # We assume `plot_data.scenario` holds the scenario name
+                        # If it doesn't, change the attribute name or use a default label.
+                        scenario_name = getattr(plot_data, "scenario", f"Scenario {i+1}")
+
+                        # Retrieve the dictionary of species -> data arrays
+                        # e.g., {species: np.array(time, shells), ...}
+                        data_dict = plot_data.data
+
+                        for species, species_data in data_dict.items():
+                        # Sum across shells to get a total count per time step
+                        # species_data has shape (time, shells), so we sum across axis=1
+                                total_species_count = np.sum(species_data, axis=1)  # shape: (time,)
+
+                                # Store data per species
+                                if species not in species_totals:
+                                        species_totals[species] = {}
+
+                                # Keep track of the total count array by scenario
+                                species_totals[species][scenario_name] = total_species_count
+
+                # Count how many species we have
+                num_species = len(species_totals)
+
+                print(num_species)
+                print("Species found overall:", list(species_totals.keys()))
+
+                # If multiple species, create subplots in a grid
+                num_cols = 2
+                num_rows = math.ceil(num_species / num_cols)
+
+                fig, axes = plt.subplots(
+                        nrows=num_rows,
+                        ncols=num_cols,
+                        figsize=(12, 6 * num_rows),
+                        sharex=True
+                )
+
+                # Flatten axes for easy iteration (in case num_rows > 1)
+                axes = np.array(axes).flatten()
+
+                # Plot each species in its own subplot
+                for idx, (species, scenario_data) in enumerate(species_totals.items()):
+                        ax = axes[idx]
+                        # scenario_data looks like {scenario_name: np.array([...])}
+                        for i, (scenario_name, counts) in enumerate(scenario_data.items()):
+                                # ax.plot(range(len(counts)), counts, label=scenario_name, marker='o')
+                                baseline_counts = scenario_data["Baseline"]
+                                sp_count = counts[1:] - baseline_counts[1:]
+                                x_axis = range(1,len(sp_count)+1)
+                                if (scenario_name != "Baseline") and (i <= 9):
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='o')
+                                elif (scenario_name != "Baseline") and (i > 9) and (i <= 19):
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='X')
+                                elif (scenario_name != "Baseline") and (i > 19) and (i <= 29):
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='>')
+                                elif (scenario_name != "Baseline"):
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='*')
+
+                        if idx == 0:  # First plot
+                                ax.set_title("LEO Species Total")
+                        else:
+                                ax.set_title(f"Relative count across all shells: {species}")
+                        ax.set_xlabel("Time Steps")
+                        ax.set_ylabel("Total Count")
+                        ax.legend()
+                        ax.grid(True)
+
+                # Hide any leftover empty subplots (if #species < num_rows * num_cols)
+                for extra_ax in axes[num_species:]:
+                        extra_ax.set_visible(False)
+
+                plt.tight_layout()
+
+                # Save the figure
+                out_path = os.path.join(comparison_folder, "comparison_relative_species_count.png")
+                plt.savefig(out_path, dpi=300)
+                plt.close()
+
+                print(f"Comparison plot saved to {out_path}")
