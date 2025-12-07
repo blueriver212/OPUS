@@ -197,6 +197,10 @@ class OptimizeADR:
             self.adr_params.target_species = [current_params[1]]
             self.adr_params.target_shell = [current_params[2]]
             self.adr_params.shell_order = [12, 14, 13, 15, 17, 11, 18, 16, 19, 20, 10, 9, 8, 5, 6, 7, 4, 3, 2, 1]
+            if current_params[4] == 0:
+                self.adr_params.exogenous = 1
+            else:
+                self.adr_params.exogenous = 0
             if current_params[3] > 1:
                 self.adr_params.n_remove = [current_params[3]] 
                 self.adr_params.remove_method = ["n"]

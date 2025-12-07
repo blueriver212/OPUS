@@ -686,16 +686,16 @@ if __name__ == "__main__":
 
     # Generate complete scenario names list
     scenario_files = [
-        # "Baseline_1",
-        "Baseline_2",
-        "Baseline_3",
-        "Baseline_4",
-        "Baseline_5",
-        "Baseline_6",
-        "Baseline_7",
-        "Baseline_8",
-        "Baseline_9",
-        "Baseline_10",
+        "Baseline_1",
+        # "Baseline_2",
+        # "Baseline_3",
+        # "Baseline_4",
+        # "Baseline_5",
+        # "Baseline_6",
+        # "Baseline_7",
+        # "Baseline_8",
+        # "Baseline_9",
+        # "Baseline_10",
     ]
     if baseline:
         scenario_files.append("Baseline")
@@ -703,7 +703,7 @@ if __name__ == "__main__":
     
     MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
-    simulation_name = "multi_baseline_test"
+    simulation_name = "exogenous_impulse_10_shell_tol_1e-6_take2"
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
@@ -723,26 +723,26 @@ if __name__ == "__main__":
 
         # Map the function over the arguments
         # process_scenario takes (scenario_name, MOCAT_config, simulation_name)
-        results = list(executor.map(process_scenario, 
-                                    scenario_files, 
-                                    config_list, 
-                                    sim_name_list))
+        # results = list(executor.map(process_scenario, 
+        #                             scenario_files, 
+        #                             config_list, 
+        #                             sim_name_list))
         
     # # # sammie addition: running the optimizer version of IAM Solver for shell-switching
     # optimization_solver = OptimizeADR()
 
-    ts = ["N_700kg"] # target species
-    # tp = np.linspace(0, 0.5, num=2)
-    tn = [1000] # target number of removals each year
-    tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
-    bond = [100000, 1000000] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
-    ouf = [0]*1
-    target_shell = [12] # last number should be the number of shells + 1
-    rc = np.linspace(5000000, 5000000, num=1) # could also switch to range(x,y) similar to target_shell
-    disposal_times = [5,25]
+    # ts = ["N_700kg"] # target species
+    # # tp = np.linspace(0, 0.5, num=2)
+    # tn = [1000] # target number of removals each year
+    # tax = [0] #[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2]
+    # bond = [1000000] #, 100000, 200000] #[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]*1
+    # ouf = [0]*1
+    # target_shell = [12] # last number should be the number of shells + 1
+    # rc = np.linspace(0, 5000000, num=2) # could also switch to range(x,y) similar to target_shell
+    # disposal_times = [5,25]
 
-    # # sammie addition: running the "grid_setup" function for "optimization" based on lower welfare values
-    MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf, disposal_times=disposal_times)
+    # # # sammie addition: running the "grid_setup" function for "optimization" based on lower welfare values
+    # MOCAT, scenario_files, best_umpy = grid_setup(simulation_name=simulation_name, target_species=ts, target_shell=target_shell, amount_remove=tn, removal_cost=rc, tax_rate=tax, bond=bond, ouf=ouf, disposal_times=disposal_times)
 
 
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 

@@ -516,10 +516,18 @@ class PlotHandler:
                 for idx, (species, scenario_data) in enumerate(species_totals.items()):
                         ax = axes[idx]
                         # scenario_data looks like {scenario_name: np.array([...])}
-                        for scenario_name, counts in scenario_data.items():
+                        for i, (scenario_name, counts) in enumerate(scenario_data.items()):
                                 # ax.plot(range(len(counts)), counts, label=scenario_name, marker='o')
                                 sp_count = counts[1:]
-                                ax.plot(range(1,len(sp_count)+1), sp_count, label=scenario_name, marker='o')
+                                x_axis = range(1,len(sp_count)+1)
+                                if i <= 9:
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='o')
+                                elif (i > 9) and (i <= 19):
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='X')
+                                elif (i > 19) and (i <= 29):
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='>')
+                                else:
+                                        ax.plot(x_axis, sp_count, label=scenario_name, marker='*')
 
                         if idx == 0:  # First plot
                                 ax.set_title("LEO Species Total")
@@ -572,12 +580,14 @@ class PlotHandler:
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
                         # 3) Plot each scenario on the same figure
-                        plt.plot(
-                        timesteps,
-                        umpy_sums,
-                        marker='o',
-                        label=scenario_label
-                        )
+                        if i <= 9:
+                                plt.plot(timesteps, umpy_sums, label=scenario_label, marker='o')
+                        elif (i > 9) and (i <= 19):
+                                plt.plot(timesteps, umpy_sums, label=scenario_label, marker='X')
+                        elif (i > 19) and (i <= 29):
+                                plt.plot(timesteps, umpy_sums, label=scenario_label, marker='>')
+                        else:
+                                plt.plot(timesteps, umpy_sums, label=scenario_label, marker='*')
 
                 # 4) Labels, legend, and layout
                 plt.xlabel("Year (timestep)")
