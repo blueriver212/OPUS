@@ -1,172 +1,136 @@
-"""
-bayes_opt_intercepts.py
-----------------------------------------------------
-Bayesian optimisation of the IAMSolver intercepts
-using scikit-optimize’s Gaussian-process engine
-(gp_minimize) + an optional 3-D surface plot.
-
-Requirements
-------------
-pip install scikit-optimize matplotlib tqdm
-"""
-
-"""
-bayes_opt_intercepts_progress.py
---------------------------------
-Like the previous script but with live progress bars and timing.
-"""
-
-import json, io, contextlib, time
-from copy import deepcopy
-from itertools import product
-
+import json, io, contextlib, csv, os
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D      # noqa: F401
-from tqdm import tqdm
-from skopt import gp_minimize
-from skopt.space import Real
-from skopt.utils import use_named_args
+from copy import deepcopy
+from scipy.optimize import least_squares
 from main import IAMSolver
 
+# ───────────────────────────────────────────────────
+# 0. CONFIGURATION
+# ───────────────────────────────────────────────────
+# Target order must match the species list: [SA, SB, SC, SuA, SuB, SuC]
+TARGET_VEC = np.array([3070, 3070, 1537, 1075, 1075, 540])
+SPECIES_ORDER = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+LOG_FILE = "calibration_log_robust.csv"
 
 # ───────────────────────────────────────────────────
-# 0.  CONFIGURATION
-# ───────────────────────────────────────────────────
-N_CALLS          = 60          # <— total model evaluations
-N_INITIAL_POINTS = 10
-RANDOM_STATE     = 42
-SHOW_SURFACE     = True        # set False if you only need the optimiser
-
-TARGET_COUNTS = {"S": 7677, "Su": 2665, "Sns": 1228}
-# TARGET_COUNTS = {"SA": 3070, "SB": 3070, "SC": 1537, "SuA": 1075, "SuB": 1075, "SuC": 540}
-
-
-# ───────────────────────────────────────────────────
-# 1.  HELPER ROUTINES (unchanged logic)
+# 1. HELPER ROUTINES
 # ───────────────────────────────────────────────────
 def get_total_species_from_output(species_data):
-        totals = {}
-        for species, year_data in species_data.items():
-            if isinstance(year_data, dict):
-                # Get the latest year's data
-                latest_year = max(year_data.keys())
-                latest_data = year_data[latest_year]
-                
-                if isinstance(latest_data, np.ndarray):
-                    # Sum the array values
-                    totals[species] = np.sum(latest_data)
-                elif hasattr(latest_data, 'sum'):
-                    # Handle pandas Series
-                    totals[species] = latest_data.sum()
-                else:
-                    # Fallback for other data types
-                    totals[species] = float(latest_data) if isinstance(latest_data, (int, float)) else 0
-            elif isinstance(year_data, np.ndarray):
-                # Handle direct array input (backward compatibility)
-                totals[species] = np.sum(year_data[-1])
-        
-        return totals
-
+    totals = {}
+    for species, year_data in species_data.items():
+        if isinstance(year_data, dict):
+            latest_year = max(year_data.keys())
+            latest_data = year_data[latest_year]
+            if isinstance(latest_data, np.ndarray):
+                totals[species] = np.sum(latest_data)
+            elif hasattr(latest_data, 'sum'):
+                totals[species] = latest_data.sum()
+            else:
+                totals[species] = float(latest_data)
+        elif isinstance(year_data, np.ndarray):
+            totals[species] = np.sum(year_data[-1])
+    return totals
 
 def run_simulation(intercepts):
-    """
-    Run IAMSolver once with
-      • species-specific revenue intercepts  (passed in `intercepts`)
-      • a coefficient that is *derived* from that revenue:
-            coefficient = revenue / (2 · target_end_sats)
-
-    Returns a dict  {species → final total}.
-    """
-    # ── read the template JSON once and cache it ──────────────────
+    # Cache baseline to speed up loads
     if not hasattr(run_simulation, "_baseline"):
-        with open("./OPUS/configuration/multi_single_species.json") as f:
+        with open("./OPUS/configuration/bonded_species.json") as f:
             run_simulation._baseline = json.load(f)
 
     config = deepcopy(run_simulation._baseline)
-
+    
     for spec in config["species"]:
         name = spec["sym_name"]
         if name in intercepts:
-            revenue = intercepts[name]                         # ← chosen by BO
+            revenue = intercepts[name]
             spec["OPUS"]["intercept"] = revenue
+            # Update coefficient: Revenue = Coeff * 2 * Goal -> Coeff = Rev / (2*Goal)
+            # (Goal is fixed to target)
+            goal_count = dict(zip(SPECIES_ORDER, TARGET_VEC)).get(name, 1000)
+            spec["OPUS"]["coefficient"] = revenue / (2 * goal_count)
+            
+        if "OPUS" in spec:
+            spec["OPUS"]["bond"] = None
 
-            # ---------- NEW: revenue-driven coefficient ----------
-            # goal = target end-sats for that species
-            goal   = TARGET_COUNTS[name]
-            coeff  = revenue / (2 * goal)                      # per problem statement
-            spec["OPUS"]["coefficient"] = coeff               # make sure this field exists in your JSON
-            # -----------------------------------------------------
+    iam_solver = IAMSolver()
+    if hasattr(iam_solver, 'multi_species_names'):
+        iam_solver.multi_species_names = SPECIES_ORDER
+    if hasattr(iam_solver, 'bonded_species_names'):
+        iam_solver.bonded_species_names = []
 
-    iam_solver   = IAMSolver()
-    sim_name     = "RevenueInterceptSearch"
-    scenario     = "Baseline"
-
+    # Suppress internal prints
     with contextlib.redirect_stdout(io.StringIO()):
         species_data = iam_solver.iam_solver(
-            scenario, config, sim_name, multi_species_names=["S", "Su", "Sns"], grid_search=True
+            "Baseline", config, "Calib", 
+            multi_species_names=SPECIES_ORDER, grid_search=True
         )
-
     return get_total_species_from_output(species_data)
 
-def compute_cost(result):
-    """Sum-squared error vs. TARGET_COUNTS."""
-    return sum((result[sp] - TARGET_COUNTS[sp])**2 for sp in TARGET_COUNTS)
+def log_result(R_vec, N_vec, residuals):
+    """Saves every single evaluation to CSV."""
+    file_exists = os.path.isfile(LOG_FILE)
+    cost = np.sum(residuals**2)
+    with open(LOG_FILE, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            header = ['R_' + s for s in SPECIES_ORDER] + \
+                     ['N_' + s for s in SPECIES_ORDER] + ['Cost']
+            writer.writerow(header)
+        writer.writerow(list(R_vec) + list(N_vec) + [cost])
 
+# ───────────────────────────────────────────────────
+# 2. OPTIMIZATION FUNCTION
+# ───────────────────────────────────────────────────
+def objective_function(R_vec):
+    """
+    Returns the vector of residuals (Predicted - Target).
+    least_squares tries to minimize sum(residuals^2).
+    """
+    # 1. Run Sim
+    intercepts = dict(zip(SPECIES_ORDER, R_vec))
+    results = run_simulation(intercepts)
+    
+    # 2. Extract Counts in correct order
+    N_vec = np.array([results.get(s, 0) for s in SPECIES_ORDER])
+    
+    # 3. Calculate Residuals (N - Target)
+    residuals = N_vec - TARGET_VEC
+    
+    # 4. Log & Print
+    cost = np.sum(residuals**2)
+    print(f"[Sim] R: {np.round(R_vec).astype(int)} | N: {np.round(N_vec).astype(int)} | Cost: {cost:,.0f}")
+    log_result(R_vec, N_vec, residuals)
+    
+    # Optional: Penalize negative counts heavily (though bounds handle R, physics handles N)
+    return residuals
 
-import numpy as np
-from tqdm import tqdm
+# ───────────────────────────────────────────────────
+# 3. MAIN
+# ───────────────────────────────────────────────────
+if __name__ == "__main__":
+    print(f"Starting Robust Calibration (Trust Region Reflective)...")
+    print(f"Targets: {dict(zip(SPECIES_ORDER, TARGET_VEC))}\n")
 
-# --- helper ----------------------------------------------------------
-def sim_counts(R_vec):
-    """vectorised wrapper → np.array([N_S, N_Su, N_Sns])"""
-    names = ["S", "Su", "Sns"]
-    # names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-    result = run_simulation(dict(zip(names, R_vec)))
-    return np.array([result[n] for n in names])
+    # Initial Guess (Your previous R that was kind of working, or a safe middle ground)
+    # Using the values from your earlier script as a safer start than the divergent ones
+    x0 = np.array([1629368, 1629368, 1629368, 2092593, 2092593, 2092593], dtype=float)
 
-def jacobian(R_base, delta=30_000):
-    """Finite-difference Jacobian  ∂N_i / ∂R_j  (3×3)."""
-    # J = np.zeros((6, 6))
-    J = np.zeros((3, 3))
-    N0 = sim_counts(R_base)
-    # for j in range(6):
-    for j in range(3):
-        R_pert       = R_base.copy()
-        R_pert[j]   += delta
-        Nj           = sim_counts(R_pert)
-        J[:, j]      = (Nj - N0) / delta
-    return J, N0
+    # Bounds: Revenue Intercept must be between $10k and $100M (prevents negatives)
+    lower_bounds = np.ones(6) * 10000.0
+    upper_bounds = np.ones(6) * 1.0e8
 
-# --- main routine ----------------------------------------------------
-TARGET = np.array([7677, 2665, 1228])
-# TARGET = np.array([3070, 3070, 1537, 1075, 1075, 540])
-N_PASSES      = 4        # 1 pass is often enough; 2 gives “tight” fit
-DELTA         = 30_000   # finite-difference step (adjust if sensitivity is tiny)
+    # Run the Optimizer
+    # method='trf' is robust against large steps and handles bounds
+    res = least_squares(
+        objective_function, 
+        x0, 
+        bounds=(lower_bounds, upper_bounds),
+        diff_step=0.05,  # Finite difference step size (5%)
+        verbose=2,       # Prints progress from scipy
+        ftol=1e-3,       # Stop when cost change is small
+        xtol=1e-3        # Stop when x change is small
+    )
 
-# starting guess – use last BO best if you have it, otherwise mid-box
-# R = np.array([1629368, 1629368, 1629368, 2092593, 2092593, 2092593], dtype=float)
-R = np.array([1665764, 2205401, 55701], dtype=float)
-
-for it in range(N_PASSES):
-    print(f"\nPass {it+1}")
-    J, N0 = jacobian(R, delta=DELTA)
-
-    # Solve  J ΔR = (T – N)   → least-squares in case J is not perfectly diagonal
-    dR, *_ = np.linalg.lstsq(J, TARGET - N0, rcond=None)
-    R      = R + dR
-
-    # Evaluate new intercepts once
-    N1  = sim_counts(R)
-    cost = compute_cost(dict(zip(["S","Su","Sns"], N1)))
-    # cost = compute_cost(dict(zip(["SA","SB","SC","SuA","SuB","SuC"], N1)))
-    print("  Jacobian:\n", np.round(J, 2))
-    print("  ΔR:", np.round(dR).astype(int))
-    print("  New intercepts:", np.round(R).astype(int))
-    print("  Counts:", np.round(N1).astype(int), f"  Cost={cost:,.0f}")
-
-    # simple early stop
-    if cost < 1e5:          # RMS error ≈ 316
-        break
-
-print("\n✅  Final intercepts  → ", np.round(R).astype(int))
+    print("\n✅ CALIBRATION COMPLETE")
+    print("Final Intercepts:", np.round(res.x).astype(int))
+    print("Final Counts:    ", np.round(res.fun + TARGET_VEC).astype(int))

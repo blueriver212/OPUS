@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import least_squares
 import sympy as sp
+from concurrent.futures import ProcessPoolExecutor
 from pyssem.model import Model
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
@@ -253,6 +254,8 @@ class MultiSpeciesOpenAccessSolver:
             raise ValueError('Length of launch_rate_init is not the same as the number of shells * number of species in multi_species')
         
         lower_bound = np.zeros_like(launch_rate_init)
+
+        launch_rate_init = np.maximum(launch_rate_init, 0.0)
 
         solver_options = {
             'method': 'trf',

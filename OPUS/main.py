@@ -16,6 +16,7 @@ from datetime import timedelta
 import time
 import os
 import pandas as pd
+import copy
 
 def ensure_bond_config_files(bond_amounts, lifetimes, config_dir="./OPUS/configuration/"):
     """
@@ -114,8 +115,8 @@ class IAMSolver:
         """
         self.grid_search = grid_search
         # Define the species that are part of the constellation and fringe
-        # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-        multi_species_names = ["S", "Su", "Sns"]
+        multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+        # multi_species_names = ["S", "Su", "Sns"]
 
         # This will create a list of OPUSSpecies objects. 
         multi_species = MultiSpecies(multi_species_names)
@@ -183,6 +184,8 @@ class IAMSolver:
         if not self.elliptical:     
             self.MOCAT.scenario_properties.x0 = self.MOCAT.scenario_properties.x0.T.values.flatten()
 
+        current_environment = self.MOCAT.scenario_properties.x0
+        
         # Solver guess
         solver_guess = self.MOCAT.scenario_properties.x0.copy()
         lam = np.full_like(self.MOCAT.scenario_properties.x0, None, dtype=object)
@@ -411,28 +414,72 @@ def run_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_nam
     and return the result from get_mocat().
     """
     solver = IAMSolver()
+    solver.bonded_species_names = bonded_species_names
     # Pass multi_species_names
     solver.iam_solver(scenario_name, MOCAT_config, simulation_name, multi_species_names)
     return solver.get_mocat()
 
-def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names):
+def process_scenario(scenario_name, MOCAT_config, simulation_name, multi_species_names, bonded_species_list):
     """
-    Wrapper function for parallel processing that includes multi_species_names.
+    Runs a single scenario. Now accepts bonded_species_list to know which species get the bond.
     """
-    iam_solver = IAMSolver()
+    
+    # 1. Parse the bond value from the scenario name (e.g., "Bond_100000_...")
+    current_bond_val = 0.0
+    if "Bond_" in scenario_name:
+        try:
+            parts = scenario_name.split('_')
+            # Look for "Bond", then take the next part as the value
+            if "Bond" in parts:
+                idx = parts.index("Bond") + 1
+                current_bond_val = float(parts[idx])
+        except (ValueError, IndexError):
+            current_bond_val = 0.0
 
-    # 2. Run the solver (passing the multi_species_names)
-    iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, 
-                          multi_species_names=multi_species_names,
-                          grid_search=False)
-                          
-    return f"Scenario {scenario_name} Completed"
+    # 2. Create a DEEP COPY of the config to prevent conflicts between processes
+    local_config = copy.deepcopy(MOCAT_config)
+
+    # 3. Inject the bond value into the specific bonded species
+    if "species" in local_config:
+        for species_dict in local_config["species"]:
+            sym_name = species_dict.get("sym_name")
+            
+            # Ensure OPUS block exists
+            if "OPUS" not in species_dict:
+                species_dict["OPUS"] = {}
+
+            # If this species is in your "Bonded" list, set the bond
+            if sym_name in bonded_species_list:
+                species_dict["OPUS"]["bond"] = current_bond_val
+            else:
+                # Otherwise, ensure it is None (unbonded)
+                species_dict["OPUS"]["bond"] = None
+
+    # 4. Initialize the solver
+    iam_solver = IAMSolver()
+    
+    # --- CRITICAL: Pass the species names to the new solver instance ---
+    # The new solver instance is blank, so we must tell it which species to use.
+    if hasattr(iam_solver, 'multi_species_names'): 
+        iam_solver.multi_species_names = multi_species_names
+        
+    if hasattr(iam_solver, 'bonded_species_names'):
+        iam_solver.bonded_species_names = bonded_species_list
+    # -----------------------------------------------------------------
+
+    # 5. Run the solver with the MODIFIED local_config
+    # Note: We explicitly pass multi_species_names here to fix the TypeError
+    output = iam_solver.iam_solver(scenario_name, local_config, simulation_name, 
+                                   multi_species_names=multi_species_names, 
+                                   grid_search=False)
+    
+    return output
 
 
 if __name__ == "__main__":
     baseline = False
-    bond_amounts = [0, 100000] #[0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1200000, 1300000, 1400000, 1500000, 2000000] 
-    lifetimes = [5, 25]
+    bond_amounts = [0] #, 1500000, 2000000]
+    lifetimes = [5]
     
     # Ensure all bond configuration files exist with correct content
     print("Ensuring bond configuration files exist...")
@@ -450,18 +497,18 @@ if __name__ == "__main__":
         "lifetimes": lifetimes
     }
     
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
 
-    simulation_name = "extensive"
+    simulation_name = "pmd_test"
     # check if Results/{simulation_name} exists
     if not os.path.exists(f"./Results/{simulation_name}"):
         os.makedirs(f"./Results/{simulation_name}")
 
     iam_solver = IAMSolver()
 
-    # multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
-    # iam_solver.bonded_species_names = ["SA", "SB", "SuA", "SuB"]
-    multi_species_names = ["S", "Su", "Sns"]
+    multi_species_names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+    bonded_species_names = ["SA", "SB", "SuA", "SuB"]
+    # multi_species_names = ["S", "Su", "Sns"]
 
     def get_total_species_from_output(species_data):
         totals = {}
@@ -506,8 +553,9 @@ if __name__ == "__main__":
                                     scenario_files, 
                                     [MOCAT_config] * n_scenarios, 
                                     [simulation_name] * n_scenarios, 
-                                    [multi_species_names] * n_scenarios)
-        )
+                                    [multi_species_names] * n_scenarios,
+                                    [bonded_species_names] * n_scenarios))
+    
     # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
     # multi_species_names = ["S","Su", "Sns"]
     # # multi_species_names = ["Sns"]
