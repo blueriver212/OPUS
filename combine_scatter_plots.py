@@ -108,8 +108,8 @@ def create_combined_plot(all_data, output_path=None):
         output_path = "Results/combined_scatter_noncompliance_vs_bond.png"
 
     name_mapping = {
-        'pmd_test': 'Extensive',
-        'pmd_test_intensive': 'Intensive'
+        'extensive_new': 'Extensive',
+        'intensive': 'Intensive'
     }
 
     # ---------- first pass for limits ----------
@@ -171,7 +171,7 @@ def create_combined_plot(all_data, output_path=None):
         for idx, (x, y, total) in enumerate(
             zip(bonds_millions, noncompliance, total_money)
         ):
-            label = f"£{round(total / 1_000_000):,}M"
+            label = f"${round(total / 1_000_000):,}M"
 
             # base offsets
             if display_name == "Extensive":
@@ -207,7 +207,7 @@ def create_combined_plot(all_data, output_path=None):
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
 
-    ax.set_xlabel("Bond Fee (£, million)", fontsize=18, fontweight="black")
+    ax.set_xlabel("Bond Fee ($, million)", fontsize=18, fontweight="black")
     ax.set_ylabel("Final Derelict Count", fontsize=18, fontweight="black")
 
     leg = ax.legend(
@@ -282,17 +282,17 @@ def main():
     # Edit this list to include the simulations you want to combine
     simulation_configs = [
         {
-            'simulation_name': 'pmd_test_intensive',
+            'simulation_name': 'extensive_new',
             'scenario_files': ['bond_0k_5yr', 'bond_100k_5yr', 'bond_200k_5yr', 'bond_500k_5yr', 
                                'bond_750k_5yr', 'bond_1000k_5yr', 'bond_2000k_5yr'],
-            'mocat_config_path': './OPUS/configuration/multi_single_species.json',
+            'mocat_config_path': './OPUS/configuration/multi_single_species_joey.json',
             'multi_species_names': ['S', 'Su', 'Sns']
         },
         {
-            'simulation_name': 'pmd_test_extensive_5yr',
+            'simulation_name': 'intensive',
             'scenario_files': ['bond_0k_5yr', 'bond_100k_5yr', 'bond_200k_5yr', 'bond_500k_5yr', 
                                'bond_750k_5yr', 'bond_1000k_5yr', 'bond_2000k_5yr'],
-            'mocat_config_path': './OPUS/configuration/multi_single_species.json',
+            'mocat_config_path': './OPUS/configuration/multi_single_species_joey.json',
             'multi_species_names': ['S', 'Su', 'Sns']
         }
     ]
@@ -345,7 +345,7 @@ def main():
     print(f"\nSummary:")
     print(f"  Total data points: {len(df)}")
     print(f"  Simulations: {df['simulation_name'].unique()}")
-    print(f"  Bond range: £{df['bond_amount'].min():,} - £{df['bond_amount'].max():,}")
+    print(f"  Bond range: ${df['bond_amount'].min():,} - ${df['bond_amount'].max():,}")
     print(f"  Non-compliance range: {df['non_compliance_count'].min():.0f} - {df['non_compliance_count'].max():.0f}")
 
 

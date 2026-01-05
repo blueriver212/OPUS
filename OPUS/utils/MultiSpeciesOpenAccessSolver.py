@@ -177,7 +177,7 @@ class MultiSpeciesOpenAccessSolver:
         else:
             own_pop = np.sum(state_matrix[opus_species.start_slice:opus_species.end_slice])
 
-        # 2. Calculate Competitor Population
+        # # 2. Calculate Competitor Population
         competitor_sum = 0.0
         if hasattr(opus_species.econ_params, 'competitors'):
             for competitor_name in opus_species.econ_params.competitors:

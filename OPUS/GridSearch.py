@@ -38,8 +38,8 @@ N_INITIAL_POINTS = 10
 RANDOM_STATE     = 42
 SHOW_SURFACE     = True        # set False if you only need the optimiser
 
-TARGET_COUNTS = {"S": 7677, "Su": 2665, "Sns": 1228}
-# TARGET_COUNTS = {"SA": 3070, "SB": 3070, "SC": 1537, "SuA": 1075, "SuB": 1075, "SuC": 540}
+# TARGET_COUNTS = {"S": 7677, "Su": 2665, "Sns": 1228}
+TARGET_COUNTS = {"SA": 3070, "SB": 3070, "SC": 1537, "SuA": 1075, "SuB": 1075, "SuC": 540}
 
 
 # ───────────────────────────────────────────────────
@@ -80,7 +80,8 @@ def run_simulation(intercepts):
     """
     # ── read the template JSON once and cache it ──────────────────
     if not hasattr(run_simulation, "_baseline"):
-        with open("./OPUS/configuration/multi_single_species.json") as f:
+        # with open("./OPUS/configuration/multi_single_species.json") as f:
+        with open("./OPUS/configuration/bonded_species.json") as f:
             run_simulation._baseline = json.load(f)
 
     config = deepcopy(run_simulation._baseline)
@@ -104,7 +105,7 @@ def run_simulation(intercepts):
 
     with contextlib.redirect_stdout(io.StringIO()):
         species_data = iam_solver.iam_solver(
-            scenario, config, sim_name, multi_species_names=["S", "Su", "Sns"], grid_search=True
+            scenario, config, sim_name, multi_species_names=["SA", "SB", "SC", "SuA", "SuB", "SuC"], grid_search=True
         )
 
     return get_total_species_from_output(species_data)
@@ -120,18 +121,18 @@ from tqdm import tqdm
 # --- helper ----------------------------------------------------------
 def sim_counts(R_vec):
     """vectorised wrapper → np.array([N_S, N_Su, N_Sns])"""
-    names = ["S", "Su", "Sns"]
-    # names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
+    # names = ["S", "Su", "Sns"]
+    names = ["SA", "SB", "SC", "SuA", "SuB", "SuC"]
     result = run_simulation(dict(zip(names, R_vec)))
     return np.array([result[n] for n in names])
 
 def jacobian(R_base, delta=30_000):
     """Finite-difference Jacobian  ∂N_i / ∂R_j  (3×3)."""
-    # J = np.zeros((6, 6))
-    J = np.zeros((3, 3))
+    J = np.zeros((6, 6))
+    # J = np.zeros((3, 3))
     N0 = sim_counts(R_base)
-    # for j in range(6):
-    for j in range(3):
+    for j in range(6):
+    # for j in range(3):
         R_pert       = R_base.copy()
         R_pert[j]   += delta
         Nj           = sim_counts(R_pert)
@@ -139,14 +140,15 @@ def jacobian(R_base, delta=30_000):
     return J, N0
 
 # --- main routine ----------------------------------------------------
-TARGET = np.array([7677, 2665, 1228])
-# TARGET = np.array([3070, 3070, 1537, 1075, 1075, 540])
+# TARGET = np.array([7677, 2665, 1228])
+TARGET = np.array([3070, 3070, 1537, 1075, 1075, 540])
 N_PASSES      = 4        # 1 pass is often enough; 2 gives “tight” fit
 DELTA         = 30_000   # finite-difference step (adjust if sensitivity is tiny)
 
 # starting guess – use last BO best if you have it, otherwise mid-box
 # R = np.array([1629368, 1629368, 1629368, 2092593, 2092593, 2092593], dtype=float)
-R = np.array([1665764, 2205401, 55701], dtype=float)
+# R = np.array([1665764, 2205401, 55701], dtype=float)
+R = np.array([1076883, 1114584, 952345, 1273985, 1402633, 1161713], dtype=float)
 
 for it in range(N_PASSES):
     print(f"\nPass {it+1}")
@@ -158,8 +160,8 @@ for it in range(N_PASSES):
 
     # Evaluate new intercepts once
     N1  = sim_counts(R)
-    cost = compute_cost(dict(zip(["S","Su","Sns"], N1)))
-    # cost = compute_cost(dict(zip(["SA","SB","SC","SuA","SuB","SuC"], N1)))
+    # cost = compute_cost(dict(zip(["S","Su","Sns"], N1)))
+    cost = compute_cost(dict(zip(["SA","SB","SC","SuA","SuB","SuC"], N1)))
     print("  Jacobian:\n", np.round(J, 2))
     print("  ΔR:", np.round(dR).astype(int))
     print("  New intercepts:", np.round(R).astype(int))

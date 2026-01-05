@@ -603,7 +603,7 @@ class PlotHandler:
         def comparison_scatter_noncompliance_vs_bond(self, plot_data_lists, other_data_lists):
                 """
                 Create a scatter plot showing:
-                - X-axis: bond amount (£)
+                - X-axis: bond amount ($)
                 - Y-axis: non-compliance (%)
                 - Point color or size: total money paid (non_compliance × bond)
                 Labels now show total money in millions with a $ sign.
@@ -647,14 +647,14 @@ class PlotHandler:
 
                 plt.figure(figsize=(10, 6))
                 scatter = plt.scatter(bond_vals, noncompliance_vals, c=total_money_vals, s=100, cmap='viridis', zorder=3)
-                plt.colorbar(scatter, label="Total Money Paid (£)")
+                plt.colorbar(scatter, label="Total Money Paid ($)")
 
                 # Annotate with rounded money values in millions
                 for x, y, total in zip(bond_vals, noncompliance_vals, total_money_vals):
                         label = f"${round(total / 1_000_000):,}M"
                         plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
 
-                plt.xlabel("Bond Amount (£)")
+                plt.xlabel("Bond Amount ($)")
                 plt.ylabel("Count of Derelicts")
                 plt.title("Final Year: Derelict Count vs Bond Pot")
                 plt.grid(True, zorder=0)
@@ -845,7 +845,7 @@ class PlotHandler:
         def comparison_scatter_bond_vs_umpy(self, plot_data_lists, other_data_lists):
                 """
                 Scatter plot showing:
-                - X-axis: bond amount (£)
+                - X-axis: bond amount ($)
                 - Y-axis: total UMPY (kg) at each timestep
                 - Point color: simulation year (from timestep index)
                 
@@ -903,7 +903,7 @@ class PlotHandler:
                         label = f"${round(total / 1_000_000):,}M"
                         plt.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=7)
 
-                plt.xlabel("Bond Amount (£)")
+                plt.xlabel("Bond Amount ($)")
                 plt.ylabel("Total UMPY (kg)")
                 plt.title("Total UMPY vs. Bond Level by Year")
                 plt.grid(True, zorder=0)
@@ -1327,24 +1327,34 @@ class PlotHandler:
                 os.makedirs(comparison_folder, exist_ok=True)
 
                 # Store data for each species: S, Su, Sns
-                # Each will have bond amounts, active satellites, compliant derelicts, non-compliant derelicts
-                species_data = {
+                # Separate by PMD lifetime (5yr and 25yr)
+                species_data_5yr = {
+                        "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
+                }
+                species_data_25yr = {
                         "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
                         "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
                         "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
                 }
                 
                 # Store data for all debris (excluding derelicts)
-                debris_data = {"bond": [], "total_debris_10cm": []}
+                debris_data_5yr = {"bond": [], "total_debris_10cm": []}
+                debris_data_25yr = {"bond": [], "total_debris_10cm": []}
 
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-                        # Extract bond amount
+                        # Extract bond amount and PMD lifetime
                         m = re.search(r"bond_(\d+)k", scenario_label.lower())
                         if not m:
                                 continue
                         bond_k = int(m.group(1))
+                        
+                        # Extract PMD lifetime (5yr or 25yr), default to 5yr if not found
+                        lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                        lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
 
                         # Final timestep index
                         timesteps = sorted(other_data.keys(), key=int)
@@ -1383,6 +1393,14 @@ class PlotHandler:
                                         'non_compliant': non_compliant_derelicts
                                 }
 
+                        # Select the appropriate data bucket based on lifetime
+                        if lifetime == 25:
+                                species_data = species_data_25yr
+                                debris_data = debris_data_25yr
+                        else:
+                                species_data = species_data_5yr
+                                debris_data = debris_data_5yr
+                        
                         # Store data for each species
                         for species_key in ["S", "Su", "Sns"]:
                                 species_data[species_key]["bond"].append(bond_k)
@@ -1432,14 +1450,20 @@ class PlotHandler:
                                 data_dict[k] = [data_dict[k][idx] for idx in order]
                         return data_dict
 
-                for species_key in species_data.keys():
-                        species_data[species_key] = sort_species_data(species_data[species_key])
+                # Sort both 5yr and 25yr data
+                for species_key in species_data_5yr.keys():
+                        species_data_5yr[species_key] = sort_species_data(species_data_5yr[species_key])
+                        species_data_25yr[species_key] = sort_species_data(species_data_25yr[species_key])
                 
                 # Sort debris data
-                if debris_data["bond"]:
-                        order = np.argsort(debris_data["bond"])
-                        debris_data["bond"] = [debris_data["bond"][idx] for idx in order]
-                        debris_data["total_debris_10cm"] = [debris_data["total_debris_10cm"][idx] for idx in order]
+                if debris_data_5yr["bond"]:
+                        order = np.argsort(debris_data_5yr["bond"])
+                        debris_data_5yr["bond"] = [debris_data_5yr["bond"][idx] for idx in order]
+                        debris_data_5yr["total_debris_10cm"] = [debris_data_5yr["total_debris_10cm"][idx] for idx in order]
+                if debris_data_25yr["bond"]:
+                        order = np.argsort(debris_data_25yr["bond"])
+                        debris_data_25yr["bond"] = [debris_data_25yr["bond"][idx] for idx in order]
+                        debris_data_25yr["total_debris_10cm"] = [debris_data_25yr["total_debris_10cm"][idx] for idx in order]
 
                 # Create 2x2 subplots
                 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -1455,19 +1479,26 @@ class PlotHandler:
                 # Plot first three subplots for S, Su, Sns
                 for idx, species_key in enumerate(species_names):
                         ax = axes[idx]
-                        data = species_data[species_key]
+                        data_5yr = species_data_5yr[species_key]
+                        data_25yr = species_data_25yr[species_key]
 
-                        # Plot active satellites (blue)
-                        ax.plot(data["bond"], data["active"], color=active_color, marker='s', linestyle='-', 
-                               linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
+                        # Plot 5yr PMD (solid lines)
+                        if data_5yr["bond"]:
+                                ax.plot(data_5yr["bond"], data_5yr["active"], color=active_color, marker='s', linestyle='-', 
+                                       linewidth=2, markersize=6, label=f'Active {species_key} Satellites (5yr)', zorder=3)
+                                ax.plot(data_5yr["bond"], data_5yr["compliant_derelicts"], color=compliant_color, marker='o', 
+                                       linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts (5yr)', zorder=2)
+                                ax.plot(data_5yr["bond"], data_5yr["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                                       linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts (5yr)', zorder=2)
                         
-                        # Plot compliant derelicts (green)
-                        ax.plot(data["bond"], data["compliant_derelicts"], color=compliant_color, marker='o', 
-                               linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
-                        
-                        # Plot non-compliant derelicts (red)
-                        ax.plot(data["bond"], data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
-                               linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
+                        # Plot 25yr PMD (dashed lines)
+                        if data_25yr["bond"]:
+                                ax.plot(data_25yr["bond"], data_25yr["active"], color=active_color, marker='s', linestyle='--', 
+                                       linewidth=2, markersize=6, label=f'Active {species_key} Satellites (25yr)', zorder=3, alpha=0.8)
+                                ax.plot(data_25yr["bond"], data_25yr["compliant_derelicts"], color=compliant_color, marker='o', 
+                                       linestyle='--', linewidth=2, markersize=6, label='Compliant Derelicts (25yr)', zorder=2, alpha=0.8)
+                                ax.plot(data_25yr["bond"], data_25yr["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                                       linestyle='--', linewidth=2, markersize=6, label='Non-Compliant Derelicts (25yr)', zorder=2, alpha=0.8)
 
                         ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
                         ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
@@ -1484,8 +1515,12 @@ class PlotHandler:
                 
                 # Plot fourth subplot for all debris (excluding derelicts)
                 ax = axes[3]
-                ax.plot(debris_data["bond"], debris_data["total_debris_10cm"], color=debris_color, marker='^', 
-                       linestyle='-', linewidth=2, markersize=6, label='All Debris', zorder=3)
+                if debris_data_5yr["bond"]:
+                        ax.plot(debris_data_5yr["bond"], debris_data_5yr["total_debris_10cm"], color=debris_color, marker='^', 
+                               linestyle='-', linewidth=2, markersize=6, label='All Debris (5yr)', zorder=3)
+                if debris_data_25yr["bond"]:
+                        ax.plot(debris_data_25yr["bond"], debris_data_25yr["total_debris_10cm"], color=debris_color, marker='^', 
+                               linestyle='--', linewidth=2, markersize=6, label='All Debris (25yr)', zorder=3, alpha=0.8)
                 
                 ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
                 ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
@@ -1523,24 +1558,34 @@ class PlotHandler:
                 os.makedirs(comparison_folder, exist_ok=True)
 
                 # Store data for each species: S, Su, Sns
-                # Each will have bond amounts, active satellites, compliant derelicts, non-compliant derelicts
-                species_data = {
+                # Separate by PMD lifetime (5yr and 25yr)
+                species_data_5yr = {
+                        "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
+                }
+                species_data_25yr = {
                         "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
                         "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
                         "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
                 }
                 
                 # Store data for final year UMPY
-                umpy_data = {"bond": [], "final_umpy": []}
+                umpy_data_5yr = {"bond": [], "final_umpy": []}
+                umpy_data_25yr = {"bond": [], "final_umpy": []}
 
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-                        # Extract bond amount
+                        # Extract bond amount and PMD lifetime
                         m = re.search(r"bond_(\d+)k", scenario_label.lower())
                         if not m:
                                 continue
                         bond_k = int(m.group(1))
+                        
+                        # Extract PMD lifetime (5yr or 25yr), default to 5yr if not found
+                        lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                        lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
 
                         # Final timestep index
                         timesteps = sorted(other_data.keys(), key=int)
@@ -1579,6 +1624,14 @@ class PlotHandler:
                                         'non_compliant': non_compliant_derelicts
                                 }
 
+                        # Select the appropriate data bucket based on lifetime
+                        if lifetime == 25:
+                                species_data = species_data_25yr
+                                umpy_data = umpy_data_25yr
+                        else:
+                                species_data = species_data_5yr
+                                umpy_data = umpy_data_5yr
+                        
                         # Store data for each species
                         for species_key in ["S", "Su", "Sns"]:
                                 species_data[species_key]["bond"].append(bond_k)
@@ -1618,14 +1671,20 @@ class PlotHandler:
                                 data_dict[k] = [data_dict[k][idx] for idx in order]
                         return data_dict
 
-                for species_key in species_data.keys():
-                        species_data[species_key] = sort_species_data(species_data[species_key])
+                # Sort both 5yr and 25yr data
+                for species_key in species_data_5yr.keys():
+                        species_data_5yr[species_key] = sort_species_data(species_data_5yr[species_key])
+                        species_data_25yr[species_key] = sort_species_data(species_data_25yr[species_key])
                 
                 # Sort UMPY data
-                if umpy_data["bond"]:
-                        order = np.argsort(umpy_data["bond"])
-                        umpy_data["bond"] = [umpy_data["bond"][idx] for idx in order]
-                        umpy_data["final_umpy"] = [umpy_data["final_umpy"][idx] for idx in order]
+                if umpy_data_5yr["bond"]:
+                        order = np.argsort(umpy_data_5yr["bond"])
+                        umpy_data_5yr["bond"] = [umpy_data_5yr["bond"][idx] for idx in order]
+                        umpy_data_5yr["final_umpy"] = [umpy_data_5yr["final_umpy"][idx] for idx in order]
+                if umpy_data_25yr["bond"]:
+                        order = np.argsort(umpy_data_25yr["bond"])
+                        umpy_data_25yr["bond"] = [umpy_data_25yr["bond"][idx] for idx in order]
+                        umpy_data_25yr["final_umpy"] = [umpy_data_25yr["final_umpy"][idx] for idx in order]
 
                 # Create 2x2 subplots
                 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -1641,19 +1700,26 @@ class PlotHandler:
                 # Plot first three subplots for S, Su, Sns
                 for idx, species_key in enumerate(species_names):
                         ax = axes[idx]
-                        data = species_data[species_key]
+                        data_5yr = species_data_5yr[species_key]
+                        data_25yr = species_data_25yr[species_key]
 
-                        # Plot active satellites (blue)
-                        ax.plot(data["bond"], data["active"], color=active_color, marker='s', linestyle='-', 
-                               linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
+                        # Plot 5yr PMD (solid lines)
+                        if data_5yr["bond"]:
+                                ax.plot(data_5yr["bond"], data_5yr["active"], color=active_color, marker='s', linestyle='-', 
+                                       linewidth=2, markersize=6, label=f'Active {species_key} Satellites (5yr)', zorder=3)
+                                ax.plot(data_5yr["bond"], data_5yr["compliant_derelicts"], color=compliant_color, marker='o', 
+                                       linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts (5yr)', zorder=2)
+                                ax.plot(data_5yr["bond"], data_5yr["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                                       linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts (5yr)', zorder=2)
                         
-                        # Plot compliant derelicts (green)
-                        ax.plot(data["bond"], data["compliant_derelicts"], color=compliant_color, marker='o', 
-                               linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
-                        
-                        # Plot non-compliant derelicts (red)
-                        ax.plot(data["bond"], data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
-                               linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
+                        # Plot 25yr PMD (dashed lines)
+                        if data_25yr["bond"]:
+                                ax.plot(data_25yr["bond"], data_25yr["active"], color=active_color, marker='s', linestyle='--', 
+                                       linewidth=2, markersize=6, label=f'Active {species_key} Satellites (25yr)', zorder=3, alpha=0.8)
+                                ax.plot(data_25yr["bond"], data_25yr["compliant_derelicts"], color=compliant_color, marker='o', 
+                                       linestyle='--', linewidth=2, markersize=6, label='Compliant Derelicts (25yr)', zorder=2, alpha=0.8)
+                                ax.plot(data_25yr["bond"], data_25yr["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                                       linestyle='--', linewidth=2, markersize=6, label='Non-Compliant Derelicts (25yr)', zorder=2, alpha=0.8)
 
                         ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
                         ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
@@ -1670,8 +1736,12 @@ class PlotHandler:
                 
                 # Plot fourth subplot for final year UMPY
                 ax = axes[3]
-                ax.plot(umpy_data["bond"], umpy_data["final_umpy"], color=umpy_color, marker='^', 
-                       linestyle='-', linewidth=2, markersize=6, label='Final Year UMPY', zorder=3)
+                if umpy_data_5yr["bond"]:
+                        ax.plot(umpy_data_5yr["bond"], umpy_data_5yr["final_umpy"], color=umpy_color, marker='^', 
+                               linestyle='-', linewidth=2, markersize=6, label='Final Year UMPY (5yr)', zorder=3)
+                if umpy_data_25yr["bond"]:
+                        ax.plot(umpy_data_25yr["bond"], umpy_data_25yr["final_umpy"], color=umpy_color, marker='^', 
+                               linestyle='--', linewidth=2, markersize=6, label='Final Year UMPY (25yr)', zorder=3, alpha=0.8)
                 
                 ax.set_xlabel("Lifetime Bond Amount, $ (k)", fontsize=14, fontweight='bold')
                 ax.set_ylabel("UMPY (kg/year)", fontsize=14, fontweight='bold')
@@ -1709,25 +1779,37 @@ class PlotHandler:
                 os.makedirs(comparison_folder, exist_ok=True)
 
                 # Store data for each species: S, Su, Sns
-                # Each will have bond amounts, active satellites, compliant derelicts, non-compliant derelicts
-                species_data = {
+                # Separate by PMD lifetime (5yr and 25yr)
+                species_data_5yr = {
+                        "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
+                        "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
+                }
+                species_data_25yr = {
                         "S": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
                         "Su": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []},
                         "Sns": {"bond": [], "active": [], "compliant_derelicts": [], "non_compliant_derelicts": []}
                 }
                 
                 # Store data for relative change in final year UMPY
-                umpy_relative_data = {"bond": [], "relative_change_percent": []}
+                umpy_relative_data_5yr = {"bond": [], "relative_change_percent": []}
+                umpy_relative_data_25yr = {"bond": [], "relative_change_percent": []}
 
-                # First pass: find baseline UMPY (bond_0k scenario)
-                baseline_umpy = None
+                # First pass: find separate baseline UMPY for 5yr and 25yr (bond_0k scenarios)
+                baseline_umpy_5yr = None
+                baseline_umpy_25yr = None
+                
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
                         
-                        # Check if this is the baseline (bond_0k)
+                        # Check if this is a baseline (bond_0k) and extract lifetime
                         m = re.search(r"bond_(\d+)k", scenario_label.lower())
                         if m and int(m.group(1)) == 0:
-                                # This is the baseline scenario
+                                # Extract PMD lifetime
+                                lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                                lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
+                                
+                                # This is a baseline scenario
                                 timesteps = sorted(other_data.keys(), key=int)
                                 final_ts = timesteps[-1]
                                 
@@ -1739,30 +1821,60 @@ class PlotHandler:
                                                 baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
                                         elif isinstance(umpy_data_ts, (int, float)):
                                                 baseline_umpy = float(umpy_data_ts)
-                                break
+                                        
+                                        # Store in appropriate baseline bucket
+                                        if lifetime == 25:
+                                                baseline_umpy_25yr = baseline_umpy
+                                        else:
+                                                baseline_umpy_5yr = baseline_umpy
+                                        
+                                        # If we found both baselines, we can break early
+                                        if baseline_umpy_5yr is not None and baseline_umpy_25yr is not None:
+                                                break
                 
-                # If baseline not found, use first scenario as baseline
-                if baseline_umpy is None and plot_data_lists:
-                        plot_data, other_data = plot_data_lists[0], other_data_lists[0]
-                        timesteps = sorted(other_data.keys(), key=int)
-                        final_ts = timesteps[-1]
-                        if final_ts in other_data:
-                                umpy_data_ts = other_data[final_ts].get("umpy", [])
-                                if isinstance(umpy_data_ts, (list, np.ndarray)):
-                                        baseline_umpy = float(np.sum(umpy_data_ts))
-                                elif isinstance(umpy_data_ts, dict):
-                                        baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
-                                elif isinstance(umpy_data_ts, (int, float)):
-                                        baseline_umpy = float(umpy_data_ts)
+                # If baselines not found, use first scenario of each lifetime as baseline
+                if baseline_umpy_5yr is None or baseline_umpy_25yr is None:
+                        for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                                scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                                
+                                # Extract PMD lifetime
+                                lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                                lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
+                                
+                                timesteps = sorted(other_data.keys(), key=int)
+                                final_ts = timesteps[-1]
+                                
+                                if final_ts in other_data:
+                                        umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                        if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                                baseline_umpy = float(np.sum(umpy_data_ts))
+                                        elif isinstance(umpy_data_ts, dict):
+                                                baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                        elif isinstance(umpy_data_ts, (int, float)):
+                                                baseline_umpy = float(umpy_data_ts)
+                                        
+                                        # Use as baseline if we don't have one for this lifetime
+                                        if lifetime == 25 and baseline_umpy_25yr is None:
+                                                baseline_umpy_25yr = baseline_umpy
+                                        elif lifetime != 25 and baseline_umpy_5yr is None:
+                                                baseline_umpy_5yr = baseline_umpy
+                                
+                                # If we found both baselines, we can break
+                                if baseline_umpy_5yr is not None and baseline_umpy_25yr is not None:
+                                        break
 
                 for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
                         scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
 
-                        # Extract bond amount
+                        # Extract bond amount and PMD lifetime
                         m = re.search(r"bond_(\d+)k", scenario_label.lower())
                         if not m:
                                 continue
                         bond_k = int(m.group(1))
+                        
+                        # Extract PMD lifetime (5yr or 25yr), default to 5yr if not found
+                        lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                        lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
 
                         # Final timestep index
                         timesteps = sorted(other_data.keys(), key=int)
@@ -1801,6 +1913,14 @@ class PlotHandler:
                                         'non_compliant': non_compliant_derelicts
                                 }
 
+                        # Select the appropriate data bucket based on lifetime
+                        if lifetime == 25:
+                                species_data = species_data_25yr
+                                umpy_relative_data = umpy_relative_data_25yr
+                        else:
+                                species_data = species_data_5yr
+                                umpy_relative_data = umpy_relative_data_5yr
+                        
                         # Store data for each species
                         for species_key in ["S", "Su", "Sns"]:
                                 species_data[species_key]["bond"].append(bond_k)
@@ -1829,6 +1949,12 @@ class PlotHandler:
                                         final_umpy = float(umpy_data_ts)
                         
                         # Calculate relative change as percentage: ((umpy - baseline) / baseline) * 100
+                        # Use the appropriate baseline based on lifetime
+                        if lifetime == 25:
+                                baseline_umpy = baseline_umpy_25yr
+                        else:
+                                baseline_umpy = baseline_umpy_5yr
+                        
                         if baseline_umpy is not None and baseline_umpy > 0:
                                 relative_change = ((final_umpy - baseline_umpy) / baseline_umpy) * 100
                         else:
@@ -1846,14 +1972,20 @@ class PlotHandler:
                                 data_dict[k] = [data_dict[k][idx] for idx in order]
                         return data_dict
 
-                for species_key in species_data.keys():
-                        species_data[species_key] = sort_species_data(species_data[species_key])
+                # Sort both 5yr and 25yr data
+                for species_key in species_data_5yr.keys():
+                        species_data_5yr[species_key] = sort_species_data(species_data_5yr[species_key])
+                        species_data_25yr[species_key] = sort_species_data(species_data_25yr[species_key])
                 
                 # Sort UMPY relative data
-                if umpy_relative_data["bond"]:
-                        order = np.argsort(umpy_relative_data["bond"])
-                        umpy_relative_data["bond"] = [umpy_relative_data["bond"][idx] for idx in order]
-                        umpy_relative_data["relative_change_percent"] = [umpy_relative_data["relative_change_percent"][idx] for idx in order]
+                if umpy_relative_data_5yr["bond"]:
+                        order = np.argsort(umpy_relative_data_5yr["bond"])
+                        umpy_relative_data_5yr["bond"] = [umpy_relative_data_5yr["bond"][idx] for idx in order]
+                        umpy_relative_data_5yr["relative_change_percent"] = [umpy_relative_data_5yr["relative_change_percent"][idx] for idx in order]
+                if umpy_relative_data_25yr["bond"]:
+                        order = np.argsort(umpy_relative_data_25yr["bond"])
+                        umpy_relative_data_25yr["bond"] = [umpy_relative_data_25yr["bond"][idx] for idx in order]
+                        umpy_relative_data_25yr["relative_change_percent"] = [umpy_relative_data_25yr["relative_change_percent"][idx] for idx in order]
 
                 # Create 2x2 subplots
                 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -1869,22 +2001,30 @@ class PlotHandler:
                 # Plot first three subplots for S, Su, Sns
                 for idx, species_key in enumerate(species_names):
                         ax = axes[idx]
-                        data = species_data[species_key]
+                        data_5yr = species_data_5yr[species_key]
+                        data_25yr = species_data_25yr[species_key]
                         
                         # Convert bond amounts from k to M for plotting
-                        bond_m = [b / 1000.0 for b in data["bond"]]
+                        bond_m_5yr = [b / 1000.0 for b in data_5yr["bond"]] if data_5yr["bond"] else []
+                        bond_m_25yr = [b / 1000.0 for b in data_25yr["bond"]] if data_25yr["bond"] else []
 
-                        # Plot active satellites (blue)
-                        ax.plot(bond_m, data["active"], color=active_color, marker='s', linestyle='-', 
-                               linewidth=2, markersize=6, label=f'Active {species_key} Satellites', zorder=3)
+                        # Plot 5yr PMD (solid lines)
+                        if data_5yr["bond"]:
+                                ax.plot(bond_m_5yr, data_5yr["active"], color=active_color, marker='s', linestyle='-', 
+                                       linewidth=2, markersize=6, label=f'Active {species_key} Satellites (5yr)', zorder=3)
+                                ax.plot(bond_m_5yr, data_5yr["compliant_derelicts"], color=compliant_color, marker='o', 
+                                       linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts (5yr)', zorder=2)
+                                ax.plot(bond_m_5yr, data_5yr["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                                       linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts (5yr)', zorder=2)
                         
-                        # Plot compliant derelicts (green)
-                        ax.plot(bond_m, data["compliant_derelicts"], color=compliant_color, marker='o', 
-                               linestyle='-', linewidth=2, markersize=6, label='Compliant Derelicts', zorder=2)
-                        
-                        # Plot non-compliant derelicts (red)
-                        ax.plot(bond_m, data["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
-                               linestyle='-', linewidth=2, markersize=6, label='Non-Compliant Derelicts', zorder=2)
+                        # Plot 25yr PMD (dashed lines)
+                        if data_25yr["bond"]:
+                                ax.plot(bond_m_25yr, data_25yr["active"], color=active_color, marker='s', linestyle='--', 
+                                       linewidth=2, markersize=6, label=f'Active {species_key} Satellites (25yr)', zorder=3, alpha=0.8)
+                                ax.plot(bond_m_25yr, data_25yr["compliant_derelicts"], color=compliant_color, marker='o', 
+                                       linestyle='--', linewidth=2, markersize=6, label='Compliant Derelicts (25yr)', zorder=2, alpha=0.8)
+                                ax.plot(bond_m_25yr, data_25yr["non_compliant_derelicts"], color=non_compliant_color, marker='x', 
+                                       linestyle='--', linewidth=2, markersize=6, label='Non-Compliant Derelicts (25yr)', zorder=2, alpha=0.8)
 
                         ax.set_xlabel("Lifetime Bond Amount, $ (M)", fontsize=14, fontweight='bold')
                         ax.set_ylabel("Number of Objects", fontsize=14, fontweight='bold')
@@ -1902,9 +2042,14 @@ class PlotHandler:
                 # Plot fourth subplot for relative change in final year UMPY
                 ax = axes[3]
                 # Convert bond amounts from k to M for plotting
-                bond_m = [b / 1000.0 for b in umpy_relative_data["bond"]]
-                ax.plot(bond_m, umpy_relative_data["relative_change_percent"], color=umpy_relative_color, marker='^', 
-                       linestyle='-', linewidth=2, markersize=6, label='Relative Change in UMPY', zorder=3)
+                if umpy_relative_data_5yr["bond"]:
+                        bond_m_5yr = [b / 1000.0 for b in umpy_relative_data_5yr["bond"]]
+                        ax.plot(bond_m_5yr, umpy_relative_data_5yr["relative_change_percent"], color=umpy_relative_color, marker='^', 
+                               linestyle='-', linewidth=2, markersize=6, label='Relative Change in UMPY (5yr)', zorder=3)
+                if umpy_relative_data_25yr["bond"]:
+                        bond_m_25yr = [b / 1000.0 for b in umpy_relative_data_25yr["bond"]]
+                        ax.plot(bond_m_25yr, umpy_relative_data_25yr["relative_change_percent"], color=umpy_relative_color, marker='^', 
+                               linestyle='--', linewidth=2, markersize=6, label='Relative Change in UMPY (25yr)', zorder=3, alpha=0.8)
                 
                 # Add horizontal line at 0% for baseline
                 ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=1)

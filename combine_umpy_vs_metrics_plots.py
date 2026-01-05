@@ -4,7 +4,7 @@ Script to combine umpy_vs_metrics plots from Extensive and Intensive simulations
 This script:
 1. Loads data from Extensive (pmd_test) and Intensive (pmd_test_intensive) simulation folders
 2. Extracts raw data (Final UMPY, Collision Probability)
-3. Calculates relative change in collision probability from Extensive £0 bond baseline
+3. Calculates relative change in collision probability from Extensive $0 bond baseline
 4. Creates a scatter plot showing:
    - Final UMPY vs Relative Change in Collision Probability (%)
 5. Saves raw data to CSV for further analysis
@@ -28,7 +28,7 @@ from utils.MocatParameters import configure_mocat
 
 def get_baseline_collision_probability(simulation_name, baseline_scenario, MOCAT):
     """
-    Get the baseline collision probability from Extensive £0 bond scenario.
+    Get the baseline collision probability from Extensive $0 bond scenario.
     
     Args:
         simulation_name: Name of the simulation (should be 'pmd_test' for Extensive)
@@ -149,7 +149,7 @@ def load_simulation_data(simulation_name, scenario_files, MOCAT):
             bond_amount = extract_bond_amount(scenario)
             
             # Skip 0k bond if not Extensive simulation
-            if bond_amount == 0.0 and simulation_name != 'pmd_test':
+            if bond_amount == 0.0 and simulation_name != 'extensive_new':
                 print(f"  Skipping 0k bond from {simulation_name} (only Extensive baseline is kept)")
                 continue
             
@@ -173,15 +173,15 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
     
     Args:
         all_data: List of dicts with simulation data
-        baseline_cp: Baseline collision probability from Extensive £0 bond
+        baseline_cp: Baseline collision probability from Extensive $0 bond
         output_path: Path to save the plot
     """
     if output_path is None:
         output_path = "Results/combined_umpy_vs_metrics.png"
 
     name_mapping = {
-        'pmd_test': 'Extensive',
-        'pmd_test_intensive': 'Intensive'
+        'extensive_new': 'Uncontrolled',
+        'intensive': 'Controlled'
     }
 
     # Calculate relative change in collision probability
@@ -214,7 +214,7 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
     # Create figure with single plot
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
     
-    colour_map = {"Extensive": "red", "Intensive": "green"}
+    colour_map = {"Uncontrolled": "red", "Controlled": "green"}
     markers = ["s", "o"]
     
     for i, data in enumerate(all_data):
@@ -309,7 +309,7 @@ def save_raw_data_to_csv(all_data, baseline_cp, output_path=None):
     
     Args:
         all_data: List of dicts with simulation data
-        baseline_cp: Baseline collision probability from Extensive £0 bond
+        baseline_cp: Baseline collision probability from Extensive $0 bond
         output_path: Path to save CSV (default: Results/combined_umpy_vs_metrics_data.csv)
     """
     if output_path is None:
@@ -351,7 +351,7 @@ def main():
         python combine_umpy_vs_metrics_plots.py
     
     The script will:
-        1. Load baseline collision probability from Extensive £0 bond
+        1. Load baseline collision probability from Extensive $0 bond
         2. Load data from each simulation folder specified
         3. Extract Final UMPY and Collision Probability
         4. Calculate relative change in collision probability from baseline
@@ -365,31 +365,31 @@ def main():
     # Edit this list to include the simulations you want to combine
     simulation_configs = [
         {
-            'simulation_name': 'pmd_test',
+            'simulation_name': 'extensive_new',
             'scenario_files': ['bond_0k_5yr', 'bond_100k_5yr', 'bond_200k_5yr', 'bond_500k_5yr', 
                                'bond_750k_5yr', 'bond_1000k_5yr', 'bond_2000k_5yr'],
-            'mocat_config_path': './OPUS/configuration/multi_single_species.json',
+            'mocat_config_path': './OPUS/configuration/multi_single_species_joey.json',
             'multi_species_names': ['S', 'Su', 'Sns']
         },
         {
-            'simulation_name': 'pmd_test_intensive',
+            'simulation_name': 'intensive',
             'scenario_files': ['bond_0k_5yr', 'bond_100k_5yr', 'bond_200k_5yr', 'bond_500k_5yr', 
                                'bond_750k_5yr', 'bond_1000k_5yr', 'bond_2000k_5yr'],
-            'mocat_config_path': './OPUS/configuration/multi_single_species.json',
+            'mocat_config_path': './OPUS/configuration/multi_single_species_joey.json',
             'multi_species_names': ['S', 'Su', 'Sns']
         }
     ]
     
-    # Baseline configuration: Extensive £0 bond
+    # Baseline configuration: Extensive $0 bond
     baseline_config = {
-        'simulation_name': 'pmd_test',
+        'simulation_name': 'extensive_new',
         'baseline_scenario': 'bond_0k_5yr',
-        'mocat_config_path': './OPUS/configuration/multi_single_species.json',
+        'mocat_config_path': './OPUS/configuration/multi_single_species_joey.json',
         'multi_species_names': ['S', 'Su', 'Sns']
     }
     
     # Load MOCAT config for baseline
-    print("Loading baseline collision probability from Extensive £0 bond...")
+    print("Loading baseline collision probability from Extensive $0 bond...")
     with open(baseline_config['mocat_config_path'], 'r') as f:
         mocat_config = json.load(f)
     
