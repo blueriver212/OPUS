@@ -432,7 +432,7 @@ if __name__ == "__main__":
     # bond_amounts = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 
     #                 1200000, 1300000, 1400000, 1500000, 2000000] #, 1500000, 2000000]
     bond_amounts = [0, 100000, 200000, 500000, 700000, 1000000, 2000000]
-    # bond_amounts = [100000]
+    # bond_amounts = [0]
     lifetimes = [5, 25]
     
     # Ensure all bond configuration files exist with correct content
@@ -452,7 +452,7 @@ if __name__ == "__main__":
     }
     
     # MOCAT_config = json.load(open("./OPUS/configuration/bonded_species.json"))
-    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species_joey.json"))
+    MOCAT_config = json.load(open("./OPUS/configuration/multi_single_species.json"))
 
     simulation_name = "extensive_new"
     # check if Results/{simulation_name} exists
@@ -489,7 +489,7 @@ if __name__ == "__main__":
         
         return totals
 
-    # # no parallel processing
+    # no parallel processing
     # for scenario_name in scenario_files:
     #     # in the original code - they seem to look at both the equilibrium and the feedback. not sure why. I am going to implement feedback first. 
     #     output = iam_solver.iam_solver(scenario_name, MOCAT_config, simulation_name, multi_species_names, grid_search=False)
@@ -512,9 +512,9 @@ if __name__ == "__main__":
     #                                 [multi_species_names] * n_scenarios,
     #                                 [bonded_species_names] * n_scenarios))
     
-    # # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
-    # multi_species_names = ["S","Su", "Sns"]
-    # # multi_species_names = ["Sns"]
+    # if you just want to plot the results - and not re- run the simulation. You just need to pass an instance of the MOCAT model that you created. 
+    multi_species_names = ["S","Su", "Sns"]
+    # multi_species_names = ["Sns"]
     multi_species = MultiSpecies(multi_species_names)
     MOCAT, _ = configure_mocat(MOCAT_config, multi_species=multi_species, grid_search=False)
     PlotHandler(MOCAT, scenario_files, simulation_name, comparison=True)

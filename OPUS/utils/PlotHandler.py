@@ -179,7 +179,7 @@ class PlotHandler:
                                                         plot_method = getattr(self, plot_name, None)
                                                         if callable(plot_method):
                                                                 print(f"Creating plot: {plot_name}")
-                                                                plot_method()
+                                                                # plot_method()
                                                         else:
                                                                 print(f"Warning: Plot '{plot_name}' not found. Skipping...")
                                 except ValueError as e:
@@ -2073,6 +2073,439 @@ class PlotHandler:
                 plt.savefig(file_path, dpi=300)
                 plt.close()
                 print(f"Object counts by species with UMPY relative change plot saved to {file_path}")
+                
+                # Save data to CSV
+                import pandas as pd
+                rows = []
+                
+                # Add species data for 5yr and 25yr
+                for lifetime, species_data_dict in [(5, species_data_5yr), (25, species_data_25yr)]:
+                        for species_key in ["S", "Su", "Sns"]:
+                                data = species_data_dict[species_key]
+                                for bond_k, active, compliant, non_compliant in zip(
+                                        data["bond"],
+                                        data["active"],
+                                        data["compliant_derelicts"],
+                                        data["non_compliant_derelicts"]
+                                ):
+                                        rows.append({
+                                                'bond_amount_k': bond_k,
+                                                'bond_amount_millions': bond_k / 1000.0,
+                                                'pmd_lifetime_years': lifetime,
+                                                'species': species_key,
+                                                'active_satellites': active,
+                                                'compliant_derelicts': compliant,
+                                                'non_compliant_derelicts': non_compliant,
+                                                'umpy_percent_change': None
+                                        })
+                
+                # Add UMPY relative data for 5yr and 25yr
+                for lifetime, umpy_data in [(5, umpy_relative_data_5yr), (25, umpy_relative_data_25yr)]:
+                        for bond_k, umpy_pct in zip(umpy_data["bond"], umpy_data["relative_change_percent"]):
+                                # Add a row for each species with UMPY data (UMPY is the same for all species)
+                                for species_key in ["S", "Su", "Sns"]:
+                                        # Check if we already have a row for this bond/lifetime/species combination
+                                        matching_row = None
+                                        for row in rows:
+                                                if (row['bond_amount_k'] == bond_k and 
+                                                    row['pmd_lifetime_years'] == lifetime and 
+                                                    row['species'] == species_key):
+                                                        matching_row = row
+                                                        break
+                                        
+                                        if matching_row:
+                                                matching_row['umpy_percent_change'] = umpy_pct
+                                        else:
+                                                rows.append({
+                                                        'bond_amount_k': bond_k,
+                                                        'bond_amount_millions': bond_k / 1000.0,
+                                                        'pmd_lifetime_years': lifetime,
+                                                        'species': species_key,
+                                                        'active_satellites': None,
+                                                        'compliant_derelicts': None,
+                                                        'non_compliant_derelicts': None,
+                                                        'umpy_percent_change': umpy_pct
+                                                })
+                
+                df = pd.DataFrame(rows)
+                csv_path = os.path.join(comparison_folder, "object_counts_vs_bond_by_species_with_umpy_relative_data.csv")
+                df.to_csv(csv_path, index=False)
+                print(f"Data saved to {csv_path}")
+                
+                # Also save to standalone folder
+                standalone_folder = "umpy_vs_metrics_standalone_plot"
+                os.makedirs(standalone_folder, exist_ok=True)
+                standalone_csv_path = os.path.join(standalone_folder, "object_counts_vs_bond_by_species_with_umpy_relative_data.csv")
+                df.to_csv(standalone_csv_path, index=False)
+                print(f"Data also saved to {standalone_csv_path}")
+
+        def comparison_total_satellites_and_umpy_percent_change(self, plot_data_lists, other_data_lists):
+                """
+                Create a single plot showing:
+                - % change in total satellites (S + Su + Sns combined) vs bond amount
+                - % change in UMPY vs bond amount
+                Both plotted on the same axes, split by 5yr and 25yr PMD lifetimes.
+                """
+                import os
+                import re
+                import numpy as np
+                import matplotlib.pyplot as plt
+
+                comparison_folder = os.path.join(self.simulation_folder, "comparisons")
+                os.makedirs(comparison_folder, exist_ok=True)
+
+                # Store data for total satellites and UMPY % change
+                # Separate by PMD lifetime (5yr and 25yr)
+                satellites_data_5yr = {"bond": [], "total_satellites": [], "percent_change": []}
+                satellites_data_25yr = {"bond": [], "total_satellites": [], "percent_change": []}
+                umpy_relative_data_5yr = {"bond": [], "relative_change_percent": []}
+                umpy_relative_data_25yr = {"bond": [], "relative_change_percent": []}
+
+                # First pass: find separate baselines for 5yr and 25yr (bond_0k scenarios)
+                baseline_satellites_5yr = None
+                baseline_satellites_25yr = None
+                baseline_umpy_5yr = None
+                baseline_umpy_25yr = None
+                
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                        
+                        # Check if this is a baseline (bond_0k) and extract lifetime
+                        m = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if m and int(m.group(1)) == 0:
+                                # Extract PMD lifetime
+                                lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                                lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
+                                
+                                # This is a baseline scenario
+                                timesteps = sorted(other_data.keys(), key=int)
+                                final_ts = timesteps[-1]
+                                
+                                # Get total satellites (sum of S, Su, Sns)
+                                def sum_final(species_key: str) -> float:
+                                        if species_key in plot_data.data:
+                                                arr = np.array(plot_data.data[species_key])
+                                                if arr.ndim == 2 and arr.shape[0] > 0:
+                                                        return float(np.sum(arr[-1, :]))
+                                        return 0.0
+                                
+                                total_sats = sum_final('S') + sum_final('Su') + sum_final('Sns')
+                                
+                                # Get UMPY
+                                baseline_umpy = 0.0
+                                if final_ts in other_data:
+                                        umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                        if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                                baseline_umpy = float(np.sum(umpy_data_ts))
+                                        elif isinstance(umpy_data_ts, dict):
+                                                baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                        elif isinstance(umpy_data_ts, (int, float)):
+                                                baseline_umpy = float(umpy_data_ts)
+                                
+                                # Store in appropriate baseline bucket
+                                if lifetime == 25:
+                                        baseline_satellites_25yr = total_sats
+                                        baseline_umpy_25yr = baseline_umpy
+                                else:
+                                        baseline_satellites_5yr = total_sats
+                                        baseline_umpy_5yr = baseline_umpy
+                                        
+                                # If we found both baselines, we can break early
+                                if (baseline_satellites_5yr is not None and baseline_satellites_25yr is not None and
+                                    baseline_umpy_5yr is not None and baseline_umpy_25yr is not None):
+                                        break
+                
+                # If baselines not found, use first scenario of each lifetime as baseline
+                if (baseline_satellites_5yr is None or baseline_satellites_25yr is None or
+                    baseline_umpy_5yr is None or baseline_umpy_25yr is None):
+                        for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                                scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+                                
+                                # Extract PMD lifetime
+                                lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                                lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
+                                
+                                timesteps = sorted(other_data.keys(), key=int)
+                                final_ts = timesteps[-1]
+                                
+                                # Get total satellites
+                                def sum_final(species_key: str) -> float:
+                                        if species_key in plot_data.data:
+                                                arr = np.array(plot_data.data[species_key])
+                                                if arr.ndim == 2 and arr.shape[0] > 0:
+                                                        return float(np.sum(arr[-1, :]))
+                                        return 0.0
+                                
+                                total_sats = sum_final('S') + sum_final('Su') + sum_final('Sns')
+                                
+                                # Get UMPY
+                                baseline_umpy = 0.0
+                                if final_ts in other_data:
+                                        umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                        if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                                baseline_umpy = float(np.sum(umpy_data_ts))
+                                        elif isinstance(umpy_data_ts, dict):
+                                                baseline_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                        elif isinstance(umpy_data_ts, (int, float)):
+                                                baseline_umpy = float(umpy_data_ts)
+                                
+                                # Use as baseline if we don't have one for this lifetime
+                                if lifetime == 25:
+                                        if baseline_satellites_25yr is None:
+                                                baseline_satellites_25yr = total_sats
+                                        if baseline_umpy_25yr is None:
+                                                baseline_umpy_25yr = baseline_umpy
+                                else:
+                                        if baseline_satellites_5yr is None:
+                                                baseline_satellites_5yr = total_sats
+                                        if baseline_umpy_5yr is None:
+                                                baseline_umpy_5yr = baseline_umpy
+                                
+                                # If we found both baselines, we can break
+                                if (baseline_satellites_5yr is not None and baseline_satellites_25yr is not None and
+                                    baseline_umpy_5yr is not None and baseline_umpy_25yr is not None):
+                                        break
+
+                # Second pass: collect data for all scenarios
+                for i, (plot_data, other_data) in enumerate(zip(plot_data_lists, other_data_lists)):
+                        scenario_label = getattr(plot_data, 'scenario', f"Scenario {i+1}")
+
+                        # Extract bond amount and PMD lifetime
+                        m = re.search(r"bond_(\d+)k", scenario_label.lower())
+                        if not m:
+                                continue
+                        bond_k = int(m.group(1))
+                        
+                        # Extract PMD lifetime (5yr or 25yr), default to 5yr if not found
+                        lifetime_match = re.search(r"(\d+)yr", scenario_label.lower())
+                        lifetime = int(lifetime_match.group(1)) if lifetime_match else 5
+
+                        # Final timestep index
+                        timesteps = sorted(other_data.keys(), key=int)
+                        final_ts = timesteps[-1]
+
+                        # Get total active satellite counts (S + Su + Sns)
+                        def sum_final(species_key: str) -> float:
+                                if species_key in plot_data.data:
+                                        arr = np.array(plot_data.data[species_key])
+                                        if arr.ndim == 2 and arr.shape[0] > 0:
+                                                return float(np.sum(arr[-1, :]))
+                                return 0.0
+
+                        total_satellites = sum_final('S') + sum_final('Su') + sum_final('Sns')
+
+                        # Select the appropriate data bucket based on lifetime
+                        if lifetime == 25:
+                                satellites_data = satellites_data_25yr
+                                umpy_relative_data = umpy_relative_data_25yr
+                                baseline_sats = baseline_satellites_25yr
+                                baseline_umpy = baseline_umpy_25yr
+                        else:
+                                satellites_data = satellites_data_5yr
+                                umpy_relative_data = umpy_relative_data_5yr
+                                baseline_sats = baseline_satellites_5yr
+                                baseline_umpy = baseline_umpy_5yr
+                        
+                        # Calculate % change in total satellites
+                        if baseline_sats is not None and baseline_sats > 0:
+                                satellites_percent_change = ((total_satellites - baseline_sats) / baseline_sats) * 100
+                        else:
+                                satellites_percent_change = 0.0
+                        
+                        satellites_data["bond"].append(bond_k)
+                        satellites_data["total_satellites"].append(total_satellites)
+                        satellites_data["percent_change"].append(satellites_percent_change)
+                        
+                        # Get final year UMPY and calculate relative change
+                        final_umpy = 0.0
+                        if final_ts in other_data:
+                                umpy_data_ts = other_data[final_ts].get("umpy", [])
+                                if isinstance(umpy_data_ts, (list, np.ndarray)):
+                                        final_umpy = float(np.sum(umpy_data_ts))
+                                elif isinstance(umpy_data_ts, dict):
+                                        final_umpy = float(np.sum(list(umpy_data_ts.values())))
+                                elif isinstance(umpy_data_ts, (int, float)):
+                                        final_umpy = float(umpy_data_ts)
+                        
+                        # Calculate relative change as percentage: ((umpy - baseline) / baseline) * 100
+                        if baseline_umpy is not None and baseline_umpy > 0:
+                                relative_change = ((final_umpy - baseline_umpy) / baseline_umpy) * 100
+                        else:
+                                relative_change = 0.0
+                        
+                        umpy_relative_data["bond"].append(bond_k)
+                        umpy_relative_data["relative_change_percent"].append(relative_change)
+
+                # Sort by bond for smooth lines
+                def sort_data(data_dict):
+                        if not data_dict["bond"]:
+                                return data_dict
+                        order = np.argsort(data_dict["bond"])  # ascending
+                        for k in data_dict.keys():
+                                data_dict[k] = [data_dict[k][idx] for idx in order]
+                        return data_dict
+
+                # Sort all data
+                satellites_data_5yr = sort_data(satellites_data_5yr)
+                satellites_data_25yr = sort_data(satellites_data_25yr)
+                umpy_relative_data_5yr = sort_data(umpy_relative_data_5yr)
+                umpy_relative_data_25yr = sort_data(umpy_relative_data_25yr)
+
+                # Create single plot
+                fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+                
+                # Colors - red/dark red for UMPY, blue/dark blue for Welfare (5yr/25yr coupling)
+                welfare_color_5yr = "blue"
+                welfare_color_25yr = "darkblue"
+                umpy_color_5yr = "red"
+                umpy_color_25yr = "darkred"
+                
+                # Single marker style for all lines
+                marker_style = 'o'
+                
+                # Convert bond amounts from k to M for plotting
+                bond_m_5yr_sats = [b / 1000.0 for b in satellites_data_5yr["bond"]] if satellites_data_5yr["bond"] else []
+                bond_m_25yr_sats = [b / 1000.0 for b in satellites_data_25yr["bond"]] if satellites_data_25yr["bond"] else []
+                bond_m_5yr_umpy = [b / 1000.0 for b in umpy_relative_data_5yr["bond"]] if umpy_relative_data_5yr["bond"] else []
+                bond_m_25yr_umpy = [b / 1000.0 for b in umpy_relative_data_25yr["bond"]] if umpy_relative_data_25yr["bond"] else []
+
+                # Plot Welfare (5yr - solid)
+                if satellites_data_5yr["bond"]:
+                        ax.plot(bond_m_5yr_sats, satellites_data_5yr["percent_change"], color=welfare_color_5yr, 
+                               marker=marker_style, linestyle='-', linewidth=2, markersize=6, 
+                               label='Welfare - 5yr', zorder=3)
+                
+                # Plot Welfare (25yr - solid)
+                if satellites_data_25yr["bond"]:
+                        ax.plot(bond_m_25yr_sats, satellites_data_25yr["percent_change"], color=welfare_color_25yr, 
+                               marker=marker_style, linestyle='-', linewidth=2, markersize=6, 
+                               label='Welfare - 25yr', zorder=3)
+                
+                # Plot UMPY (5yr - solid)
+                if umpy_relative_data_5yr["bond"]:
+                        ax.plot(bond_m_5yr_umpy, umpy_relative_data_5yr["relative_change_percent"], color=umpy_color_5yr, 
+                               marker=marker_style, linestyle='-', linewidth=2, markersize=6, 
+                               label='UMPY - 5yr', zorder=3)
+                
+                # Plot UMPY (25yr - solid)
+                if umpy_relative_data_25yr["bond"]:
+                        ax.plot(bond_m_25yr_umpy, umpy_relative_data_25yr["relative_change_percent"], color=umpy_color_25yr, 
+                               marker=marker_style, linestyle='-', linewidth=2, markersize=6, 
+                               label='UMPY - 25yr', zorder=3)
+                
+                # Add horizontal line at 0% for baseline
+                ax.axhline(y=0, color='gray', linestyle=':', linewidth=1, alpha=0.5, zorder=1)
+                
+                ax.set_xlabel("Lifetime Bond Amount, $ (M)", fontsize=18, fontweight='bold')
+                ax.set_ylabel("Relative Change to Baseline (%)", fontsize=18, fontweight='bold')
+                ax.grid(True, alpha=0.3)
+                ax.legend(fontsize=16, loc='best')
+                
+                # Make ticks bold and larger
+                ax.tick_params(axis='both', which='major', labelsize=16, width=1.5)
+                for label in ax.get_xticklabels():
+                        label.set_fontweight('bold')
+                for label in ax.get_yticklabels():
+                        label.set_fontweight('bold')
+
+                plt.tight_layout()
+
+                file_path = os.path.join(comparison_folder, "total_satellites_and_umpy_percent_change.png")
+                plt.savefig(file_path, dpi=300)
+                plt.close()
+                print(f"Total satellites and UMPY percent change plot saved to {file_path}")
+                
+                # Save data to CSV
+                import pandas as pd
+                rows = []
+                # Add 5yr satellite data
+                for bond_k, total_sats, percent_change in zip(
+                        satellites_data_5yr["bond"], 
+                        satellites_data_5yr["total_satellites"],
+                        satellites_data_5yr["percent_change"]
+                ):
+                        rows.append({
+                                'bond_amount_k': bond_k,
+                                'bond_amount_millions': bond_k / 1000.0,
+                                'pmd_lifetime_years': 5,
+                                'total_satellites': total_sats,
+                                'satellites_percent_change': percent_change,
+                                'umpy': None,
+                                'umpy_percent_change': None
+                        })
+                # Add 25yr satellite data
+                for bond_k, total_sats, percent_change in zip(
+                        satellites_data_25yr["bond"], 
+                        satellites_data_25yr["total_satellites"],
+                        satellites_data_25yr["percent_change"]
+                ):
+                        rows.append({
+                                'bond_amount_k': bond_k,
+                                'bond_amount_millions': bond_k / 1000.0,
+                                'pmd_lifetime_years': 25,
+                                'total_satellites': total_sats,
+                                'satellites_percent_change': percent_change,
+                                'umpy': None,
+                                'umpy_percent_change': None
+                        })
+                # Add 5yr UMPY data
+                for bond_k, umpy_pct in zip(
+                        umpy_relative_data_5yr["bond"],
+                        umpy_relative_data_5yr["relative_change_percent"]
+                ):
+                        # Find matching row or create new one
+                        matching_row = None
+                        for row in rows:
+                                if row['bond_amount_k'] == bond_k and row['pmd_lifetime_years'] == 5:
+                                        matching_row = row
+                                        break
+                        if matching_row:
+                                matching_row['umpy_percent_change'] = umpy_pct
+                        else:
+                                rows.append({
+                                        'bond_amount_k': bond_k,
+                                        'bond_amount_millions': bond_k / 1000.0,
+                                        'pmd_lifetime_years': 5,
+                                        'total_satellites': None,
+                                        'satellites_percent_change': None,
+                                        'umpy': None,
+                                        'umpy_percent_change': umpy_pct
+                                })
+                # Add 25yr UMPY data
+                for bond_k, umpy_pct in zip(
+                        umpy_relative_data_25yr["bond"],
+                        umpy_relative_data_25yr["relative_change_percent"]
+                ):
+                        # Find matching row or create new one
+                        matching_row = None
+                        for row in rows:
+                                if row['bond_amount_k'] == bond_k and row['pmd_lifetime_years'] == 25:
+                                        matching_row = row
+                                        break
+                        if matching_row:
+                                matching_row['umpy_percent_change'] = umpy_pct
+                        else:
+                                rows.append({
+                                        'bond_amount_k': bond_k,
+                                        'bond_amount_millions': bond_k / 1000.0,
+                                        'pmd_lifetime_years': 25,
+                                        'total_satellites': None,
+                                        'satellites_percent_change': None,
+                                        'umpy': None,
+                                        'umpy_percent_change': umpy_pct
+                                })
+                
+                df = pd.DataFrame(rows)
+                csv_path = os.path.join(comparison_folder, "total_satellites_and_umpy_percent_change_data.csv")
+                df.to_csv(csv_path, index=False)
+                print(f"Data saved to {csv_path}")
+                
+                # Also save to standalone folder
+                standalone_folder = "umpy_vs_metrics_standalone_plot"
+                os.makedirs(standalone_folder, exist_ok=True)
+                standalone_csv_path = os.path.join(standalone_folder, "total_satellites_and_umpy_percent_change_data.csv")
+                df.to_csv(standalone_csv_path, index=False)
+                print(f"Data also saved to {standalone_csv_path}")
 
         def comparison_scatter_umpy_vs_total_objects(self, plot_data_lists, other_data_lists):
                 """

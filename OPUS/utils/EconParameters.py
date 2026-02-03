@@ -233,6 +233,7 @@ class EconParameters:
         if configuration.lower() == 'baseline':
             self.bond = None
             self.tax = 0
+            self.disposal_time = 25
             return
 
         # read the csv file - must be in the configuration folder

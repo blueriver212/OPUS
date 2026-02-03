@@ -180,8 +180,8 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
         output_path = "Results/combined_umpy_vs_metrics.png"
 
     name_mapping = {
-        'extensive_new': 'Uncontrolled',
-        'intensive': 'Controlled'
+        'extensive_new': 'Indirect Disposal',
+        'intensive': 'Direct Disposal'
     }
 
     # Calculate relative change in collision probability
@@ -214,7 +214,8 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
     # Create figure with single plot
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
     
-    colour_map = {"Uncontrolled": "red", "Controlled": "green"}
+    # Colorblind-friendly colors: blue and orange
+    colour_map = {"Indirect Disposal": "#1f77b4", "Direct Disposal": "#ff7f0e"}
     markers = ["s", "o"]
     
     for i, data in enumerate(all_data):
@@ -239,17 +240,17 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
             marker=marker,
             color=colour,
             alpha=0.85,
-            edgecolors="k",
-            linewidths=1.5,
+            edgecolors='none',  # Remove stroke/edge
+            linewidths=0,
             label=display_name,
             zorder=3,
         )
         
         # Add bond amount labels to each point
         for x, y, bond_millions in zip(umpy, relative_changes, bond_amounts):
-            # Format bond amount: $0.0M, $0.1M, $2.0M, etc.
+            # Format bond amount: Baseline, $0.1M, $2.0M, etc.
             if bond_millions == 0:
-                label = "$0.0M"
+                label = "Baseline"
             elif bond_millions == int(bond_millions):
                 # Whole number: $1M, $2M, etc.
                 label = f"${int(bond_millions)}.0M"
@@ -257,19 +258,73 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
                 # Decimal: $0.1M, $0.5M, $1.5M, etc.
                 label = f"${bond_millions:.1f}M"
             
-            # Place label directly above the point
-            ax.annotate(
-                label,
-                xy=(x, y),
-                xytext=(0, 10),  # Offset: 0 horizontal (centered), 10 points above
-                textcoords='offset points',
-                ha='center',  # Center align horizontally
-                fontsize=10,
-                fontweight='bold',
-                color=colour,
-                alpha=0.8,
-                zorder=4,
-            )
+            # Use black color for Baseline label, otherwise use point color
+            label_color = 'black' if label == 'Baseline' else colour
+            
+            # Determine label position: 
+            # End of Disposal Orbit (Deorbited) goes below, Start of Disposal Orbit goes above
+            place_below = (display_name == "End of Disposal Orbit (Deorbited)")
+            
+            # Special handling for $1.0M labels
+            if bond_millions == 1.0:
+                if display_name == "Start of Disposal Orbit":
+                    # Red $1.0M - move slightly to top left (1000 UMPY to the left, small amount above)
+                    y_range = ymax - ymin
+                    ax.annotate(
+                        label,
+                        xy=(x, y),
+                        xytext=(x - 1000, y + y_range * 0.01),  # 1000 UMPY left, small amount above
+                        textcoords='data',
+                        ha='right',  # Right align (so text extends left from point)
+                        va='bottom',  # Bottom align vertically
+                        fontsize=10,
+                        fontweight='bold',
+                        color=label_color,
+                        alpha=0.8,
+                        zorder=4,
+                    )
+                else:
+                    # Green $1.0M (End of Disposal Orbit) - put at the top
+                    ax.annotate(
+                        label,
+                        xy=(x, y),
+                        xytext=(0, 15),  # Offset: 0 horizontal (centered), 15 points above
+                        textcoords='offset points',
+                        ha='center',  # Center align horizontally
+                        fontsize=10,
+                        fontweight='bold',
+                        color=label_color,
+                        alpha=0.8,
+                        zorder=4,
+                    )
+            elif place_below:
+                # Place label below the point (End of Disposal Orbit)
+                ax.annotate(
+                    label,
+                    xy=(x, y),
+                    xytext=(0, -15),  # Offset: 0 horizontal (centered), 15 points below
+                    textcoords='offset points',
+                    ha='center',  # Center align horizontally
+                    fontsize=10,
+                    fontweight='bold',
+                    color=label_color,
+                    alpha=0.8,
+                    zorder=4,
+                )
+            else:
+                # Place label above the point (Start of Disposal Orbit)
+                ax.annotate(
+                    label,
+                    xy=(x, y),
+                    xytext=(0, 10),  # Offset: 0 horizontal (centered), 10 points above
+                    textcoords='offset points',
+                    ha='center',  # Center align horizontally
+                    fontsize=10,
+                    fontweight='bold',
+                    color=label_color,
+                    alpha=0.8,
+                    zorder=4,
+                )
     
     # Add horizontal line at 0% (baseline)
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
@@ -288,12 +343,13 @@ def create_combined_plot(all_data, baseline_cp, output_path=None):
         label.set_fontweight('bold')
     
     ax.grid(True, alpha=0.3)
-    ax.legend(title="Disposal Type", fontsize=14, frameon=True, loc="upper left")
+    ax.legend(title="Bond Refund Condition", fontsize=14, frameon=True, loc="upper left")
     if ax.get_legend():
         ax.get_legend().get_title().set_fontweight("black")
         ax.get_legend().get_title().set_fontsize(16)
         for text in ax.get_legend().get_texts():
             text.set_fontweight("black")
+            text.set_horizontalalignment('left')
     
     plt.tight_layout()
     
@@ -450,9 +506,16 @@ def main():
     print("\nCreating combined plot...")
     create_combined_plot(all_data, baseline_cp)
     
-    # Save raw data to CSV
+    # Save raw data to CSV (original location)
     print("\nSaving raw data to CSV...")
     df = save_raw_data_to_csv(all_data, baseline_cp)
+    
+    # Also save to standalone folder
+    standalone_folder = "umpy_vs_metrics_standalone_plot"
+    os.makedirs(standalone_folder, exist_ok=True)
+    standalone_csv_path = os.path.join(standalone_folder, "combined_umpy_vs_metrics_data.csv")
+    df.to_csv(standalone_csv_path, index=False)
+    print(f"Raw data also saved to {standalone_csv_path}")
     
     print(f"\nSummary:")
     print(f"  Total data points: {len(df)}")
